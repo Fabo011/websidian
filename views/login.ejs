@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Sign in · web-obsidian' }) %>
+</head>
+<body class="auth-page">
+  <main class="auth-card">
+    <h1 class="auth-logo">web-obsidian</h1>
+
+    <% if (typeof notice !== 'undefined' && notice) { %>
+      <p class="notice"><%= notice %></p>
+    <% } %>
+
+    <form id="login-form" class="auth-form" autocomplete="on">
+      <h2>Sign in</h2>
+      <label>
+        Username
+        <input name="username" type="text" autocomplete="username" required />
+      </label>
+      <label>
+        Password
+        <input name="password" type="password" autocomplete="current-password" required />
+      </label>
+      <p class="form-error" id="login-error" hidden></p>
+      <button type="submit" class="btn-primary">Continue</button>
+    </form>
+
+    <form id="totp-form" class="auth-form" hidden>
+      <h2>Two-factor code</h2>
+      <p class="muted">Enter the 6-digit code from your authenticator app.</p>
+      <label>
+        Code
+        <input name="code" type="text" inputmode="numeric" pattern="\d{6}"
+               maxlength="6" autocomplete="one-time-code" required />
+      </label>
+      <p class="form-error" id="totp-error" hidden></p>
+      <button type="submit" class="btn-primary">Verify &amp; sign in</button>
+    </form>
+
+    <% if (allowRegistration) { %>
+      <p class="auth-alt">No account? <a href="/register">Create one</a></p>
+    <% } %>
+  </main>
+
+  <script src="/public/js/auth.js"></script>
+</body>
+</html>

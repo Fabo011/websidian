@@ -1,73 +1,54 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# web-obsidian
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A small, self-hosted Obsidian-like markdown knowledge app.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+- **Backend:** NestJS 11 (Express), server-rendered EJS
+- **User store:** SQLite (TypeORM `sql.js` driver) at `data/app.db`
+- **Vaults:** stored on disk under `data/<username>/`
+- **Auth:** username + password with **mandatory TOTP 2FA**, JWT in an httpOnly cookie
+- **Features:** create/edit/delete markdown notes, nested folders, attachments
+  (PDF/jpg/png), inline `.excalidraw` editing, Obsidian `[[wikilinks]]`,
+  filename + content search, folder/`.zip` import, light/dark theme, responsive UI
 
-## Description
+## Configuration
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Copy `.env.example` to `.env` and adjust:
 
-## Installation
+| Variable             | Default              | Purpose                                          |
+| -------------------- | -------------------- | ------------------------------------------------ |
+| `PORT`               | `3065`               | HTTP port                                        |
+| `JWT_SECRET`         | _(insecure default)_ | Secret for signing JWTs — set a strong value     |
+| `JWT_EXPIRES_IN`     | `7d`                 | Authenticated session lifetime                   |
+| `DATA_ROOT`          | `./data`             | Where the DB and user vaults live                |
+| `ALLOW_REGISTRATION` | `true`               | Set `false` to disable self-service registration |
+| `COOKIE_SECURE`      | `false`              | Set `true` when served over HTTPS                |
 
-```bash
-$ npm install
-```
+Generate a secret with `openssl rand -hex 32`.
 
-## Running the app
+## Run locally
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
+npm run build:client   # bundles the Excalidraw editor + copies its assets
+npm run start:dev      # or: npm run build && npm run start:prod
 ```
 
-## Test
+Open http://localhost:3065, register an account, scan the QR code (or type the
+shown secret) into an authenticator app, and confirm the 6-digit code.
+
+## Run with Docker
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+JWT_SECRET=$(openssl rand -hex 32) docker compose up -d --build
 ```
 
-## Support
+Application data is persisted in `./data` (mounted into the container at
+`/app/data`). Back up that folder on the host. To disable registration after
+creating your account, set `ALLOW_REGISTRATION=false` and restart.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Importing an existing Obsidian vault
 
-## Stay in touch
+Use the **Import** button in the sidebar:
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](LICENSE).
+- **Desktop:** pick a folder; its structure is preserved.
+- **Mobile:** select multiple files or upload a `.zip` (unpacked server-side).

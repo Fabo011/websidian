@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'web-obsidian' }) %>
+  <link rel="stylesheet" href="/public/js/excalidraw-bundle.css" />
+</head>
+<body class="app" data-username="<%= username %>">
+  <header class="topbar">
+    <button id="sidebar-toggle" class="icon-btn" aria-label="Toggle sidebar"><i class="bi bi-list"></i></button>
+    <span class="brand"><i class="bi bi-journal-text"></i> web-obsidian</span>
+    <div class="search-wrap">
+      <i class="bi bi-search search-icon"></i>
+      <input id="search-input" type="search" placeholder="Search notes…" autocomplete="off" />
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <div class="topbar-right">
+      <button id="theme-toggle" class="icon-btn" title="Toggle light/dark"><i class="bi bi-circle-half"></i></button>
+      <span class="user" title="Signed in"><i class="bi bi-person-circle"></i> <%= username %></span>
+      <button id="logout-btn" class="btn-ghost"><i class="bi bi-box-arrow-right"></i> Logout</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-tools">
+        <button id="new-note" title="New note"><i class="bi bi-file-earmark-plus"></i> Note</button>
+        <button id="new-folder" title="New folder"><i class="bi bi-folder-plus"></i> Folder</button>
+        <button id="upload-btn" title="Upload a file"><i class="bi bi-upload"></i> Upload</button>
+        <button id="import-btn" title="Import a folder or .zip"><i class="bi bi-folder-symlink"></i> Import</button>
+        <button id="export-btn" title="Download the whole vault as a .zip"><i class="bi bi-download"></i> Export</button>
+      </div>
+      <div id="selected-folder" class="selected-folder breadcrumb" aria-label="Selected folder"></div>
+      <nav id="tree" class="tree" aria-label="Files"></nav>
+    </aside>
+
+    <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
+
+    <main class="content" id="content">
+      <div class="welcome" id="welcome">
+        <h2><i class="bi bi-journal-richtext"></i> Welcome</h2>
+        <p>Select a note from the sidebar, or create a new one.</p>
+      </div>
+
+      <section id="editor-view" class="view" hidden>
+        <div class="view-header">
+          <span id="current-path" class="current-path breadcrumb"></span>
+          <div class="view-actions">
+            <button id="toggle-preview" class="btn-ghost" title="Switch between editing and reading">
+              <i class="bi bi-eye"></i> <span class="btn-label">View</span>
+            </button>
+            <button id="save-btn" class="btn-primary"><i class="bi bi-save"></i> Save</button>
+          </div>
+        </div>
+        <div class="editor-body" id="editor-body">
+          <textarea id="editor" spellcheck="false" placeholder="# Start writing…"></textarea>
+          <div id="preview" class="preview markdown" hidden></div>
+        </div>
+      </section>
+
+      <section id="viewer-view" class="view" hidden>
+        <div class="view-header">
+          <span id="viewer-path" class="current-path breadcrumb"></span>
+          <div class="view-actions">
+            <a id="viewer-download" class="btn-ghost" download><i class="bi bi-download"></i> Download</a>
+          </div>
+        </div>
+        <div id="viewer-body" class="viewer-body"></div>
+      </section>
+
+      <section id="excalidraw-view" class="view" hidden>
+        <div class="view-header">
+          <span id="excalidraw-path" class="current-path breadcrumb"></span>
+          <div class="view-actions">
+            <button id="excalidraw-save" class="btn-primary"><i class="bi bi-save"></i> Save</button>
+          </div>
+        </div>
+        <div id="excalidraw-root" class="excalidraw-root"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="context-menu" class="context-menu" hidden>
+    <button data-action="rename"><i class="bi bi-pencil"></i> Rename</button>
+    <button data-action="delete"><i class="bi bi-trash"></i> Delete</button>
+  </div>
+
+  <input id="upload-input" type="file" hidden multiple />
+  <input id="import-input" type="file" hidden multiple />
+
+  <script src="/public/js/app.js"></script>
+</body>
+</html>

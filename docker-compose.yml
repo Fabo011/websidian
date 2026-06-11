@@ -1,0 +1,21 @@
+services:
+  web-obsidian:
+    build: .
+    image: web-obsidian:latest
+    container_name: web-obsidian
+    restart: unless-stopped
+    ports:
+      - "3065:3065"
+    environment:
+      PORT: 3065
+      # IMPORTANT: set a strong secret, e.g. `openssl rand -hex 32`
+      JWT_SECRET: "${JWT_SECRET:-change-me-please-use-a-long-random-string}"
+      JWT_EXPIRES_IN: "7d"
+      DATA_ROOT: "/app/data"
+      # Set to "false" to disable self-service registration.
+      ALLOW_REGISTRATION: "${ALLOW_REGISTRATION:-true}"
+      # Set to "true" when serving behind HTTPS so the auth cookie is Secure.
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+    volumes:
+      # Persisted application data — back this folder up on the host.
+      - ./data:/app/data

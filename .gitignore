@@ -2,6 +2,8 @@
 /dist
 /node_modules
 /build
+data-smoke/
+data/
 
 # Logs
 logs
@@ -45,6 +47,17 @@ lerna-debug.log*
 # temp directory
 .temp
 .tmp
+
+# Application data (user vaults + sqlite db) - backed up separately on the server
+/data
+
+# Generated client bundle (built via `npm run build:client`)
+/public/js/excalidraw-bundle.js
+/public/js/excalidraw-bundle.css
+/public/js/*.woff2
+/public/js/*.woff
+/public/js/*.ttf
+/public/vendor/
 
 # Runtime data
 pids
