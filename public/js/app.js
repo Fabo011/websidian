@@ -69,6 +69,8 @@ const state = {
   dirty: false,
   excalidraw: null,
   contextTarget: null,
+  dragPath: null,
+  dragType: null,
 };
 
 /* ---------- tree ---------- */
@@ -79,6 +81,29 @@ async function loadTree() {
   container.innerHTML = '';
   container.appendChild(buildList(tree));
 }
+
+// Dropping on empty tree space moves an entry to the vault root.
+(function setupRootDrop() {
+  const tree = $('#tree');
+  if (!tree) return;
+  tree.addEventListener('dragover', (e) => {
+    if (e.target.closest('.tree-row')) return; // handled by folder rows
+    if (isInvalidMove(state.dragPath, state.dragType, '')) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    tree.classList.add('drop-target-root');
+  });
+  tree.addEventListener('dragleave', (e) => {
+    if (!tree.contains(e.relatedTarget)) tree.classList.remove('drop-target-root');
+  });
+  tree.addEventListener('drop', async (e) => {
+    tree.classList.remove('drop-target-root');
+    if (e.target.closest('.tree-row')) return;
+    if (isInvalidMove(state.dragPath, state.dragType, '')) return;
+    e.preventDefault();
+    await moveEntry(state.dragPath, '');
+  });
+})();
 
 function buildList(nodes) {
   const ul = document.createElement('ul');
@@ -94,6 +119,8 @@ function buildItem(node) {
   row.className = 'tree-row';
   row.dataset.path = node.path;
   row.dataset.type = node.type;
+  row.draggable = true;
+  attachDragSource(row, node);
 
   const label = document.createElement('span');
   label.className = 'tree-label';
@@ -131,6 +158,9 @@ function buildItem(node) {
       selectDir(node.path, row);
     });
 
+    // Folders are drop targets for moving entries into them.
+    attachDropTarget(row, node.path);
+
     row.appendChild(makeMenuButton(node));
     li.appendChild(row);
     li.appendChild(childWrap);
@@ -158,6 +188,78 @@ function buildItem(node) {
   });
 
   return li;
+}
+
+/* ---------- drag & drop (move entries between folders) ---------- */
+
+function attachDragSource(row, node) {
+  row.addEventListener('dragstart', (e) => {
+    state.dragPath = node.path;
+    state.dragType = node.type;
+    row.classList.add('dragging');
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', node.path);
+    }
+  });
+  row.addEventListener('dragend', () => {
+    state.dragPath = null;
+    state.dragType = null;
+    row.classList.remove('dragging');
+    document
+      .querySelectorAll('.drop-target')
+      .forEach((el) => el.classList.remove('drop-target'));
+  });
+}
+
+/** Returns true if `target` is the source itself, its parent, or a descendant. */
+function isInvalidMove(fromPath, fromType, targetDir) {
+  if (fromPath == null) return true;
+  const parent = dirname(fromPath);
+  if (parent === targetDir) return true; // already there
+  if (targetDir === fromPath) return true; // onto itself
+  if (fromType === 'dir' && (targetDir + '/').startsWith(fromPath + '/')) {
+    return true; // into own descendant
+  }
+  return false;
+}
+
+function attachDropTarget(el, targetDir) {
+  el.addEventListener('dragover', (e) => {
+    if (isInvalidMove(state.dragPath, state.dragType, targetDir)) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    el.classList.add('drop-target');
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
+  el.addEventListener('drop', async (e) => {
+    el.classList.remove('drop-target');
+    if (isInvalidMove(state.dragPath, state.dragType, targetDir)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    await moveEntry(state.dragPath, targetDir);
+  });
+}
+
+async function moveEntry(fromPath, targetDir) {
+  const name = basename(fromPath);
+  const to = targetDir ? targetDir + '/' + name : name;
+  try {
+    await api('POST', '/api/rename', { from: fromPath, to });
+  } catch (err) {
+    flash(err.message || 'Could not move item');
+    return;
+  }
+  // Keep an open file in sync if it (or its folder) was moved.
+  if (state.current && state.current.path) {
+    if (state.current.path === fromPath) {
+      state.current.path = to;
+    } else if (state.current.path.startsWith(fromPath + '/')) {
+      state.current.path = to + state.current.path.slice(fromPath.length);
+    }
+  }
+  await loadTree();
+  flash('Moved to ' + (targetDir || 'Vault root'));
 }
 
 function fileIcon(ext) {
@@ -517,6 +619,27 @@ $('#new-note').addEventListener('click', async () => {
   if (!/\.[a-z0-9]+$/i.test(name)) name += '.md';
   const path = state.selectedDir ? state.selectedDir + '/' + name : name;
   await api('PUT', '/api/file', { path, content: '' });
+  await loadTree();
+  openFile(path);
+});
+
+$('#new-file').addEventListener('click', async () => {
+  const name = prompt(
+    'New file name (include the extension, e.g. diagram.excalidraw):',
+    'Untitled.excalidraw',
+  );
+  if (!name) return;
+  if (!/\.[a-z0-9]+$/i.test(name)) {
+    flash('Please include a file extension (e.g. .excalidraw).');
+    return;
+  }
+  const path = state.selectedDir ? state.selectedDir + '/' + name : name;
+  try {
+    await api('PUT', '/api/file', { path, content: '' });
+  } catch (e) {
+    flash(e.message || 'Could not create file');
+    return;
+  }
   await loadTree();
   openFile(path);
 });

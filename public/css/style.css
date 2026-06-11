@@ -325,6 +325,19 @@ a { color: var(--accent); }
 .tree-row:hover .row-menu { opacity: 1; }
 .row-menu:hover { background: var(--bg-elevated); }
 
+/* Drag & drop */
+.tree-row.dragging { opacity: 0.45; }
+.tree-row.drop-target {
+  background: var(--row-selected);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+.tree.drop-target-root {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+  border-radius: 6px;
+}
+
 .context-menu {
   position: fixed;
   background: var(--bg-elevated);

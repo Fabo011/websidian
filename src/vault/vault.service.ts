@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createReadStream, promises as fs, ReadStream, Stats } from 'fs';
-import { basename, dirname, extname, join } from 'path';
+import { basename, dirname, extname, join, sep } from 'path';
 import { safeResolve, toRelative } from '../common/path-safety';
 import { AppConfig } from '../config/configuration';
 import { FileContent, SearchHit, TreeNode } from './vault.types';
@@ -181,6 +181,13 @@ export class VaultService {
   async rename(username: string, from: string, to: string): Promise<void> {
     const fromAbs = this.resolve(username, from);
     const toAbs = this.resolve(username, to);
+    if (fromAbs === toAbs) {
+      return;
+    }
+    // Disallow moving a directory into itself or one of its descendants.
+    if (toAbs.startsWith(fromAbs + sep)) {
+      throw new BadRequestException('Cannot move a folder into itself.');
+    }
     await this.statSafe(fromAbs);
     await fs.mkdir(dirname(toAbs), { recursive: true });
     try {
