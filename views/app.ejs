@@ -85,6 +85,18 @@
     <button data-action="delete"><i class="bi bi-trash"></i> Delete</button>
   </div>
 
+  <div id="modal-overlay" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h3 id="modal-title" class="modal-title"></h3>
+      <p id="modal-message" class="modal-message" hidden></p>
+      <input id="modal-input" class="modal-input" type="text" hidden autocomplete="off" />
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn-ghost" type="button"></button>
+        <button id="modal-ok" class="btn-primary" type="button"></button>
+      </div>
+    </div>
+  </div>
+
   <input id="upload-input" type="file" hidden multiple />
   <input id="import-input" type="file" hidden multiple />
 

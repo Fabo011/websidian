@@ -42,6 +42,114 @@ const debounce = (fn, ms) => {
   };
 };
 
+/* ---------- styled modal dialogs (replace native prompt/confirm) ---------- */
+
+let modalActive = null; // { resolve, isPrompt }
+
+function closeModal(result) {
+  const overlay = $('#modal-overlay');
+  overlay.hidden = true;
+  const pending = modalActive;
+  modalActive = null;
+  if (pending) pending.resolve(result);
+}
+
+function openModal({ title, message, isPrompt, value, placeholder, okText, cancelText, danger }) {
+  return new Promise((resolve) => {
+    // If another modal is open, cancel it first.
+    if (modalActive) closeModal(isPromptDefault(modalActive));
+    modalActive = { resolve, isPrompt: !!isPrompt };
+
+    $('#modal-title').textContent = title || '';
+    const msgEl = $('#modal-message');
+    if (message) {
+      msgEl.textContent = message;
+      msgEl.hidden = false;
+    } else {
+      msgEl.hidden = true;
+    }
+
+    const input = $('#modal-input');
+    if (isPrompt) {
+      input.hidden = false;
+      input.value = value != null ? value : '';
+      input.placeholder = placeholder || '';
+    } else {
+      input.hidden = true;
+    }
+
+    const ok = $('#modal-ok');
+    const cancel = $('#modal-cancel');
+    ok.textContent = okText || 'OK';
+    cancel.textContent = cancelText || 'Cancel';
+    ok.classList.toggle('btn-danger', !!danger);
+
+    $('#modal-overlay').hidden = false;
+
+    if (isPrompt) {
+      // Focus and select the filename portion for quick editing.
+      setTimeout(() => {
+        input.focus();
+        const dot = input.value.lastIndexOf('.');
+        input.setSelectionRange(0, dot > 0 ? dot : input.value.length);
+      }, 0);
+    } else {
+      setTimeout(() => ok.focus(), 0);
+    }
+  });
+}
+
+function isPromptDefault(state) {
+  return state.isPrompt ? null : false;
+}
+
+function modalConfirm(result) {
+  if (!modalActive) return;
+  if (modalActive.isPrompt) {
+    closeModal(result ? $('#modal-input').value : null);
+  } else {
+    closeModal(!!result);
+  }
+}
+
+/** Styled replacement for window.prompt. Resolves to string or null. */
+function uiPrompt(title, value, opts) {
+  return openModal({
+    title,
+    isPrompt: true,
+    value,
+    okText: 'Create',
+    ...(opts || {}),
+  });
+}
+
+/** Styled replacement for window.confirm. Resolves to boolean. */
+function uiConfirm(title, opts) {
+  return openModal({ title, isPrompt: false, ...(opts || {}) }).then(
+    (r) => r === true,
+  );
+}
+
+(function setupModalEvents() {
+  $('#modal-ok').addEventListener('click', () => modalConfirm(true));
+  $('#modal-cancel').addEventListener('click', () => modalConfirm(false));
+  $('#modal-overlay').addEventListener('click', (e) => {
+    if (e.target === $('#modal-overlay')) modalConfirm(false);
+  });
+  $('#modal-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      modalConfirm(true);
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (modalActive && e.key === 'Escape') {
+      e.preventDefault();
+      modalConfirm(false);
+    }
+  });
+})();
+
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'];
 const TEXT_EXTS = ['md', 'markdown', 'txt', 'json', 'csv', 'yml', 'yaml'];
 
@@ -71,9 +179,21 @@ const state = {
   contextTarget: null,
   dragPath: null,
   dragType: null,
+  expanded: new Set(), // folder paths that are currently expanded
 };
 
 /* ---------- tree ---------- */
+
+// Mark a folder path (and all its ancestors) as expanded so its contents show.
+function expandAncestors(dirPath) {
+  if (!dirPath) return;
+  const parts = dirPath.split('/');
+  let acc = '';
+  for (const part of parts) {
+    acc = acc ? acc + '/' + part : part;
+    state.expanded.add(acc);
+  }
+}
 
 async function loadTree() {
   const tree = await api('GET', '/api/tree');
@@ -126,12 +246,18 @@ function buildItem(node) {
   label.className = 'tree-label';
 
   if (node.type === 'dir') {
+    const expanded = state.expanded.has(node.path);
+
     const caret = document.createElement('i');
-    caret.className = 'bi bi-chevron-right caret';
+    caret.className = expanded
+      ? 'bi bi-chevron-down caret'
+      : 'bi bi-chevron-right caret';
     label.appendChild(caret);
 
     const folderIcon = document.createElement('i');
-    folderIcon.className = 'bi bi-folder tree-icon tree-icon-dir';
+    folderIcon.className = expanded
+      ? 'bi bi-folder2-open tree-icon tree-icon-dir'
+      : 'bi bi-folder tree-icon tree-icon-dir';
     label.appendChild(folderIcon);
 
     const name = document.createElement('span');
@@ -140,9 +266,11 @@ function buildItem(node) {
     label.appendChild(name);
     row.appendChild(label);
 
+    if (node.path === state.selectedDir) row.classList.add('selected');
+
     const childWrap = document.createElement('div');
     childWrap.className = 'tree-children';
-    childWrap.hidden = true;
+    childWrap.hidden = !expanded;
     childWrap.appendChild(buildList(node.children || []));
 
     label.addEventListener('click', (e) => {
@@ -155,6 +283,11 @@ function buildItem(node) {
       folderIcon.className = open
         ? 'bi bi-folder2-open tree-icon tree-icon-dir'
         : 'bi bi-folder tree-icon tree-icon-dir';
+      if (open) {
+        state.expanded.add(node.path);
+      } else {
+        state.expanded.delete(node.path);
+      }
       selectDir(node.path, row);
     });
 
@@ -258,6 +391,8 @@ async function moveEntry(fromPath, targetDir) {
       state.current.path = to + state.current.path.slice(fromPath.length);
     }
   }
+  // Keep the destination folder expanded so the moved item stays visible.
+  expandAncestors(targetDir);
   await loadTree();
   flash('Moved to ' + (targetDir || 'Vault root'));
 }
@@ -358,7 +493,11 @@ $('#context-menu').addEventListener('click', async (e) => {
   if (!action || !node) return;
   closeContextMenu();
   if (action === 'rename') {
-    const newName = prompt('Rename to:', node.name);
+    const newName = await uiPrompt('Rename', node.name, {
+      title: 'Rename',
+      okText: 'Rename',
+      placeholder: 'New name',
+    });
     if (!newName || newName === node.name) return;
     const parent = dirname(node.path);
     const to = parent ? parent + '/' + newName : newName;
@@ -369,7 +508,12 @@ $('#context-menu').addEventListener('click', async (e) => {
     }
     await loadTree();
   } else if (action === 'delete') {
-    if (!confirm('Delete "' + node.name + '"? This cannot be undone.')) return;
+    const ok = await uiConfirm('Delete', {
+      message: 'Delete "' + node.name + '"? This cannot be undone.',
+      okText: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await api('DELETE', '/api/entry?path=' + encodeURIComponent(node.path));
     if (state.current && state.current.path.startsWith(node.path)) {
       showWelcome();
@@ -481,10 +625,12 @@ async function saveCurrent() {
     result = await api('PUT', '/api/file', payload);
   } catch (e) {
     if (e.status === 409) {
-      const overwrite = confirm(
-        'This file was changed elsewhere since you opened it.\n\n' +
-          'OK = overwrite with your version\nCancel = keep the other version (reload)',
-      );
+      const overwrite = await uiConfirm('File changed elsewhere', {
+        message:
+          'This file was changed elsewhere since you opened it. Overwrite with your version, or reload the latest?',
+        okText: 'Overwrite',
+        cancelText: 'Reload latest',
+      });
       if (overwrite) {
         delete payload.baseVersion;
         result = await api('PUT', '/api/file', payload);
@@ -592,10 +738,12 @@ async function saveExcalidraw() {
     result = await api('PUT', '/api/file', payload);
   } catch (e) {
     if (e.status === 409) {
-      const overwrite = confirm(
-        'This drawing was changed elsewhere since you opened it.\n\n' +
-          'OK = overwrite with your version\nCancel = abort save',
-      );
+      const overwrite = await uiConfirm('Drawing changed elsewhere', {
+        message:
+          'This drawing was changed elsewhere since you opened it. Overwrite with your version?',
+        okText: 'Overwrite',
+        cancelText: 'Cancel',
+      });
       if (!overwrite) {
         flash('Save cancelled');
         return;
@@ -614,20 +762,25 @@ $('#excalidraw-save').addEventListener('click', saveExcalidraw);
 /* ---------- create / upload / import ---------- */
 
 $('#new-note').addEventListener('click', async () => {
-  let name = prompt('New note name:', 'Untitled.md');
+  let name = await uiPrompt('New note', 'Untitled.md', {
+    title: 'New note',
+    placeholder: 'Note name',
+  });
   if (!name) return;
   if (!/\.[a-z0-9]+$/i.test(name)) name += '.md';
   const path = state.selectedDir ? state.selectedDir + '/' + name : name;
   await api('PUT', '/api/file', { path, content: '' });
+  expandAncestors(state.selectedDir);
   await loadTree();
   openFile(path);
 });
 
 $('#new-file').addEventListener('click', async () => {
-  const name = prompt(
-    'New file name (include the extension, e.g. diagram.excalidraw):',
-    'Untitled.excalidraw',
-  );
+  const name = await uiPrompt('New file', 'Untitled.excalidraw', {
+    title: 'New file',
+    message: 'Include the extension, e.g. diagram.excalidraw',
+    placeholder: 'filename.ext',
+  });
   if (!name) return;
   if (!/\.[a-z0-9]+$/i.test(name)) {
     flash('Please include a file extension (e.g. .excalidraw).');
@@ -640,15 +793,20 @@ $('#new-file').addEventListener('click', async () => {
     flash(e.message || 'Could not create file');
     return;
   }
+  expandAncestors(state.selectedDir);
   await loadTree();
   openFile(path);
 });
 
 $('#new-folder').addEventListener('click', async () => {
-  const name = prompt('New folder name:');
+  const name = await uiPrompt('New folder', '', {
+    title: 'New folder',
+    placeholder: 'Folder name',
+  });
   if (!name) return;
   const path = state.selectedDir ? state.selectedDir + '/' + name : name;
   await api('POST', '/api/folder', { path });
+  expandAncestors(path);
   await loadTree();
 });
 
