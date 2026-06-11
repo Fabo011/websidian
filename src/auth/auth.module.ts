@@ -9,6 +9,6 @@ import { JwtAuthGuard, PendingAuthGuard } from './guards';
   imports: [UsersModule, JwtModule.register({})],
   controllers: [AuthController],
   providers: [AuthService, JwtAuthGuard, PendingAuthGuard],
-  exports: [AuthService, JwtAuthGuard, PendingAuthGuard],
+  exports: [AuthService, JwtAuthGuard, PendingAuthGuard, UsersModule],
 })
 export class AuthModule {}

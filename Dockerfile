@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- Build stage ----------
-FROM node:20-bookworm-slim AS build
+FROM node:24-bookworm-slim AS build
 WORKDIR /app
 
 # Install all dependencies (including dev) for building.
@@ -16,7 +16,7 @@ RUN npm run build:client && npm run build
 RUN npm prune --omit=dev
 
 # ---------- Runtime stage ----------
-FROM node:20-bookworm-slim AS runtime
+FROM node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 

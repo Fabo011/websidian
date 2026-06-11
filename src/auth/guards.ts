@@ -5,6 +5,7 @@ import {
     UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { UsersService } from '../users/users.service';
 import { AUTH_COOKIE } from './auth.constants';
 import { AuthService } from './auth.service';
 import { TokenPurpose } from './auth.types';
@@ -14,13 +15,20 @@ function extractToken(req: Request): string | undefined {
   return cookies?.[AUTH_COOKIE];
 }
 
-/** Guard requiring a valid cookie of the given purpose. */
-function makeGuard(required: TokenPurpose) {
+/**
+ * Guard requiring a valid cookie of the given purpose.
+ * When `verifyUserExists` is set, the user row must still exist in the database
+ * (so a deleted account's token is rejected immediately rather than at expiry).
+ */
+function makeGuard(required: TokenPurpose, verifyUserExists: boolean) {
   @Injectable()
   class CookieGuard implements CanActivate {
-    constructor(public readonly auth: AuthService) {}
+    constructor(
+      public readonly auth: AuthService,
+      public readonly users: UsersService,
+    ) {}
 
-    canActivate(context: ExecutionContext): boolean {
+    async canActivate(context: ExecutionContext): Promise<boolean> {
       const req = context.switchToHttp().getRequest<Request>();
       const token = extractToken(req);
       if (!token) {
@@ -35,6 +43,12 @@ function makeGuard(required: TokenPurpose) {
       if (payload.purpose !== required) {
         throw new UnauthorizedException('Wrong authentication stage.');
       }
+      if (verifyUserExists) {
+        const user = await this.users.findById(payload.sub);
+        if (!user) {
+          throw new UnauthorizedException('Account no longer exists.');
+        }
+      }
       (req as Request & { user?: unknown }).user = {
         id: payload.sub,
         username: payload.username,
@@ -46,7 +60,7 @@ function makeGuard(required: TokenPurpose) {
 }
 
 @Injectable()
-export class JwtAuthGuard extends makeGuard('auth') {}
+export class JwtAuthGuard extends makeGuard('auth', true) {}
 
 @Injectable()
-export class PendingAuthGuard extends makeGuard('pending') {}
+export class PendingAuthGuard extends makeGuard('pending', false) {}

@@ -39,4 +39,8 @@ export class UsersService {
   async save(user: User): Promise<User> {
     return this.users.save(user);
   }
+
+  async remove(user: User): Promise<void> {
+    await this.users.remove(user);
+  }
 }

@@ -1,14 +1,18 @@
 import {
     BadRequestException,
     ConflictException,
+    Inject,
     Injectable,
-    NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createReadStream, promises as fs, ReadStream, Stats } from 'fs';
-import { basename, dirname, extname, join, sep } from 'path';
-import { safeResolve, toRelative } from '../common/path-safety';
+import { ReadStream } from 'fs';
+import { basename, extname } from 'path';
 import { AppConfig } from '../config/configuration';
+import {
+    STORAGE_PROVIDER,
+    StorageProvider,
+    StorageStat,
+} from '../storage/storage.interface';
 import { FileContent, SearchHit, TreeNode } from './vault.types';
 
 /** Extensions treated as editable text (returned/saved as UTF-8 strings). */
@@ -26,27 +30,29 @@ const TEXT_EXTENSIONS = new Set([
 /** Extensions scanned for content search. */
 const SEARCHABLE_EXTENSIONS = new Set(['md', 'markdown', 'txt']);
 
+export interface QuotaUsage {
+  /** Bytes currently used. */
+  used: number;
+  /** Quota limit in bytes. 0 means unlimited. */
+  limit: number;
+  /** Whether a quota limit is in effect. */
+  unlimited: boolean;
+}
+
 @Injectable()
 export class VaultService {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+  ) {}
 
-  private get dataRoot(): string {
-    return this.config.get<AppConfig>('app').dataRoot;
+  private get quotaBytes(): number {
+    return this.config.get<AppConfig>('app').storageQuotaBytes;
   }
 
-  /** Absolute path to a user's vault root. */
-  userRoot(username: string): string {
-    // username is already validated to be safe characters at registration.
-    return join(this.dataRoot, username);
-  }
-
-  /** Create the user's vault directory if it does not yet exist. */
+  /** Create the user's vault namespace if it does not yet exist. */
   async ensureUserRoot(username: string): Promise<void> {
-    await fs.mkdir(this.userRoot(username), { recursive: true });
-  }
-
-  private resolve(username: string, relPath = ''): string {
-    return safeResolve(this.userRoot(username), relPath);
+    await this.storage.ensureUser(username);
   }
 
   isTextFile(relPathOrName: string): boolean {
@@ -57,29 +63,67 @@ export class VaultService {
     return extname(name).replace(/^\./, '').toLowerCase();
   }
 
-  async listTree(username: string): Promise<TreeNode[]> {
-    await this.ensureUserRoot(username);
-    const root = this.userRoot(username);
-    return this.walk(root, root);
+  /** Current storage usage and the configured quota for a user. */
+  async usage(username: string): Promise<QuotaUsage> {
+    const used = await this.storage.usage(username);
+    const limit = this.quotaBytes;
+    return { used, limit, unlimited: limit === 0 };
   }
 
-  private async walk(root: string, dir: string): Promise<TreeNode[]> {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
+  /**
+   * Ensure adding `incomingBytes` (minus `freedBytes` being overwritten) keeps
+   * the user within their quota. Throws 413-style error when exceeded.
+   */
+  private async assertWithinQuota(
+    username: string,
+    incomingBytes: number,
+    freedBytes = 0,
+  ): Promise<void> {
+    const limit = this.quotaBytes;
+    if (limit === 0) {
+      return; // unlimited
+    }
+    const used = await this.storage.usage(username);
+    const projected = used - freedBytes + incomingBytes;
+    if (projected > limit) {
+      throw new BadRequestException(
+        `Storage quota exceeded. This change needs ${this.formatBytes(
+          projected,
+        )} but your limit is ${this.formatBytes(limit)}.`,
+      );
+    }
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let value = bytes / 1024;
+    let i = 0;
+    while (value >= 1024 && i < units.length - 1) {
+      value /= 1024;
+      i++;
+    }
+    return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[i]}`;
+  }
+
+  async listTree(username: string): Promise<TreeNode[]> {
+    await this.ensureUserRoot(username);
+    return this.walk(username, '');
+  }
+
+  private async walk(username: string, relDir: string): Promise<TreeNode[]> {
+    const entries = await this.storage.list(username, relDir);
     const nodes: TreeNode[] = [];
     for (const entry of entries) {
-      if (entry.name.startsWith('.')) {
-        continue; // hide dotfiles (e.g. .obsidian)
-      }
-      const abs = join(dir, entry.name);
-      const rel = toRelative(root, abs);
-      if (entry.isDirectory()) {
+      const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
+      if (entry.type === 'dir') {
         nodes.push({
           name: entry.name,
           path: rel,
           type: 'dir',
-          children: await this.walk(root, abs),
+          children: await this.walk(username, rel),
         });
-      } else if (entry.isFile()) {
+      } else {
         nodes.push({
           name: entry.name,
           path: rel,
@@ -100,33 +144,21 @@ export class VaultService {
     });
   }
 
-  private async statSafe(abs: string): Promise<Stats> {
-    try {
-      return await fs.stat(abs);
-    } catch {
-      throw new NotFoundException('File or folder not found.');
-    }
-  }
-
   /** Opaque version token derived from last-modified time and size. */
-  private versionOf(stat: Stats): string {
+  private versionOf(stat: StorageStat): string {
     return `${Math.round(stat.mtimeMs)}-${stat.size}`;
   }
 
   async readTextFile(username: string, relPath: string): Promise<FileContent> {
-    const abs = this.resolve(username, relPath);
-    const stat = await this.statSafe(abs);
-    if (!stat.isFile()) {
-      throw new BadRequestException('Not a file.');
-    }
     if (!this.isTextFile(relPath)) {
       throw new BadRequestException('This file is not editable as text.');
     }
-    const content = await fs.readFile(abs, 'utf8');
+    const stat = await this.storage.statFile(username, relPath);
+    const content = await this.storage.readText(username, relPath);
     return {
-      path: toRelative(this.userRoot(username), abs),
-      name: basename(abs),
-      ext: this.ext(abs),
+      path: relPath,
+      name: basename(relPath),
+      ext: this.ext(relPath),
       content,
       version: this.versionOf(stat),
     };
@@ -141,30 +173,27 @@ export class VaultService {
     if (!relPath || relPath.endsWith('/')) {
       throw new BadRequestException('A file name is required.');
     }
-    const abs = this.resolve(username, relPath);
     // If the caller loaded a specific version, ensure the file has not changed
     // underneath them since (concurrent edit detection). An empty/undefined
     // baseVersion means "force write" (new file or explicit overwrite).
-    if (baseVersion) {
-      let current: Stats | null = null;
-      try {
-        current = await fs.stat(abs);
-      } catch {
-        current = null;
-      }
-      if (current && current.isFile() && this.versionOf(current) !== baseVersion) {
+    let existingSize = 0;
+    if (await this.storage.isFile(username, relPath)) {
+      const current = await this.storage.statFile(username, relPath);
+      existingSize = current.size;
+      if (baseVersion && this.versionOf(current) !== baseVersion) {
         throw new ConflictException(
           'This file was changed elsewhere since you opened it.',
         );
       }
     }
-    await fs.mkdir(dirname(abs), { recursive: true });
-    await fs.writeFile(abs, content, 'utf8');
-    const stat = await fs.stat(abs);
+    const data = Buffer.from(content, 'utf8');
+    await this.assertWithinQuota(username, data.length, existingSize);
+    await this.storage.writeBytes(username, relPath, data);
+    const stat = await this.storage.statFile(username, relPath);
     return {
-      path: toRelative(this.userRoot(username), abs),
-      name: basename(abs),
-      ext: this.ext(abs),
+      path: relPath,
+      name: basename(relPath),
+      ext: this.ext(relPath),
       content,
       version: this.versionOf(stat),
     };
@@ -174,45 +203,18 @@ export class VaultService {
     if (!relPath) {
       throw new BadRequestException('A folder name is required.');
     }
-    const abs = this.resolve(username, relPath);
-    await fs.mkdir(abs, { recursive: true });
+    await this.storage.makeDir(username, relPath);
   }
 
   async rename(username: string, from: string, to: string): Promise<void> {
-    const fromAbs = this.resolve(username, from);
-    const toAbs = this.resolve(username, to);
-    if (fromAbs === toAbs) {
-      return;
-    }
-    // Disallow moving a directory into itself or one of its descendants.
-    if (toAbs.startsWith(fromAbs + sep)) {
-      throw new BadRequestException('Cannot move a folder into itself.');
-    }
-    await this.statSafe(fromAbs);
-    await fs.mkdir(dirname(toAbs), { recursive: true });
-    try {
-      await fs.access(toAbs);
-      throw new BadRequestException('Target already exists.');
-    } catch (err) {
-      if (err instanceof BadRequestException) {
-        throw err;
-      }
-      // target does not exist -> proceed
-    }
-    await fs.rename(fromAbs, toAbs);
+    await this.storage.move(username, from, to);
   }
 
   async deleteEntry(username: string, relPath: string): Promise<void> {
     if (!relPath) {
       throw new BadRequestException('Path is required.');
     }
-    const abs = this.resolve(username, relPath);
-    const stat = await this.statSafe(abs);
-    if (stat.isDirectory()) {
-      await fs.rm(abs, { recursive: true, force: true });
-    } else {
-      await fs.unlink(abs);
-    }
+    await this.storage.remove(username, relPath);
   }
 
   /** Persist an uploaded binary/file into the given folder, returning its relative path. */
@@ -227,10 +229,13 @@ export class VaultService {
       throw new BadRequestException('Invalid file name.');
     }
     const relPath = destFolder ? `${destFolder}/${safeName}` : safeName;
-    const abs = this.resolve(username, relPath);
-    await fs.mkdir(dirname(abs), { recursive: true });
-    await fs.writeFile(abs, data);
-    return toRelative(this.userRoot(username), abs);
+    let existingSize = 0;
+    if (await this.storage.isFile(username, relPath)) {
+      existingSize = (await this.storage.statFile(username, relPath)).size;
+    }
+    await this.assertWithinQuota(username, data.length, existingSize);
+    await this.storage.writeBytes(username, relPath, data);
+    return relPath;
   }
 
   /** Write a file at an arbitrary relative path (used by import), preserving folders. */
@@ -239,10 +244,13 @@ export class VaultService {
     relPath: string,
     data: Buffer,
   ): Promise<string> {
-    const abs = this.resolve(username, relPath);
-    await fs.mkdir(dirname(abs), { recursive: true });
-    await fs.writeFile(abs, data);
-    return toRelative(this.userRoot(username), abs);
+    let existingSize = 0;
+    if (await this.storage.isFile(username, relPath)) {
+      existingSize = (await this.storage.statFile(username, relPath)).size;
+    }
+    await this.assertWithinQuota(username, data.length, existingSize);
+    await this.storage.writeBytes(username, relPath, data);
+    return relPath;
   }
 
   /** Resolve a file for streaming as an attachment. */
@@ -250,53 +258,51 @@ export class VaultService {
     username: string,
     relPath: string,
   ): Promise<{ stream: ReadStream; size: number; ext: string; name: string }> {
-    const abs = this.resolve(username, relPath);
-    const stat = await this.statSafe(abs);
-    if (!stat.isFile()) {
-      throw new BadRequestException('Not a file.');
-    }
+    const { stream, size } = await this.storage.openReadStream(
+      username,
+      relPath,
+    );
     return {
-      stream: createReadStream(abs),
-      size: stat.size,
-      ext: this.ext(abs),
-      name: basename(abs),
+      stream: stream as ReadStream,
+      size,
+      ext: this.ext(relPath),
+      name: basename(relPath),
     };
   }
 
-  /** Collect every file in the vault as { relPath, abs } for export. */
-  async listAllFiles(
-    username: string,
-  ): Promise<Array<{ relPath: string; abs: string }>> {
+  /** Collect every file in the vault as relative paths for export. */
+  async listAllFiles(username: string): Promise<Array<{ relPath: string }>> {
     await this.ensureUserRoot(username);
-    const root = this.userRoot(username);
-    const out: Array<{ relPath: string; abs: string }> = [];
-    const walk = async (dir: string): Promise<void> => {
-      const entries = await fs.readdir(dir, { withFileTypes: true });
+    const out: Array<{ relPath: string }> = [];
+    const walk = async (relDir: string): Promise<void> => {
+      const entries = await this.storage.list(username, relDir);
       for (const entry of entries) {
-        if (entry.name.startsWith('.')) {
-          continue;
-        }
-        const abs = join(dir, entry.name);
-        if (entry.isDirectory()) {
-          await walk(abs);
-        } else if (entry.isFile()) {
-          out.push({ relPath: toRelative(root, abs), abs });
+        const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
+        if (entry.type === 'dir') {
+          await walk(rel);
+        } else {
+          out.push({ relPath: rel });
         }
       }
     };
-    await walk(root);
+    await walk('');
     return out;
   }
 
-  async fileExists(username: string, relPath: string): Promise<boolean> {
-    try {
-      const abs = this.resolve(username, relPath);
-      const stat = await fs.stat(abs);
-      return stat.isFile();
-    } catch {
-      return false;
-    }
+  /** Read a file's raw bytes (used by export to build a zip). */
+  async readBytes(username: string, relPath: string): Promise<Buffer> {
+    return this.storage.readBytes(username, relPath);
   }
+
+  async fileExists(username: string, relPath: string): Promise<boolean> {
+    return this.storage.isFile(username, relPath);
+  }
+
+  /** Delete all of a user's vault data (used by account deletion). */
+  async deleteUserData(username: string): Promise<void> {
+    await this.storage.removeUser(username);
+  }
+
 
   async search(username: string, query: string): Promise<SearchHit[]> {
     const q = query.trim().toLowerCase();
@@ -304,29 +310,22 @@ export class VaultService {
       return [];
     }
     await this.ensureUserRoot(username);
-    const root = this.userRoot(username);
     const hits: SearchHit[] = [];
-    await this.searchWalk(root, root, q, hits);
+    await this.searchWalk(username, '', q, hits);
     return hits.slice(0, 100);
   }
 
   private async searchWalk(
-    root: string,
-    dir: string,
+    username: string,
+    relDir: string,
     q: string,
     hits: SearchHit[],
   ): Promise<void> {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
+    const entries = await this.storage.list(username, relDir);
     for (const entry of entries) {
-      if (entry.name.startsWith('.')) {
-        continue;
-      }
-      const abs = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await this.searchWalk(root, abs, q, hits);
-        continue;
-      }
-      if (!entry.isFile()) {
+      const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
+      if (entry.type === 'dir') {
+        await this.searchWalk(username, rel, q, hits);
         continue;
       }
       const matchedName = entry.name.toLowerCase().includes(q);
@@ -334,7 +333,7 @@ export class VaultService {
       let snippet: string | undefined;
       if (SEARCHABLE_EXTENSIONS.has(this.ext(entry.name))) {
         try {
-          const content = await fs.readFile(abs, 'utf8');
+          const content = await this.storage.readText(username, rel);
           const idx = content.toLowerCase().indexOf(q);
           if (idx >= 0) {
             matchedContent = true;
@@ -350,7 +349,7 @@ export class VaultService {
       }
       if (matchedName || matchedContent) {
         hits.push({
-          path: toRelative(root, abs),
+          path: rel,
           name: entry.name,
           matchedName,
           matchedContent,

@@ -54,7 +54,7 @@ function closeModal(result) {
   if (pending) pending.resolve(result);
 }
 
-function openModal({ title, message, isPrompt, value, placeholder, okText, cancelText, danger }) {
+function openModal({ title, message, isPrompt, value, placeholder, okText, cancelText, danger, inputType }) {
   return new Promise((resolve) => {
     // If another modal is open, cancel it first.
     if (modalActive) closeModal(isPromptDefault(modalActive));
@@ -72,10 +72,12 @@ function openModal({ title, message, isPrompt, value, placeholder, okText, cance
     const input = $('#modal-input');
     if (isPrompt) {
       input.hidden = false;
+      input.type = inputType || 'text';
       input.value = value != null ? value : '';
       input.placeholder = placeholder || '';
     } else {
       input.hidden = true;
+      input.type = 'text';
     }
 
     const ok = $('#modal-ok');
@@ -87,11 +89,15 @@ function openModal({ title, message, isPrompt, value, placeholder, okText, cance
     $('#modal-overlay').hidden = false;
 
     if (isPrompt) {
-      // Focus and select the filename portion for quick editing.
       setTimeout(() => {
         input.focus();
-        const dot = input.value.lastIndexOf('.');
-        input.setSelectionRange(0, dot > 0 ? dot : input.value.length);
+        if (input.type === 'text' && input.value) {
+          // Select the filename portion (before extension) for quick editing.
+          const dot = input.value.lastIndexOf('.');
+          input.setSelectionRange(0, dot > 0 ? dot : input.value.length);
+        } else {
+          input.select();
+        }
       }, 0);
     } else {
       setTimeout(() => ok.focus(), 0);
@@ -931,6 +937,119 @@ $('#sidebar-backdrop').addEventListener('click', () => toggleSidebar(false));
 $('#logout-btn').addEventListener('click', async () => {
   await api('POST', '/auth/logout');
   window.location.href = '/login';
+});
+
+/* ---------- account dashboard ---------- */
+
+function formatBytes(bytes) {
+  if (!bytes || bytes < 0) bytes = 0;
+  if (bytes < 1024) return bytes + ' B';
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = bytes / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i++;
+  }
+  return value.toFixed(value >= 10 ? 0 : 1) + ' ' + units[i];
+}
+
+function openDashboard() {
+  $('#dashboard-overlay').hidden = false;
+  loadAccount();
+}
+
+function closeDashboard() {
+  $('#dashboard-overlay').hidden = true;
+}
+
+async function loadAccount() {
+  const fill = $('#usage-fill');
+  const text = $('#usage-text');
+  fill.style.width = '0%';
+  fill.classList.remove('warn', 'full');
+  text.textContent = 'Loading…';
+  try {
+    const info = await api('GET', '/api/account');
+    $('#dashboard-username').textContent = info.username;
+    if (info.unlimited || !info.quotaBytes) {
+      fill.style.width = '0%';
+      text.textContent = formatBytes(info.usedBytes) + ' used (unlimited)';
+    } else {
+      const pct = Math.min(100, (info.usedBytes / info.quotaBytes) * 100);
+      fill.style.width = pct.toFixed(1) + '%';
+      if (pct >= 100) fill.classList.add('full');
+      else if (pct >= 80) fill.classList.add('warn');
+      text.textContent =
+        formatBytes(info.usedBytes) +
+        ' of ' +
+        formatBytes(info.quotaBytes) +
+        ' used (' +
+        pct.toFixed(pct >= 10 ? 0 : 1) +
+        '%)';
+    }
+  } catch (e) {
+    text.textContent = 'Could not load storage usage.';
+  }
+}
+
+async function deleteAccount() {
+  const password = await uiPrompt('Delete account', '', {
+    title: 'Delete account',
+    message:
+      'This permanently deletes your account and ALL your notes and files. ' +
+      'Enter your password to confirm.',
+    placeholder: 'Your password',
+    inputType: 'password',
+    okText: 'Delete forever',
+    danger: true,
+  });
+  if (!password) return;
+
+  // Use a direct fetch so a wrong-password 401 does not trigger the global
+  // redirect that api() performs.
+  let res;
+  try {
+    res = await fetch('/api/account', {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+  } catch {
+    flash('Network error. Please try again.');
+    return;
+  }
+  if (res.ok) {
+    window.location.href = '/login';
+    return;
+  }
+  if (res.status === 401) {
+    flash('Incorrect password. Account was not deleted.');
+    return;
+  }
+  let msg = 'Could not delete account.';
+  try {
+    const data = await res.json();
+    if (data && data.message) {
+      msg = Array.isArray(data.message) ? data.message.join(' ') : data.message;
+    }
+  } catch {
+    /* ignore */
+  }
+  flash(msg);
+}
+
+$('#account-btn').addEventListener('click', openDashboard);
+$('#dashboard-close').addEventListener('click', closeDashboard);
+$('#dashboard-overlay').addEventListener('click', (e) => {
+  if (e.target === $('#dashboard-overlay')) closeDashboard();
+});
+$('#delete-account-btn').addEventListener('click', deleteAccount);
+document.addEventListener('keydown', (e) => {
+  if (!$('#dashboard-overlay').hidden && e.key === 'Escape') {
+    closeDashboard();
+  }
 });
 
 /* close mobile sidebar after opening a file */

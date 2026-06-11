@@ -219,7 +219,19 @@ a { color: var(--accent); }
 .search-empty { padding: 10px 12px; color: var(--text-muted); font-size: 13px; }
 
 .topbar-right { display: flex; align-items: center; gap: 10px; }
-.user { color: var(--text-muted); font-size: 13px; }
+.user {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.user:hover { background: var(--row-hover); color: var(--text); }
 
 .layout { display: flex; flex: 1; min-height: 0; position: relative; }
 
@@ -554,4 +566,66 @@ a { color: var(--accent); }
   color: #fff;
 }
 .btn-danger:hover { background: var(--danger); filter: brightness(1.1); }
+
+/* ---------- account dashboard ---------- */
+.modal.dashboard { max-width: 460px; }
+.dashboard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.dashboard-head .modal-title { margin: 0; }
+.dashboard-section {
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.dashboard-section:first-of-type { border-top: none; }
+.dashboard-subtitle {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dashboard-label { color: var(--text-muted); font-size: 13px; }
+.dashboard-value { color: var(--text); font-size: 14px; font-weight: 600; }
+.dashboard-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.usage-bar {
+  width: 100%;
+  height: 10px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.usage-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.usage-fill.warn { background: #d9930b; }
+.usage-fill.full { background: var(--danger); }
+.usage-text {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+.danger-zone .dashboard-subtitle { color: var(--danger); }
+
 

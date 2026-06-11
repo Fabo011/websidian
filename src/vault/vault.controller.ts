@@ -228,10 +228,8 @@ export class VaultController {
     const files = await this.vault.listAllFiles(user.username);
     const zip = new AdmZip();
     for (const file of files) {
-      const dir = file.relPath.includes('/')
-        ? file.relPath.slice(0, file.relPath.lastIndexOf('/'))
-        : '';
-      zip.addLocalFile(file.abs, dir);
+      const data = await this.vault.readBytes(user.username, file.relPath);
+      zip.addFile(file.relPath, data);
     }
     const buffer = zip.toBuffer();
     const stamp = new Date().toISOString().slice(0, 10);

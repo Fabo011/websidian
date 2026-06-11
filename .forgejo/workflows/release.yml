@@ -1,0 +1,105 @@
+# Forgejo Actions pipeline for Codeberg.
+#
+# On every push to `main` this will:
+#   1. Build the project and run the test suite.
+#   2. Derive a version, create and push a git tag.
+#   3. Build a linux/arm64 Docker image (for Raspberry Pi / ARM Linux servers)
+#      and push it to the Codeberg container registry.
+#
+# Requirements (configure in: Repo > Settings > Actions > Secrets):
+#   - PACKAGE_TOKEN: a Codeberg access token with `read:package` and
+#     `write:package` scopes. Used to log in to codeberg.org's registry.
+#     (The built-in GITHUB_TOKEN/forgejo token can also work if your instance
+#      grants it package write access; PACKAGE_TOKEN is the portable choice.)
+
+name: build-and-release
+
+on:
+  push:
+    branches:
+      - none # Change to main if ready
+
+env:
+  REGISTRY: codeberg.org
+  # Image repository: codeberg.org/<owner>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-test:
+    runs-on: docker
+    container:
+      image: node:24-bookworm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build client + server
+        run: npm run build:all
+
+      - name: Run tests
+        run: npm test --if-present
+
+  release:
+    needs: build-test
+    runs-on: docker
+    container:
+      image: node:24-bookworm
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Derive version tag
+        id: version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          DATE=$(date +%Y%m%d)
+          TAG="v${PKG_VERSION}-${DATE}.${SHORT_SHA}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${PKG_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: ${TAG}"
+
+      - name: Create and push git tag
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git config user.name "forgejo-actions"
+          git config user.email "forgejo-actions@noreply.codeberg.org"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; skipping."
+          else
+            git tag -a "$TAG" -m "Automated release $TAG"
+            # Push using the actor token over HTTPS.
+            git push "https://x-access-token:${{ secrets.PACKAGE_TOKEN }}@${{ env.REGISTRY }}/${{ github.repository }}.git" "$TAG"
+          fi
+
+      - name: Set up QEMU (for arm64 emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Codeberg container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.PACKAGE_TOKEN }}
+
+      - name: Build and push ARM image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
+          provenance: false

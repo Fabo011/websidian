@@ -15,7 +15,7 @@
     </div>
     <div class="topbar-right">
       <button id="theme-toggle" class="icon-btn" title="Toggle light/dark"><i class="bi bi-circle-half"></i></button>
-      <span class="user" title="Signed in"><i class="bi bi-person-circle"></i> <%= username %></span>
+      <button id="account-btn" class="user" title="Account & storage"><i class="bi bi-person-circle"></i> <span class="user-name"><%= username %></span></button>
       <button id="logout-btn" class="btn-ghost"><i class="bi bi-box-arrow-right"></i> Logout</button>
     </div>
   </header>
@@ -93,6 +93,35 @@
       <div class="modal-actions">
         <button id="modal-cancel" class="btn-ghost" type="button"></button>
         <button id="modal-ok" class="btn-primary" type="button"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dashboard-overlay" class="modal-overlay" hidden>
+    <div class="modal dashboard" role="dialog" aria-modal="true" aria-labelledby="dashboard-title">
+      <div class="dashboard-head">
+        <h3 id="dashboard-title" class="modal-title"><i class="bi bi-person-circle"></i> Account</h3>
+        <button id="dashboard-close" class="icon-btn" title="Close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="dashboard-section">
+        <div class="dashboard-row">
+          <span class="dashboard-label">Signed in as</span>
+          <span id="dashboard-username" class="dashboard-value"></span>
+        </div>
+      </div>
+
+      <div class="dashboard-section">
+        <h4 class="dashboard-subtitle"><i class="bi bi-hdd"></i> Storage</h4>
+        <div class="usage-bar"><div id="usage-fill" class="usage-fill"></div></div>
+        <div class="usage-text"><span id="usage-text">Loading…</span></div>
+        <p class="dashboard-hint">Free plan. Upgrades for more storage are coming soon.</p>
+      </div>
+
+      <div class="dashboard-section danger-zone">
+        <h4 class="dashboard-subtitle"><i class="bi bi-exclamation-triangle"></i> Danger zone</h4>
+        <p class="dashboard-hint">Deleting your account permanently removes all your notes, files and account data. This cannot be undone.</p>
+        <button id="delete-account-btn" class="btn-danger"><i class="bi bi-trash"></i> Delete account</button>
       </div>
     </div>
   </div>

@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { promises as fs } from 'fs';
+import { Inject, Injectable } from '@nestjs/common';
 import MarkdownIt from 'markdown-it';
-import { extname, join, posix } from 'path';
-import { toRelative } from '../common/path-safety';
-import { AppConfig } from '../config/configuration';
+import { extname, posix } from 'path';
+import {
+    STORAGE_PROVIDER,
+    StorageProvider,
+} from '../storage/storage.interface';
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp']);
 
@@ -30,7 +30,9 @@ function attachmentUrl(relPath: string): string {
 export class MarkdownService {
   private readonly md: MarkdownIt;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+  ) {
     this.md = new MarkdownIt({
       html: false,
       linkify: true,
@@ -44,14 +46,6 @@ export class MarkdownService {
       url.startsWith('wo-att:') ||
       defaultValidate(url);
     this.installRenderRules();
-  }
-
-  private get dataRoot(): string {
-    return this.config.get<AppConfig>('app').dataRoot;
-  }
-
-  private userRoot(username: string): string {
-    return join(this.dataRoot, username);
   }
 
   async render(
@@ -254,36 +248,31 @@ export class MarkdownService {
   }
 
   private async buildIndex(username: string): Promise<VaultIndex> {
-    const root = this.userRoot(username);
     const files = new Map<string, string>();
     const notesByName = new Map<string, string>();
     const filesByName = new Map<string, string>();
-    await this.indexWalk(root, root, files, notesByName, filesByName);
+    await this.indexWalk(username, '', files, notesByName, filesByName);
     return { files, notesByName, filesByName };
   }
 
   private async indexWalk(
-    root: string,
-    dir: string,
+    username: string,
+    relDir: string,
     files: Map<string, string>,
     notesByName: Map<string, string>,
     filesByName: Map<string, string>,
   ): Promise<void> {
     let entries;
     try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
+      entries = await this.storage.list(username, relDir);
     } catch {
       return;
     }
     for (const entry of entries) {
-      if (entry.name.startsWith('.')) {
-        continue;
-      }
-      const abs = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await this.indexWalk(root, abs, files, notesByName, filesByName);
-      } else if (entry.isFile()) {
-        const rel = toRelative(root, abs);
+      const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
+      if (entry.type === 'dir') {
+        await this.indexWalk(username, rel, files, notesByName, filesByName);
+      } else {
         files.set(rel.toLowerCase(), rel);
         const baseWithExt = posix.basename(rel).toLowerCase();
         if (!filesByName.has(baseWithExt)) {
