@@ -19,3 +19,20 @@
     }
   })();
 </script>
+<script>
+  // Set the document language before paint based on saved/browser preference.
+  (function () {
+    try {
+      var l = localStorage.getItem('wo-lang');
+      if (!l) {
+        l = (navigator.language || 'en').slice(0, 2).toLowerCase();
+      }
+      if (l === 'de' || l === 'en') {
+        document.documentElement.lang = l;
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  })();
+</script>
+<script src="/public/js/i18n.js"></script>

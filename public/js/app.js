@@ -34,6 +34,7 @@ async function api(method, url, body, isForm) {
 }
 
 const $ = (sel) => document.querySelector(sel);
+const t = (key, vars) => (window.I18N ? window.I18N.t(key, vars) : key);
 const debounce = (fn, ms) => {
   let t;
   return (...args) => {
@@ -82,8 +83,8 @@ function openModal({ title, message, isPrompt, value, placeholder, okText, cance
 
     const ok = $('#modal-ok');
     const cancel = $('#modal-cancel');
-    ok.textContent = okText || 'OK';
-    cancel.textContent = cancelText || 'Cancel';
+    ok.textContent = okText || t('ok');
+    cancel.textContent = cancelText || t('cancel');
     ok.classList.toggle('btn-danger', !!danger);
 
     $('#modal-overlay').hidden = false;
@@ -386,7 +387,7 @@ async function moveEntry(fromPath, targetDir) {
   try {
     await api('POST', '/api/rename', { from: fromPath, to });
   } catch (err) {
-    flash(err.message || 'Could not move item');
+    flash(err.message || t('could_not_move'));
     return;
   }
   // Keep an open file in sync if it (or its folder) was moved.
@@ -400,7 +401,7 @@ async function moveEntry(fromPath, targetDir) {
   // Keep the destination folder expanded so the moved item stays visible.
   expandAncestors(targetDir);
   await loadTree();
-  flash('Moved to ' + (targetDir || 'Vault root'));
+  flash(t('moved_to', { target: targetDir || t('vault_root') }));
 }
 
 function fileIcon(ext) {
@@ -504,10 +505,10 @@ $('#context-menu').addEventListener('click', async (e) => {
   if (!action || !node) return;
   closeContextMenu();
   if (action === 'rename') {
-    const newName = await uiPrompt('Rename', node.name, {
-      title: 'Rename',
-      okText: 'Rename',
-      placeholder: 'New name',
+    const newName = await uiPrompt(t('rename'), node.name, {
+      title: t('rename'),
+      okText: t('rename'),
+      placeholder: t('prompt_rename_ph'),
     });
     if (!newName || newName === node.name) return;
     const parent = dirname(node.path);
@@ -525,9 +526,9 @@ $('#context-menu').addEventListener('click', async (e) => {
   } else if (action === 'new-folder') {
     await createFolderIn(node.path);
   } else if (action === 'delete') {
-    const ok = await uiConfirm('Delete', {
-      message: 'Delete "' + node.name + '"? This cannot be undone.',
-      okText: 'Delete',
+    const ok = await uiConfirm(t('delete'), {
+      message: t('confirm_delete_msg', { name: node.name }),
+      okText: t('delete'),
       danger: true,
     });
     if (!ok) return;
@@ -575,9 +576,14 @@ async function openEditor(path, ext) {
   editor.value = data.content;
   const isMarkdown = ext === 'md' || ext === 'markdown';
   $('#toggle-preview').style.display = isMarkdown ? '' : 'none';
-  // Always start in edit mode.
-  setViewMode(false);
-  editor.focus();
+  // Markdown files open in reading (view) mode by default; other text files
+  // (txt, json, csv, …) open in edit mode since they have no preview.
+  if (isMarkdown) {
+    setViewMode(true);
+  } else {
+    setViewMode(false);
+    editor.focus();
+  }
 }
 
 $('#editor').addEventListener('input', () => {
@@ -594,13 +600,13 @@ function setViewMode(viewing) {
     editor.hidden = true;
     preview.hidden = false;
     renderPreviewNow();
-    toggle.innerHTML = '<i class="bi bi-pencil"></i> <span class="btn-label">Edit</span>';
-    toggle.title = 'Switch to editing';
+    toggle.innerHTML = '<i class="bi bi-pencil"></i> <span class="btn-label">' + t('edit') + '</span>';
+    toggle.title = t('title_toggle_view');
   } else {
     preview.hidden = true;
     editor.hidden = false;
-    toggle.innerHTML = '<i class="bi bi-eye"></i> <span class="btn-label">View</span>';
-    toggle.title = 'Switch to reading';
+    toggle.innerHTML = '<i class="bi bi-eye"></i> <span class="btn-label">' + t('view') + '</span>';
+    toggle.title = t('title_toggle_view');
   }
 }
 
@@ -642,18 +648,17 @@ async function saveCurrent() {
     result = await api('PUT', '/api/file', payload);
   } catch (e) {
     if (e.status === 409) {
-      const overwrite = await uiConfirm('File changed elsewhere', {
-        message:
-          'This file was changed elsewhere since you opened it. Overwrite with your version, or reload the latest?',
-        okText: 'Overwrite',
-        cancelText: 'Reload latest',
+      const overwrite = await uiConfirm(t('conflict_file_title'), {
+        message: t('conflict_file_msg'),
+        okText: t('overwrite'),
+        cancelText: t('reload_latest'),
       });
       if (overwrite) {
         delete payload.baseVersion;
         result = await api('PUT', '/api/file', payload);
       } else {
         await openFile(state.current.path);
-        flash('Reloaded latest version');
+        flash(t('reloaded_latest'));
         return;
       }
     } else {
@@ -662,7 +667,7 @@ async function saveCurrent() {
   }
   if (result && result.version) state.current.version = result.version;
   state.dirty = false;
-  flash('Saved');
+  flash(t('saved'));
 }
 $('#save-btn').addEventListener('click', saveCurrent);
 
@@ -697,7 +702,7 @@ function openViewer(path, ext) {
   } else {
     const p = document.createElement('p');
     p.className = 'muted';
-    p.textContent = 'No preview available for this file type.';
+    p.textContent = t('no_preview');
     body.appendChild(p);
   }
 }
@@ -724,7 +729,7 @@ async function openExcalidraw(path) {
   renderBreadcrumb($('#excalidraw-path'), path);
   state.current = { path, ext: 'excalidraw', version: null };
   const root = $('#excalidraw-root');
-  root.innerHTML = 'Loading editor…';
+  root.innerHTML = t('loading_editor');
   let initial = null;
   try {
     const data = await api('GET', '/api/file?path=' + encodeURIComponent(path));
@@ -755,14 +760,13 @@ async function saveExcalidraw() {
     result = await api('PUT', '/api/file', payload);
   } catch (e) {
     if (e.status === 409) {
-      const overwrite = await uiConfirm('Drawing changed elsewhere', {
-        message:
-          'This drawing was changed elsewhere since you opened it. Overwrite with your version?',
-        okText: 'Overwrite',
-        cancelText: 'Cancel',
+      const overwrite = await uiConfirm(t('conflict_drawing_title'), {
+        message: t('conflict_drawing_msg'),
+        okText: t('overwrite'),
+        cancelText: t('cancel'),
       });
       if (!overwrite) {
-        flash('Save cancelled');
+        flash(t('save_cancelled'));
         return;
       }
       delete payload.baseVersion;
@@ -772,16 +776,16 @@ async function saveExcalidraw() {
     }
   }
   if (result && result.version) state.current.version = result.version;
-  flash('Saved');
+  flash(t('saved'));
 }
 $('#excalidraw-save').addEventListener('click', saveExcalidraw);
 
 /* ---------- create / upload / import ---------- */
 
 async function createNoteIn(targetDir) {
-  let name = await uiPrompt('New note', 'Untitled.md', {
-    title: 'New note',
-    placeholder: 'Note name',
+  let name = await uiPrompt(t('prompt_new_note_title'), 'Untitled.md', {
+    title: t('prompt_new_note_title'),
+    placeholder: t('prompt_new_note_ph'),
   });
   if (!name) return;
   if (!/\.[a-z0-9]+$/i.test(name)) name += '.md';
@@ -793,21 +797,21 @@ async function createNoteIn(targetDir) {
 }
 
 async function createFileIn(targetDir) {
-  const name = await uiPrompt('New file', 'Untitled.excalidraw', {
-    title: 'New file',
-    message: 'Include the extension, e.g. diagram.excalidraw',
-    placeholder: 'filename.ext',
+  const name = await uiPrompt(t('prompt_new_file_title'), 'Untitled.excalidraw', {
+    title: t('prompt_new_file_title'),
+    message: t('prompt_new_file_msg'),
+    placeholder: t('prompt_new_file_ph'),
   });
   if (!name) return;
   if (!/\.[a-z0-9]+$/i.test(name)) {
-    flash('Please include a file extension (e.g. .excalidraw).');
+    flash(t('need_extension'));
     return;
   }
   const path = targetDir ? targetDir + '/' + name : name;
   try {
     await api('PUT', '/api/file', { path, content: '' });
   } catch (e) {
-    flash(e.message || 'Could not create file');
+    flash(e.message || t('could_not_create'));
     return;
   }
   expandAncestors(targetDir);
@@ -816,9 +820,9 @@ async function createFileIn(targetDir) {
 }
 
 async function createFolderIn(targetDir) {
-  const name = await uiPrompt('New folder', '', {
-    title: 'New folder',
-    placeholder: 'Folder name',
+  const name = await uiPrompt(t('prompt_new_folder_title'), '', {
+    title: t('prompt_new_folder_title'),
+    placeholder: t('prompt_new_folder_ph'),
   });
   if (!name) return;
   const path = targetDir ? targetDir + '/' + name : name;
@@ -842,7 +846,7 @@ $('#upload-input').addEventListener('change', async (e) => {
   }
   e.target.value = '';
   await loadTree();
-  flash('Uploaded ' + files.length + ' file(s)');
+  flash(t('uploaded_n', { n: files.length }));
 });
 
 // Enable directory selection where supported (desktop); otherwise fall back to
@@ -873,13 +877,13 @@ $('#upload-input').addEventListener('change', async (e) => {
     const res = await api('POST', '/api/import', fd, true);
     e.target.value = '';
     await loadTree();
-    flash('Imported ' + (res.written || 0) + ' file(s)');
+    flash(t('imported_n', { n: res.written || 0 }));
   });
 })();
 
 $('#export-btn').addEventListener('click', () => {
   // Stream the zip via a direct navigation so the browser handles the download.
-  flash('Preparing vault download…');
+  flash(t('preparing_download'));
   window.location.href = '/api/export';
 });
 
@@ -895,7 +899,7 @@ const runSearch = debounce(async (q) => {
   const hits = await api('GET', '/api/search?q=' + encodeURIComponent(q));
   box.innerHTML = '';
   if (!hits.length) {
-    box.innerHTML = '<div class="search-empty">No matches</div>';
+    box.innerHTML = '<div class="search-empty">' + t('no_matches') + '</div>';
   } else {
     for (const hit of hits) {
       const item = document.createElement('button');
@@ -948,6 +952,20 @@ function toggleSidebar(force) {
 }
 $('#sidebar-toggle').addEventListener('click', () => toggleSidebar());
 $('#sidebar-backdrop').addEventListener('click', () => toggleSidebar(false));
+document.querySelectorAll('[data-mobile-back]').forEach((btn) => {
+  btn.addEventListener('click', () => toggleSidebar(true));
+});
+
+/* ---------- language switcher ---------- */
+(function setupLanguage() {
+  // The switcher itself is auto-wired by i18n.js; here we only re-render the
+  // dynamic labels (view/edit toggle) when the language changes.
+  document.addEventListener('wo-langchange', () => {
+    if (state.current && state.current.ext !== 'excalidraw' && !$('#editor-view').hidden) {
+      setViewMode(!!state.viewing);
+    }
+  });
+})();
 
 $('#logout-btn').addEventListener('click', async () => {
   await api('POST', '/auth/logout');
@@ -983,40 +1001,36 @@ async function loadAccount() {
   const text = $('#usage-text');
   fill.style.width = '0%';
   fill.classList.remove('warn', 'full');
-  text.textContent = 'Loading…';
+  text.textContent = t('loading');
   try {
     const info = await api('GET', '/api/account');
     $('#dashboard-username').textContent = info.username;
     if (info.unlimited || !info.quotaBytes) {
       fill.style.width = '0%';
-      text.textContent = formatBytes(info.usedBytes) + ' used (unlimited)';
+      text.textContent = t('usage_unlimited', { used: formatBytes(info.usedBytes) });
     } else {
       const pct = Math.min(100, (info.usedBytes / info.quotaBytes) * 100);
       fill.style.width = pct.toFixed(1) + '%';
       if (pct >= 100) fill.classList.add('full');
       else if (pct >= 80) fill.classList.add('warn');
-      text.textContent =
-        formatBytes(info.usedBytes) +
-        ' of ' +
-        formatBytes(info.quotaBytes) +
-        ' used (' +
-        pct.toFixed(pct >= 10 ? 0 : 1) +
-        '%)';
+      text.textContent = t('usage_of', {
+        used: formatBytes(info.usedBytes),
+        total: formatBytes(info.quotaBytes),
+        pct: pct.toFixed(pct >= 10 ? 0 : 1),
+      });
     }
   } catch (e) {
-    text.textContent = 'Could not load storage usage.';
+    text.textContent = t('usage_error');
   }
 }
 
 async function deleteAccount() {
-  const password = await uiPrompt('Delete account', '', {
-    title: 'Delete account',
-    message:
-      'This permanently deletes your account and ALL your notes and files. ' +
-      'Enter your password to confirm.',
-    placeholder: 'Your password',
+  const password = await uiPrompt(t('delete_account'), '', {
+    title: t('delete_account'),
+    message: t('del_acc_msg'),
+    placeholder: t('del_acc_ph'),
     inputType: 'password',
-    okText: 'Delete forever',
+    okText: t('del_acc_ok'),
     danger: true,
   });
   if (!password) return;
@@ -1032,7 +1046,7 @@ async function deleteAccount() {
       body: JSON.stringify({ password }),
     });
   } catch {
-    flash('Network error. Please try again.');
+    flash(t('network_error'));
     return;
   }
   if (res.ok) {
@@ -1040,10 +1054,10 @@ async function deleteAccount() {
     return;
   }
   if (res.status === 401) {
-    flash('Incorrect password. Account was not deleted.');
+    flash(t('wrong_password'));
     return;
   }
-  let msg = 'Could not delete account.';
+  let msg = t('could_not_delete');
   try {
     const data = await res.json();
     if (data && data.message) {

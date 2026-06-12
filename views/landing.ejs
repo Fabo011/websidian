@@ -7,68 +7,72 @@
   <header class="landing-nav">
     <a class="landing-brand" href="/">web-obsidian</a>
     <nav class="landing-nav-actions">
-      <a class="btn-ghost" href="/login">Sign in</a>
+      <select class="lang-select" data-lang-switch aria-label="Language" data-i18n-attr="aria-label:lang_switch">
+        <option value="en">EN</option>
+        <option value="de">DE</option>
+      </select>
+      <a class="btn-ghost" href="/login" data-i18n="nav_signin">Sign in</a>
       <% if (typeof allowRegistration !== 'undefined' && allowRegistration) { %>
-        <a class="btn-primary btn-inline" href="/register">Create account</a>
+        <a class="btn-primary btn-inline" href="/register" data-i18n="nav_create">Create account</a>
       <% } %>
     </nav>
   </header>
 
   <main class="landing-main">
     <section class="hero">
-      <h1>Your knowledge vault, in the browser.</h1>
-      <p class="hero-lead">
+      <h1 data-i18n="hero_title">Your knowledge vault, in the browser.</h1>
+      <p class="hero-lead" data-i18n="hero_lead">
         web-obsidian is an open-source, privacy-first knowledge vault you reach from any
         browser. Take notes, organize nested folders, sketch with Excalidraw and read PDFs &mdash;
         all online, with nothing to install. Your vault is encrypted at rest with AES-256.
       </p>
       <div class="hero-actions">
-        <a class="btn-primary btn-inline" href="/login">Open your vault</a>
+        <a class="btn-primary btn-inline" href="/login" data-i18n="hero_open">Open your vault</a>
         <% if (typeof allowRegistration !== 'undefined' && allowRegistration) { %>
-          <a class="btn-ghost" href="/register">Create a free account</a>
+          <a class="btn-ghost" href="/register" data-i18n="hero_create_free">Create a free account</a>
         <% } %>
       </div>
     </section>
 
     <section class="landing-section">
-      <h2>How it differs from Obsidian</h2>
-      <p class="section-lead">
+      <h2 data-i18n="diff_title">How it differs from Obsidian</h2>
+      <p class="section-lead" data-i18n="diff_lead">
         The original Obsidian is a desktop app that keeps your notes offline on each device
         and relies on a separate sync service to keep them in step. web-obsidian flips that
         around: your vault lives online and you simply log in.
       </p>
       <div class="compare-grid">
         <div class="compare-card">
-          <h3>Nothing to sync</h3>
-          <p>
+          <h3 data-i18n="card_nosync_h">Nothing to sync</h3>
+          <p data-i18n="card_nosync_p">
             There is no sync to set up or pay for. Your notes are always in one place &mdash;
             log in from a laptop, PC or phone and pick up exactly where you left off.
           </p>
         </div>
         <div class="compare-card">
-          <h3>Browser-native</h3>
-          <p>
+          <h3 data-i18n="card_browser_h">Browser-native</h3>
+          <p data-i18n="card_browser_p">
             Built for the cloud and the browser instead of an offline desktop install. Open a
             tab on any device and your full vault is there.
           </p>
         </div>
         <div class="compare-card">
-          <h3>Account-based &amp; secure</h3>
-          <p>
+          <h3 data-i18n="card_secure_h">Account-based &amp; secure</h3>
+          <p data-i18n="card_secure_p">
             Access is protected by your account with optional two-factor authentication (2FA).
             Privacy comes first &mdash; no tracking, no analytics.
           </p>
         </div>
         <div class="compare-card">
-          <h3>Encrypted at rest</h3>
-          <p>
+          <h3 data-i18n="card_enc_h">Encrypted at rest</h3>
+          <p data-i18n="card_enc_p">
             Your notes, drawings and files are encrypted on the server with AES-256-GCM before
             they touch disk or object storage, so the stored data is unreadable on its own.
           </p>
         </div>
         <div class="compare-card">
-          <h3>Open source</h3>
-          <p>
+          <h3 data-i18n="card_oss_h">Open source</h3>
+          <p data-i18n="card_oss_p">
             The full source code is public. Use the hosted version or self-host it yourself
             from the published container image.
           </p>
@@ -77,32 +81,32 @@
     </section>
 
     <section class="landing-section">
-      <h2>Features</h2>
-      <p class="section-lead">
+      <h2 data-i18n="features_title">Features</h2>
+      <p class="section-lead" data-i18n="features_lead">
         All the everyday building blocks of the original offline Obsidian &mdash; available
         online.
       </p>
       <ul class="feature-list">
-        <li><i class="bi bi-file-earmark-text"></i> Markdown notes with live preview</li>
-        <li><i class="bi bi-folder2-open"></i> Nested folders to organize your vault</li>
-        <li><i class="bi bi-diagram-3"></i> Wiki-style links between notes</li>
-        <li><i class="bi bi-pencil"></i> Excalidraw drawing integration</li>
-        <li><i class="bi bi-file-earmark-pdf"></i> Built-in PDF viewer</li>
-        <li><i class="bi bi-paperclip"></i> Attachments &amp; file uploads</li>
-        <li><i class="bi bi-search"></i> Full-text search across your vault</li>
-        <li><i class="bi bi-box-arrow-down"></i> Export your whole vault as a zip</li>
-        <li><i class="bi bi-shield-lock"></i> Two-factor authentication (2FA)</li>
-        <li><i class="bi bi-lock"></i> AES-256 encryption at rest</li>
-        <li><i class="bi bi-moon-stars"></i> Light &amp; dark themes</li>
+        <li><i class="bi bi-file-earmark-text"></i> <span data-i18n="feat_notes">Markdown notes with live preview</span></li>
+        <li><i class="bi bi-folder2-open"></i> <span data-i18n="feat_folders">Nested folders to organize your vault</span></li>
+        <li><i class="bi bi-diagram-3"></i> <span data-i18n="feat_links">Wiki-style links between notes</span></li>
+        <li><i class="bi bi-pencil"></i> <span data-i18n="feat_excalidraw">Excalidraw drawing integration</span></li>
+        <li><i class="bi bi-file-earmark-pdf"></i> <span data-i18n="feat_pdf">Built-in PDF viewer</span></li>
+        <li><i class="bi bi-paperclip"></i> <span data-i18n="feat_attach">Attachments &amp; file uploads</span></li>
+        <li><i class="bi bi-search"></i> <span data-i18n="feat_search">Full-text search across your vault</span></li>
+        <li><i class="bi bi-box-arrow-down"></i> <span data-i18n="feat_export">Export your whole vault as a zip</span></li>
+        <li><i class="bi bi-shield-lock"></i> <span data-i18n="feat_2fa">Two-factor authentication (2FA)</span></li>
+        <li><i class="bi bi-lock"></i> <span data-i18n="feat_enc">AES-256 encryption at rest</span></li>
+        <li><i class="bi bi-moon-stars"></i> <span data-i18n="feat_themes">Light &amp; dark themes</span></li>
       </ul>
     </section>
 
     <section class="landing-cta">
-      <h2>Ready to start?</h2>
+      <h2 data-i18n="cta_title">Ready to start?</h2>
       <div class="hero-actions">
-        <a class="btn-primary btn-inline" href="/login">Sign in</a>
+        <a class="btn-primary btn-inline" href="/login" data-i18n="nav_signin">Sign in</a>
         <% if (typeof allowRegistration !== 'undefined' && allowRegistration) { %>
-          <a class="btn-ghost" href="/register">Create account</a>
+          <a class="btn-ghost" href="/register" data-i18n="nav_create">Create account</a>
         <% } %>
       </div>
     </section>

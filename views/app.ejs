@@ -6,50 +6,55 @@
 </head>
 <body class="app" data-username="<%= username %>">
   <header class="topbar">
-    <button id="sidebar-toggle" class="icon-btn" aria-label="Toggle sidebar"><i class="bi bi-list"></i></button>
+    <button id="sidebar-toggle" class="icon-btn" aria-label="Toggle sidebar" data-i18n-attr="aria-label:toggle_sidebar"><i class="bi bi-list"></i></button>
     <span class="brand"><i class="bi bi-journal-text"></i> web-obsidian</span>
     <div class="search-wrap">
       <i class="bi bi-search search-icon"></i>
-      <input id="search-input" type="search" placeholder="Search notes…" autocomplete="off" />
+      <input id="search-input" type="search" placeholder="Search notes…" autocomplete="off" data-i18n-attr="placeholder:search_placeholder" />
       <div id="search-results" class="search-results" hidden></div>
     </div>
     <div class="topbar-right">
-      <button id="theme-toggle" class="icon-btn" title="Toggle light/dark"><i class="bi bi-circle-half"></i></button>
-      <button id="account-btn" class="user" title="Account & storage"><i class="bi bi-person-circle"></i> <span class="user-name"><%= username %></span></button>
-      <button id="logout-btn" class="btn-ghost"><i class="bi bi-box-arrow-right"></i> Logout</button>
+      <select id="lang-select" class="lang-select" data-lang-switch aria-label="Language" data-i18n-attr="aria-label:lang_switch">
+        <option value="en">EN</option>
+        <option value="de">DE</option>
+      </select>
+      <button id="theme-toggle" class="icon-btn" title="Toggle light/dark" data-i18n-attr="title:toggle_theme"><i class="bi bi-circle-half"></i></button>
+      <button id="account-btn" class="user" title="Account & storage" data-i18n-attr="title:account_storage"><i class="bi bi-person-circle"></i> <span class="user-name"><%= username %></span></button>
+      <button id="logout-btn" class="btn-ghost"><i class="bi bi-box-arrow-right"></i> <span class="btn-label" data-i18n="logout">Logout</span></button>
     </div>
   </header>
 
   <div class="layout">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-tools">
-        <button id="new-note" title="New note"><i class="bi bi-file-earmark-plus"></i> Note</button>
-        <button id="new-file" title="New file (any type, e.g. .excalidraw)"><i class="bi bi-file-earmark-plus-fill"></i> File</button>
-        <button id="new-folder" title="New folder"><i class="bi bi-folder-plus"></i> Folder</button>
-        <button id="upload-btn" title="Upload a file"><i class="bi bi-upload"></i> Upload</button>
-        <button id="import-btn" title="Import a folder or .zip"><i class="bi bi-folder-symlink"></i> Import</button>
-        <button id="export-btn" title="Download the whole vault as a .zip"><i class="bi bi-download"></i> Export</button>
+        <button id="new-note" title="New note" data-i18n-attr="title:title_new_note"><i class="bi bi-file-earmark-plus"></i> <span data-i18n="tool_note">Note</span></button>
+        <button id="new-file" title="New file (any type, e.g. .excalidraw)" data-i18n-attr="title:title_new_file"><i class="bi bi-file-earmark-plus-fill"></i> <span data-i18n="tool_file">File</span></button>
+        <button id="new-folder" title="New folder" data-i18n-attr="title:title_new_folder"><i class="bi bi-folder-plus"></i> <span data-i18n="tool_folder">Folder</span></button>
+        <button id="upload-btn" title="Upload a file" data-i18n-attr="title:title_upload"><i class="bi bi-upload"></i> <span data-i18n="tool_upload">Upload</span></button>
+        <button id="import-btn" title="Import a folder or .zip" data-i18n-attr="title:title_import"><i class="bi bi-folder-symlink"></i> <span data-i18n="tool_import">Import</span></button>
+        <button id="export-btn" title="Download the whole vault as a .zip" data-i18n-attr="title:title_export"><i class="bi bi-download"></i> <span data-i18n="tool_export">Export</span></button>
       </div>
-      <div id="selected-folder" class="selected-folder breadcrumb" aria-label="Selected folder"></div>
-      <nav id="tree" class="tree" aria-label="Files"></nav>
+      <div id="selected-folder" class="selected-folder breadcrumb" aria-label="Selected folder" data-i18n-attr="aria-label:selected_folder"></div>
+      <nav id="tree" class="tree" aria-label="Files" data-i18n-attr="aria-label:files_aria"></nav>
     </aside>
 
     <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
 
     <main class="content" id="content">
       <div class="welcome" id="welcome">
-        <h2><i class="bi bi-journal-richtext"></i> Welcome</h2>
-        <p>Select a note from the sidebar, or create a new one.</p>
+        <h2><i class="bi bi-journal-richtext"></i> <span data-i18n="welcome">Welcome</span></h2>
+        <p data-i18n="welcome_text">Select a note from the sidebar, or create a new one.</p>
       </div>
 
       <section id="editor-view" class="view" hidden>
         <div class="view-header">
+          <button class="icon-btn mobile-back" data-mobile-back title="Show files" aria-label="Show files" data-i18n-attr="title:open_files_title;aria-label:open_files"><i class="bi bi-list"></i></button>
           <span id="current-path" class="current-path breadcrumb"></span>
           <div class="view-actions">
-            <button id="toggle-preview" class="btn-ghost" title="Switch between editing and reading">
+            <button id="toggle-preview" class="btn-ghost" title="Switch between editing and reading" data-i18n-attr="title:title_toggle_view">
               <i class="bi bi-eye"></i> <span class="btn-label">View</span>
             </button>
-            <button id="save-btn" class="btn-primary"><i class="bi bi-save"></i> Save</button>
+            <button id="save-btn" class="btn-primary"><i class="bi bi-save"></i> <span class="btn-label" data-i18n="save">Save</span></button>
           </div>
         </div>
         <div class="editor-body" id="editor-body">
@@ -60,9 +65,10 @@
 
       <section id="viewer-view" class="view" hidden>
         <div class="view-header">
+          <button class="icon-btn mobile-back" data-mobile-back title="Show files" aria-label="Show files" data-i18n-attr="title:open_files_title;aria-label:open_files"><i class="bi bi-list"></i></button>
           <span id="viewer-path" class="current-path breadcrumb"></span>
           <div class="view-actions">
-            <a id="viewer-download" class="btn-ghost" download><i class="bi bi-download"></i> Download</a>
+            <a id="viewer-download" class="btn-ghost" download><i class="bi bi-download"></i> <span class="btn-label" data-i18n="download">Download</span></a>
           </div>
         </div>
         <div id="viewer-body" class="viewer-body"></div>
@@ -70,9 +76,10 @@
 
       <section id="excalidraw-view" class="view" hidden>
         <div class="view-header">
+          <button class="icon-btn mobile-back" data-mobile-back title="Show files" aria-label="Show files" data-i18n-attr="title:open_files_title;aria-label:open_files"><i class="bi bi-list"></i></button>
           <span id="excalidraw-path" class="current-path breadcrumb"></span>
           <div class="view-actions">
-            <button id="excalidraw-save" class="btn-primary"><i class="bi bi-save"></i> Save</button>
+            <button id="excalidraw-save" class="btn-primary"><i class="bi bi-save"></i> <span class="btn-label" data-i18n="save">Save</span></button>
           </div>
         </div>
         <div id="excalidraw-root" class="excalidraw-root"></div>
@@ -81,12 +88,12 @@
   </div>
 
   <div id="context-menu" class="context-menu" hidden>
-    <button data-action="rename"><i class="bi bi-pencil"></i> Rename</button>
-    <button data-action="new-note" data-folder-only><i class="bi bi-file-earmark-plus"></i> New note</button>
-    <button data-action="new-file" data-folder-only><i class="bi bi-file-earmark-plus-fill"></i> New file</button>
-    <button data-action="new-folder" data-folder-only><i class="bi bi-folder-plus"></i> New folder</button>
+    <button data-action="rename"><i class="bi bi-pencil"></i> <span data-i18n="rename">Rename</span></button>
+    <button data-action="new-note" data-folder-only><i class="bi bi-file-earmark-plus"></i> <span data-i18n="ctx_new_note">New note</span></button>
+    <button data-action="new-file" data-folder-only><i class="bi bi-file-earmark-plus-fill"></i> <span data-i18n="ctx_new_file">New file</span></button>
+    <button data-action="new-folder" data-folder-only><i class="bi bi-folder-plus"></i> <span data-i18n="ctx_new_folder">New folder</span></button>
     <div class="context-menu-sep" data-folder-only></div>
-    <button data-action="delete"><i class="bi bi-trash"></i> Delete</button>
+    <button data-action="delete"><i class="bi bi-trash"></i> <span data-i18n="delete">Delete</span></button>
   </div>
 
   <div id="modal-overlay" class="modal-overlay" hidden>
@@ -104,28 +111,28 @@
   <div id="dashboard-overlay" class="modal-overlay" hidden>
     <div class="modal dashboard" role="dialog" aria-modal="true" aria-labelledby="dashboard-title">
       <div class="dashboard-head">
-        <h3 id="dashboard-title" class="modal-title"><i class="bi bi-person-circle"></i> Account</h3>
-        <button id="dashboard-close" class="icon-btn" title="Close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+        <h3 id="dashboard-title" class="modal-title"><i class="bi bi-person-circle"></i> <span data-i18n="account">Account</span></h3>
+        <button id="dashboard-close" class="icon-btn" title="Close" aria-label="Close" data-i18n-attr="title:close;aria-label:close"><i class="bi bi-x-lg"></i></button>
       </div>
 
       <div class="dashboard-section">
         <div class="dashboard-row">
-          <span class="dashboard-label">Signed in as</span>
+          <span class="dashboard-label" data-i18n="signed_in_as">Signed in as</span>
           <span id="dashboard-username" class="dashboard-value"></span>
         </div>
       </div>
 
       <div class="dashboard-section">
-        <h4 class="dashboard-subtitle"><i class="bi bi-hdd"></i> Storage</h4>
+        <h4 class="dashboard-subtitle"><i class="bi bi-hdd"></i> <span data-i18n="storage">Storage</span></h4>
         <div class="usage-bar"><div id="usage-fill" class="usage-fill"></div></div>
-        <div class="usage-text"><span id="usage-text">Loading…</span></div>
-        <p class="dashboard-hint">Free plan. Upgrades for more storage are coming soon.</p>
+        <div class="usage-text"><span id="usage-text" data-i18n="loading">Loading…</span></div>
+        <p class="dashboard-hint" data-i18n="free_plan_hint">Free plan. Upgrades for more storage are coming soon.</p>
       </div>
 
       <div class="dashboard-section danger-zone">
-        <h4 class="dashboard-subtitle"><i class="bi bi-exclamation-triangle"></i> Danger zone</h4>
-        <p class="dashboard-hint">Deleting your account permanently removes all your notes, files and account data. This cannot be undone.</p>
-        <button id="delete-account-btn" class="btn-danger"><i class="bi bi-trash"></i> Delete account</button>
+        <h4 class="dashboard-subtitle"><i class="bi bi-exclamation-triangle"></i> <span data-i18n="danger_zone">Danger zone</span></h4>
+        <p class="dashboard-hint" data-i18n="delete_account_hint">Deleting your account permanently removes all your notes, files and account data. This cannot be undone.</p>
+        <button id="delete-account-btn" class="btn-danger"><i class="bi bi-trash"></i> <span data-i18n="delete_account">Delete account</span></button>
       </div>
     </div>
   </div>

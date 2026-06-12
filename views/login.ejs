@@ -5,6 +5,12 @@
 </head>
 <body class="auth-page">
   <main class="auth-card">
+    <div class="auth-lang">
+      <select class="lang-select" data-lang-switch aria-label="Language" data-i18n-attr="aria-label:lang_switch">
+        <option value="en">EN</option>
+        <option value="de">DE</option>
+      </select>
+    </div>
     <h1 class="auth-logo">web-obsidian</h1>
 
     <% if (typeof notice !== 'undefined' && notice) { %>
@@ -12,33 +18,33 @@
     <% } %>
 
     <form id="login-form" class="auth-form" autocomplete="on">
-      <h2>Sign in</h2>
+      <h2 data-i18n="signin">Sign in</h2>
       <label>
-        Username
+        <span data-i18n="username">Username</span>
         <input name="username" type="text" autocomplete="username" required />
       </label>
       <label>
-        Password
+        <span data-i18n="password">Password</span>
         <input name="password" type="password" autocomplete="current-password" required />
       </label>
       <p class="form-error" id="login-error" hidden></p>
-      <button type="submit" class="btn-primary">Continue</button>
+      <button type="submit" class="btn-primary" data-i18n="continue">Continue</button>
     </form>
 
     <form id="totp-form" class="auth-form" hidden>
-      <h2>Two-factor code</h2>
-      <p class="muted">Enter the 6-digit code from your authenticator app.</p>
+      <h2 data-i18n="twofa_title">Two-factor code</h2>
+      <p class="muted" data-i18n="twofa_help">Enter the 6-digit code from your authenticator app.</p>
       <label>
-        Code
+        <span data-i18n="code">Code</span>
         <input name="code" type="text" inputmode="numeric" pattern="\d{6}"
                maxlength="6" autocomplete="one-time-code" required />
       </label>
       <p class="form-error" id="totp-error" hidden></p>
-      <button type="submit" class="btn-primary">Verify &amp; sign in</button>
+      <button type="submit" class="btn-primary" data-i18n="verify_signin">Verify &amp; sign in</button>
     </form>
 
     <% if (allowRegistration) { %>
-      <p class="auth-alt">No account? <a href="/register">Create one</a></p>
+      <p class="auth-alt"><span data-i18n="no_account">No account?</span> <a href="/register" data-i18n="create_one">Create one</a></p>
     <% } %>
   </main>
 

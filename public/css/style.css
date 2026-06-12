@@ -61,6 +61,7 @@ a { color: var(--accent); }
   padding: 28px;
   box-shadow: 0 8px 30px var(--shadow);
 }
+.auth-lang { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 .auth-logo {
   text-align: center;
   font-size: 22px;
@@ -150,7 +151,7 @@ a { color: var(--accent); }
 }
 
 /* ===== App layout ===== */
-.app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
 .topbar {
   display: flex;
   align-items: center;
@@ -159,8 +160,18 @@ a { color: var(--accent); }
   background: var(--bg-sidebar);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  z-index: 40;
 }
 .brand { font-weight: 700; color: var(--accent); white-space: nowrap; }
+.lang-select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
 .icon-btn {
   background: transparent;
   border: none;
@@ -171,6 +182,7 @@ a { color: var(--accent); }
 }
 .icon-btn:hover { background: var(--row-hover); }
 #sidebar-toggle { display: none; }
+.mobile-back { display: none; }
 
 .search-wrap { position: relative; flex: 1; max-width: 460px; }
 .search-icon {
@@ -475,7 +487,6 @@ a { color: var(--accent); }
 
 .excalidraw-root { flex: 1; min-height: 0; position: relative; }
 .excalidraw-root .excalidraw { height: 100%; }
-
 /* ===== Mobile sidebar ===== */
 .sidebar-backdrop {
   position: absolute;
@@ -487,6 +498,9 @@ a { color: var(--accent); }
 @media (max-width: 800px) {
   #sidebar-toggle { display: inline-block; }
   .user { display: none; }
+  .brand { display: none; }
+  .search-wrap { max-width: none; }
+  .mobile-back { display: inline-flex; align-items: center; }
   .sidebar {
     position: absolute;
     left: 0;
@@ -499,6 +513,8 @@ a { color: var(--accent); }
   }
   .sidebar.open { transform: translateX(0); }
   .btn-label { display: none; }
+  /* Give the drawing canvas a guaranteed height so it stays editable on mobile. */
+  .excalidraw-root { min-height: 70vh; min-height: 70dvh; }
 }
 
 /* ===== Flash toast ===== */

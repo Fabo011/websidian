@@ -5,49 +5,55 @@
 </head>
 <body class="auth-page">
   <main class="auth-card">
+    <div class="auth-lang">
+      <select class="lang-select" data-lang-switch aria-label="Language" data-i18n-attr="aria-label:lang_switch">
+        <option value="en">EN</option>
+        <option value="de">DE</option>
+      </select>
+    </div>
     <h1 class="auth-logo">web-obsidian</h1>
 
     <form id="register-form" class="auth-form" autocomplete="on">
-      <h2>Create account</h2>
+      <h2 data-i18n="create_account">Create account</h2>
       <label>
-        Username
+        <span data-i18n="username">Username</span>
         <input name="username" type="text" autocomplete="username"
                pattern="[a-zA-Z0-9_-]{3,32}" required />
-        <small class="muted">3–32 chars: letters, numbers, dashes, underscores.</small>
+        <small class="muted" data-i18n="reg_username_hint">3–32 chars: letters, numbers, dashes, underscores.</small>
       </label>
       <label>
-        Password
+        <span data-i18n="password">Password</span>
         <input name="password" type="password" autocomplete="new-password"
                minlength="8" required />
-        <small class="muted">At least 8 characters.</small>
+        <small class="muted" data-i18n="reg_password_hint">At least 8 characters.</small>
       </label>
       <p class="form-error" id="register-error" hidden></p>
-      <button type="submit" class="btn-primary">Create account</button>
+      <button type="submit" class="btn-primary" data-i18n="create_account">Create account</button>
     </form>
 
     <section id="enroll-step" class="auth-form" hidden>
-      <h2>Set up two-factor auth</h2>
-      <p class="muted">
+      <h2 data-i18n="setup_2fa">Set up two-factor auth</h2>
+      <p class="muted" data-i18n="setup_2fa_help">
         Scan the QR code with your authenticator app, or enter the secret manually.
       </p>
       <img id="totp-qr" class="totp-qr" alt="TOTP QR code" />
       <div class="totp-secret">
-        <span class="muted">Secret</span>
+        <span class="muted" data-i18n="secret">Secret</span>
         <code id="totp-secret"></code>
-        <button type="button" id="copy-secret" class="btn-ghost">Copy</button>
+        <button type="button" id="copy-secret" class="btn-ghost" data-i18n="copy">Copy</button>
       </div>
       <form id="confirm-form">
         <label>
-          Verification code
+          <span data-i18n="verification_code">Verification code</span>
           <input name="code" type="text" inputmode="numeric" pattern="\d{6}"
                  maxlength="6" autocomplete="one-time-code" required />
         </label>
         <p class="form-error" id="confirm-error" hidden></p>
-        <button type="submit" class="btn-primary">Confirm &amp; finish</button>
+        <button type="submit" class="btn-primary" data-i18n="confirm_finish">Confirm &amp; finish</button>
       </form>
     </section>
 
-    <p class="auth-alt">Already have an account? <a href="/login">Sign in</a></p>
+    <p class="auth-alt"><span data-i18n="have_account">Already have an account?</span> <a href="/login" data-i18n="signin">Sign in</a></p>
   </main>
 
   <script src="/public/js/auth.js"></script>
