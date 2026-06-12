@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'web-obsidian · your knowledge vault in the browser' }) %>
+</head>
+<body class="landing-page">
+  <header class="landing-nav">
+    <a class="landing-brand" href="/">web-obsidian</a>
+    <nav class="landing-nav-actions">
+      <a class="btn-ghost" href="/login">Sign in</a>
+      <% if (typeof allowRegistration !== 'undefined' && allowRegistration) { %>
+        <a class="btn-primary btn-inline" href="/register">Create account</a>
+      <% } %>
+    </nav>
+  </header>
+
+  <main class="landing-main">
+    <section class="hero">
+      <h1>Your knowledge vault, in the browser.</h1>
+      <p class="hero-lead">
+        web-obsidian is an open-source, privacy-first knowledge vault you reach from any
+        browser. Take notes, organize nested folders, sketch with Excalidraw and read PDFs &mdash;
+        all online, with nothing to install.
+      </p>
+      <div class="hero-actions">
+        <a class="btn-primary btn-inline" href="/login">Open your vault</a>
+        <% if (typeof allowRegistration !== 'undefined' && allowRegistration) { %>
+          <a class="btn-ghost" href="/register">Create a free account</a>
+        <% } %>
+      </div>
+    </section>
+
+    <section class="landing-section">
+      <h2>How it differs from Obsidian</h2>
+      <p class="section-lead">
+        The original Obsidian is a desktop app that keeps your notes offline on each device
+        and relies on a separate sync service to keep them in step. web-obsidian flips that
+        around: your vault lives online and you simply log in.
+      </p>
+      <div class="compare-grid">
+        <div class="compare-card">
+          <h3>Nothing to sync</h3>
+          <p>
+            There is no sync to set up or pay for. Your notes are always in one place &mdash;
+            log in from a laptop, PC or phone and pick up exactly where you left off.
+          </p>
+        </div>
+        <div class="compare-card">
+          <h3>Browser-native</h3>
+          <p>
+            Built for the cloud and the browser instead of an offline desktop install. Open a
+            tab on any device and your full vault is there.
+          </p>
+        </div>
+        <div class="compare-card">
+          <h3>Account-based &amp; secure</h3>
+          <p>
+            Access is protected by your account with optional two-factor authentication (2FA).
+            Privacy comes first &mdash; no tracking, no analytics.
+          </p>
+        </div>
+        <div class="compare-card">
+          <h3>Open source</h3>
+          <p>
+            The full source code is public. Use the hosted version or self-host it yourself
+            from the published container image.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section">
+      <h2>Features</h2>
+      <p class="section-lead">
+        All the everyday building blocks of the original offline Obsidian &mdash; available
+        online.
+      </p>
+      <ul class="feature-list">
+        <li><i class="bi bi-file-earmark-text"></i> Markdown notes with live preview</li>
+        <li><i class="bi bi-folder2-open"></i> Nested folders to organize your vault</li>
+        <li><i class="bi bi-diagram-3"></i> Wiki-style links between notes</li>
+        <li><i class="bi bi-pencil"></i> Excalidraw drawing integration</li>
+        <li><i class="bi bi-file-earmark-pdf"></i> Built-in PDF viewer</li>
+        <li><i class="bi bi-paperclip"></i> Attachments &amp; file uploads</li>
+        <li><i class="bi bi-search"></i> Full-text search across your vault</li>
+        <li><i class="bi bi-box-arrow-down"></i> Export your whole vault as a zip</li>
+        <li><i class="bi bi-shield-lock"></i> Two-factor authentication (2FA)</li>
+        <li><i class="bi bi-moon-stars"></i> Light &amp; dark themes</li>
+      </ul>
+    </section>
+
+    <section class="landing-cta">
+      <h2>Ready to start?</h2>
+      <div class="hero-actions">
+        <a class="btn-primary btn-inline" href="/login">Sign in</a>
+        <% if (typeof allowRegistration !== 'undefined' && allowRegistration) { %>
+          <a class="btn-ghost" href="/register">Create account</a>
+        <% } %>
+      </div>
+    </section>
+  </main>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

@@ -34,9 +34,21 @@ export class PagesController {
   index(@Req() req: Request, @Res() res: Response) {
     const username = this.currentUsername(req);
     if (!username) {
-      return res.redirect('/login');
+      return res.render('landing', {
+        allowRegistration: this.app.allowRegistration,
+      });
     }
     return res.render('app', { username });
+  }
+
+  @Get('/imprint')
+  imprint(@Res() res: Response) {
+    return res.render('imprint', {});
+  }
+
+  @Get('/privacy')
+  privacy(@Res() res: Response) {
+    return res.render('privacy', {});
   }
 
   @Get('/login')

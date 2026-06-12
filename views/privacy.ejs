@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Privacy Policy · web-obsidian' }) %>
+</head>
+<body class="landing-page">
+  <header class="landing-nav">
+    <a class="landing-brand" href="/">web-obsidian</a>
+    <nav class="landing-nav-actions">
+      <a class="btn-ghost" href="/">Home</a>
+    </nav>
+  </header>
+
+  <main class="landing-main">
+    <article class="legal">
+      <h1>Privacy Policy</h1>
+
+      <p class="section-lead">
+        web-obsidian is built privacy-first. We collect no personal data and we do not track
+        you.
+      </p>
+
+      <section class="legal-section">
+        <h2>No personal data</h2>
+        <p>
+          We do not ask for, collect or store any personal data such as your real name, email
+          address, phone number or location. To use the service you only choose a username and
+          a password &mdash; nothing that identifies you personally is required.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2>No tracking</h2>
+        <p>
+          There are no analytics, no advertising, no third-party trackers and no tracking
+          cookies. The only cookie used is a strictly necessary session cookie that keeps you
+          signed in. It is removed when you log out.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2>What is stored</h2>
+        <p>
+          The only data stored is what is required to operate your vault:
+        </p>
+        <ul>
+          <li>Your chosen username and a securely hashed password.</li>
+          <li>An required two-factor authentication (2FA) secret, if you enable 2FA.</li>
+          <li>The notes, folders, drawings and files you create in your vault.</li>
+        </ul>
+        <p>
+          Your content is stored solely so the service can show it back to you. It is never
+          sold, shared or analyzed.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2>Deleting your data</h2>
+        <p>
+          You can delete your account at any time from the account dashboard. Deleting your
+          account permanently removes your account record and all of your vault data from the
+          server.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2>Self-hosting</h2>
+        <p>
+          web-obsidian is open source and can be self-hosted. When you self-host, you are the
+          sole operator of your instance and the only party with access to its data.
+        </p>
+      </section>
+    </article>
+  </main>
+
+  <%- include('partials/footer') %>
+</body>
+</html>
