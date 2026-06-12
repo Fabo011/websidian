@@ -385,6 +385,12 @@ a { color: var(--accent); }
   font-size: 13px;
 }
 .context-menu button:hover { background: var(--row-hover); }
+.context-menu .context-menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+}
+.context-menu button i { margin-right: 8px; color: var(--text-muted); }
 
 /* ===== Content area ===== */
 .content { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }

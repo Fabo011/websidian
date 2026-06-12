@@ -482,6 +482,10 @@ function selectDir(path, row) {
 function openContextMenu(x, y, node) {
   state.contextTarget = node;
   const menu = $('#context-menu');
+  const isDir = node.type === 'dir';
+  menu.querySelectorAll('[data-folder-only]').forEach((el) => {
+    el.hidden = !isDir;
+  });
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';
   menu.hidden = false;
@@ -494,7 +498,8 @@ function closeContextMenu() {
 document.addEventListener('click', () => closeContextMenu());
 
 $('#context-menu').addEventListener('click', async (e) => {
-  const action = e.target.dataset.action;
+  const actionEl = e.target.closest('[data-action]');
+  const action = actionEl && actionEl.dataset.action;
   const node = state.contextTarget;
   if (!action || !node) return;
   closeContextMenu();
@@ -513,6 +518,12 @@ $('#context-menu').addEventListener('click', async (e) => {
       $('#current-path').textContent = to;
     }
     await loadTree();
+  } else if (action === 'new-note') {
+    await createNoteIn(node.path);
+  } else if (action === 'new-file') {
+    await createFileIn(node.path);
+  } else if (action === 'new-folder') {
+    await createFolderIn(node.path);
   } else if (action === 'delete') {
     const ok = await uiConfirm('Delete', {
       message: 'Delete "' + node.name + '"? This cannot be undone.',
@@ -767,21 +778,21 @@ $('#excalidraw-save').addEventListener('click', saveExcalidraw);
 
 /* ---------- create / upload / import ---------- */
 
-$('#new-note').addEventListener('click', async () => {
+async function createNoteIn(targetDir) {
   let name = await uiPrompt('New note', 'Untitled.md', {
     title: 'New note',
     placeholder: 'Note name',
   });
   if (!name) return;
   if (!/\.[a-z0-9]+$/i.test(name)) name += '.md';
-  const path = state.selectedDir ? state.selectedDir + '/' + name : name;
+  const path = targetDir ? targetDir + '/' + name : name;
   await api('PUT', '/api/file', { path, content: '' });
-  expandAncestors(state.selectedDir);
+  expandAncestors(targetDir);
   await loadTree();
   openFile(path);
-});
+}
 
-$('#new-file').addEventListener('click', async () => {
+async function createFileIn(targetDir) {
   const name = await uiPrompt('New file', 'Untitled.excalidraw', {
     title: 'New file',
     message: 'Include the extension, e.g. diagram.excalidraw',
@@ -792,29 +803,33 @@ $('#new-file').addEventListener('click', async () => {
     flash('Please include a file extension (e.g. .excalidraw).');
     return;
   }
-  const path = state.selectedDir ? state.selectedDir + '/' + name : name;
+  const path = targetDir ? targetDir + '/' + name : name;
   try {
     await api('PUT', '/api/file', { path, content: '' });
   } catch (e) {
     flash(e.message || 'Could not create file');
     return;
   }
-  expandAncestors(state.selectedDir);
+  expandAncestors(targetDir);
   await loadTree();
   openFile(path);
-});
+}
 
-$('#new-folder').addEventListener('click', async () => {
+async function createFolderIn(targetDir) {
   const name = await uiPrompt('New folder', '', {
     title: 'New folder',
     placeholder: 'Folder name',
   });
   if (!name) return;
-  const path = state.selectedDir ? state.selectedDir + '/' + name : name;
+  const path = targetDir ? targetDir + '/' + name : name;
   await api('POST', '/api/folder', { path });
   expandAncestors(path);
   await loadTree();
-});
+}
+
+$('#new-note').addEventListener('click', () => createNoteIn(state.selectedDir));
+$('#new-file').addEventListener('click', () => createFileIn(state.selectedDir));
+$('#new-folder').addEventListener('click', () => createFolderIn(state.selectedDir));
 
 $('#upload-btn').addEventListener('click', () => $('#upload-input').click());
 $('#upload-input').addEventListener('change', async (e) => {
