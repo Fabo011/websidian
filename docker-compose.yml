@@ -18,6 +18,11 @@ services:
       COOKIE_SECURE: "${COOKIE_SECURE:-false}"
       # Per-user storage quota in GB (0 = unlimited). Default 8.
       STORAGE_QUOTA_GB: "${STORAGE_QUOTA_GB:-8}"
+      # Encryption at rest (AES-256-GCM). Default enabled.
+      ENCRYPTION_ENABLED: "${ENCRYPTION_ENABLED:-true}"
+      # Master encryption key (e.g. `openssl rand -hex 32`). Keep it stable and
+      # backed up; if empty it is derived from JWT_SECRET.
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY:-}"
       # Database: "sqlite" (default) or "postgres".
       DB_TYPE: "${DB_TYPE:-sqlite}"
       # Postgres settings (only used when DB_TYPE=postgres):

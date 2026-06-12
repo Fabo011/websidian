@@ -55,6 +55,23 @@
       </section>
 
       <section class="legal-section">
+        <h2>Encryption at rest</h2>
+        <p>
+          Your vault contents &mdash; notes, drawings, attachments and PDFs &mdash; are
+          encrypted on the server with AES-256-GCM before they are written to disk or sent to
+          object storage. Each account's data is encrypted with its own derived key, so the
+          stored files are unreadable on their own.
+        </p>
+        <p>
+          This is encryption <em>at rest</em>: it protects your data if the underlying storage
+          is stolen or accessed directly. It is not zero-knowledge end-to-end encryption &mdash;
+          while you are signed in, the server holds the key in memory in order to display and
+          search your notes. When you use the <strong>Export</strong> feature, your vault is
+          exported decrypted so you always have a portable, platform-independent backup.
+        </p>
+      </section>
+
+      <section class="legal-section">
         <h2>Deleting your data</h2>
         <p>
           You can delete your account at any time from the account dashboard. Deleting your

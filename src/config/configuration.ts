@@ -35,6 +35,8 @@ export interface AppConfig {
   storageQuotaBytes: number;
   database: { type: DatabaseType; postgres: PostgresConfig };
   storage: { driver: StorageDriver; s3: S3Config };
+  /** At-rest encryption of vault contents (AES-256-GCM in Node.js). */
+  encryption: { enabled: boolean; key: string };
 }
 
 function parseBool(value: string | undefined, fallback: boolean): boolean {
@@ -96,6 +98,10 @@ export default (): { app: AppConfig } => {
           database: process.env.DB_DATABASE?.trim() || 'web_obsidian',
           ssl: parseBool(process.env.DB_SSL, false),
         },
+      },
+      encryption: {
+        enabled: parseBool(process.env.ENCRYPTION_ENABLED, true),
+        key: process.env.ENCRYPTION_KEY?.trim() || '',
       },
       storage: {
         driver: parseStorageDriver(process.env.STORAGE_DRIVER),

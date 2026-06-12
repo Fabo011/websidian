@@ -20,7 +20,7 @@
       <p class="hero-lead">
         web-obsidian is an open-source, privacy-first knowledge vault you reach from any
         browser. Take notes, organize nested folders, sketch with Excalidraw and read PDFs &mdash;
-        all online, with nothing to install.
+        all online, with nothing to install. Your vault is encrypted at rest with AES-256.
       </p>
       <div class="hero-actions">
         <a class="btn-primary btn-inline" href="/login">Open your vault</a>
@@ -56,7 +56,14 @@
           <h3>Account-based &amp; secure</h3>
           <p>
             Access is protected by your account with optional two-factor authentication (2FA).
-            Privacy comes first &mdash; no tracking, no analytics. Encryption at rest.
+            Privacy comes first &mdash; no tracking, no analytics.
+          </p>
+        </div>
+        <div class="compare-card">
+          <h3>Encrypted at rest</h3>
+          <p>
+            Your notes, drawings and files are encrypted on the server with AES-256-GCM before
+            they touch disk or object storage, so the stored data is unreadable on its own.
           </p>
         </div>
         <div class="compare-card">
@@ -85,6 +92,7 @@
         <li><i class="bi bi-search"></i> Full-text search across your vault</li>
         <li><i class="bi bi-box-arrow-down"></i> Export your whole vault as a zip</li>
         <li><i class="bi bi-shield-lock"></i> Two-factor authentication (2FA)</li>
+        <li><i class="bi bi-lock"></i> AES-256 encryption at rest</li>
         <li><i class="bi bi-moon-stars"></i> Light &amp; dark themes</li>
       </ul>
     </section>

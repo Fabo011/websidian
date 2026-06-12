@@ -8,6 +8,8 @@ A small, self-hosted Obsidian-like markdown knowledge app.
 - **Vaults:** stored on the server's disk under `data/<username>/` by default
   (an S3-compatible storage backend is scaffolded but not yet implemented)
 - **Auth:** username + password with **mandatory TOTP 2FA**, JWT in an httpOnly cookie
+- **Encryption at rest:** vault contents are encrypted with **AES-256-GCM** before
+  being written to disk or object storage (exports are decrypted)
 - **Account dashboard:** click your username to see storage usage against your
   quota and to delete your account (and all its data)
 - **Features:** create/edit/delete markdown notes, nested folders, attachments
@@ -28,6 +30,8 @@ Copy `.env.example` to `.env` and adjust:
 | `ALLOW_REGISTRATION` | `true`               | Set `false` to disable self-service registration |
 | `COOKIE_SECURE`      | `false`              | Set `true` when served over HTTPS                |
 | `STORAGE_QUOTA_GB`   | `8`                  | Per-user storage limit in GB (`0` = unlimited)   |
+| `ENCRYPTION_ENABLED` | `true`               | Encrypt vault contents at rest (AES-256-GCM)     |
+| `ENCRYPTION_KEY`     | _(from JWT_SECRET)_  | Master key for at-rest encryption — keep stable  |
 
 Generate a secret with `openssl rand -hex 32`.
 
@@ -52,6 +56,24 @@ Each account is limited to `STORAGE_QUOTA_GB` (default **8 GB**). Writes,
 uploads and imports that would exceed the quota are rejected. Set
 `STORAGE_QUOTA_GB=0` for unlimited storage. (Paid upgrades for more storage are
 planned.)
+
+### Encryption at rest
+
+With `ENCRYPTION_ENABLED=true` (the default), all vault payloads (notes,
+drawings, attachments, PDFs) are encrypted with **AES-256-GCM** in Node.js
+before they are written to local disk or object storage. A server-side master
+key (`ENCRYPTION_KEY`, or derived from `JWT_SECRET` when unset) is stretched
+with scrypt, and each account gets its own key derived with HKDF, so users are
+cryptographically isolated and the stored files are unreadable on their own.
+
+**Set a dedicated, stable `ENCRYPTION_KEY`** (e.g. `openssl rand -hex 32`) and
+back it up — if the key changes, previously stored data can no longer be
+decrypted.
+
+This is encryption *at rest*, not zero-knowledge E2EE: while you are signed in,
+the server holds the key in memory to render and search your notes. The
+**Export** feature always produces a **decrypted** `.zip` so you keep a
+portable, platform-independent backup.
 
 ## Run locally
 
