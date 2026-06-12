@@ -497,9 +497,18 @@ a { color: var(--accent); }
 
 @media (max-width: 800px) {
   #sidebar-toggle { display: inline-block; }
-  .user { display: none; }
   .brand { display: none; }
-  .search-wrap { max-width: none; }
+  /* Allow the topbar to scroll horizontally so the account and logout
+     controls stay reachable when they don't fit on narrow screens. */
+  .topbar {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .topbar::-webkit-scrollbar { display: none; }
+  .topbar > * { flex-shrink: 0; }
+  .search-wrap { flex: 0 0 auto; width: 40vw; min-width: 140px; max-width: none; }
   .mobile-back { display: inline-flex; align-items: center; }
   .sidebar {
     position: absolute;
@@ -599,8 +608,16 @@ a { color: var(--accent); }
   padding: 8px 16px;
 }
 .btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
   background: var(--danger);
   color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
 }
 .btn-danger:hover { background: var(--danger); filter: brightness(1.1); }
 
