@@ -1,0 +1,52 @@
+@startuml web-obsidian-scaling
+title Web-Obsidian — Horizontal Scaling across Raspberry Pi Nodes
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+actor User
+
+cloud "DNS\nfabo011-cloud.de" as DNS
+
+node "CoreBrain (rasp-a)\ncorebrain.fabo011-cloud.de" as RaspA {
+  component "Web-Obsidian App\nNestJS + EJS SSR\nHTTP-only JWT" as AppA
+  component "Assignment Controller\n(registration + login entry)" as Assign
+  database "SSD\nuser vaults" as SsdA
+}
+
+node "SecondBrain (rasp-b)\nsecondbrain.fabo011-cloud.de" as RaspB {
+  component "Web-Obsidian App\nNestJS + EJS SSR\nHTTP-only JWT" as AppB
+  database "SSD\nuser vaults" as SsdB
+}
+
+node "Future Node (rasp-c, ...)" as RaspC #line.dashed {
+  component "Web-Obsidian App" as AppC
+  database "SSD" as SsdC
+}
+
+database "Shared PostgreSQL" as PG {
+  frame "users\n(accounts, auth,\nassigned_node)" as Tusers
+  frame "node_storage\n(code, domain,\ntotal_ssd_gb,\nused_ssd_gb)" as Tnodes
+}
+
+User --> DNS
+DNS --> AppA : entry point
+DNS --> AppB
+
+AppA --> Assign
+Assign --> PG : read SSD utilization,\nwrite user + assigned node
+AppB --> PG : authenticate,\nread assigned node
+AppC ..> PG
+
+AppA --> SsdA : read/write vault
+AppB --> SsdB : read/write vault
+AppC ..> SsdC
+
+note right of Assign
+  Vault files live physically on
+  the assigned node's SSD.
+  => No file sync / no distributed FS.
+  => User must always stay on same node.
+end note
+
+@enduml

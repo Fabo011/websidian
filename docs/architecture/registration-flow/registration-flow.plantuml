@@ -1,0 +1,30 @@
+@startuml registration-flow
+title Registration — Node Assignment
+
+actor User
+participant "CoreBrain (rasp-a)\nAssignment Controller" as Core
+database "Shared PostgreSQL" as PG
+participant "Target Node\n(rasp-a / rasp-b / ...)" as Node
+
+User -> Core : POST /register
+activate Core
+
+Core -> PG : SELECT * FROM node_storage\nWHERE used_ssd_gb < total_ssd_gb
+PG --> Core : storage utilization rows
+
+alt rasp-a has free space (e.g. < 500 users)
+  Core -> Core : assign = "rasp-a"
+else rasp-a SSD nearly full
+  Core -> Core : assign = "rasp-b"\n(next node with capacity)
+end
+
+Core -> PG : INSERT user\n(account, auth, assigned_node = assign)
+Core -> PG : UPDATE node_storage\nused_ssd_gb += vault size
+
+Core --> User : Set HTTP-only JWT cookie\n+ redirect to assigned node domain
+deactivate Core
+
+User -> Node : continue on\n<assigned>.fabo011-cloud.de
+Node -> Node : create vault on local SSD
+
+@enduml

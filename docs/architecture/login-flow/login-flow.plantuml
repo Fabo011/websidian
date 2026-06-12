@@ -1,0 +1,23 @@
+@startuml login-flow
+title Login — Redirect to Assigned Node
+
+actor User
+participant "CoreBrain (rasp-a)\nLogin Entry" as Core
+database "Shared PostgreSQL" as PG
+participant "rasp-a\ncorebrain.fabo011-cloud.de" as A
+participant "rasp-b\nsecondbrain.fabo011-cloud.de" as B
+
+User -> Core : POST /login (credentials)
+activate Core
+Core -> PG : authenticate + read assigned_node
+PG --> Core : assigned_node
+Core --> User : Set HTTP-only JWT cookie\n+ 302 redirect
+deactivate Core
+
+alt assigned_node = rasp-a
+  User -> A : access vault (local SSD)
+else assigned_node = rasp-b
+  User -> B : access vault (local SSD)
+end
+
+@enduml
