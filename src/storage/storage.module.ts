@@ -37,9 +37,9 @@ import { STORAGE_PROVIDER, StorageProvider } from './storage.interface';
         const logger = new Logger('StorageModule');
         let base: StorageProvider = local;
         if (app.storage.driver === 's3') {
-          logger.warn(
-            'S3 storage driver selected but it is not yet implemented. ' +
-              'Set STORAGE_DRIVER=local to use the built-in local storage.',
+          logger.log(
+            `Using S3 object storage (bucket "${app.storage.s3.bucket}"` +
+              `${app.storage.s3.endpoint ? `, endpoint ${app.storage.s3.endpoint}` : ''}).`,
           );
           base = s3;
         }

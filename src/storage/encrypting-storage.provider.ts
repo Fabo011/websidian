@@ -2,6 +2,7 @@ import { Readable } from 'stream';
 import { EncryptionService } from './encryption.service';
 import {
     StorageEntry,
+    StorageFile,
     StorageProvider,
     StorageReadStream,
     StorageStat,
@@ -21,7 +22,16 @@ export class EncryptingStorageProvider implements StorageProvider {
   constructor(
     private readonly base: StorageProvider,
     private readonly crypto: EncryptionService,
-  ) {}
+  ) {
+    // Only advertise the optional fast walk when the wrapped provider supports
+    // it (file names and sizes are not encrypted, so it passes straight through).
+    if (base.walkFiles) {
+      this.walkFiles = (username: string) => base.walkFiles!(username);
+    }
+  }
+
+  /** Set in the constructor when the wrapped provider implements it. */
+  walkFiles?: (username: string) => Promise<StorageFile[]>;
 
   ensureUser(username: string): Promise<void> {
     return this.base.ensureUser(username);

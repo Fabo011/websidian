@@ -32,8 +32,17 @@ services:
       DB_PASSWORD: "${DB_PASSWORD:-}"
       DB_DATABASE: "${DB_DATABASE:-web_obsidian}"
       DB_SSL: "${DB_SSL:-false}"
-      # Vault storage backend: "local" (default) or "s3" (stub).
+      # Vault storage backend: "local" (default) or "s3" (S3-compatible, e.g. MEGA S4).
       STORAGE_DRIVER: "${STORAGE_DRIVER:-local}"
+      # S3 settings (only used when STORAGE_DRIVER=s3). For MEGA S4 set the
+      # endpoint/region to your S4 values.
+      S3_ENDPOINT: "${S3_ENDPOINT:-}"
+      S3_REGION: "${S3_REGION:-us-east-1}"
+      S3_BUCKET: "${S3_BUCKET:-}"
+      S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID:-}"
+      S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY:-}"
+      S3_FORCE_PATH_STYLE: "${S3_FORCE_PATH_STYLE:-true}"
+      S3_PREFIX: "${S3_PREFIX:-}"
     volumes:
       # Persisted application data — back this folder up on the host.
       - ./data:/app/data

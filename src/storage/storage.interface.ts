@@ -19,6 +19,16 @@ export interface StorageReadStream {
   size: number;
 }
 
+/** A single file discovered by a recursive {@link StorageProvider.walkFiles}. */
+export interface StorageFile {
+  /** Forward-slash path relative to the user's vault root. */
+  relPath: string;
+  /** Stored size in bytes. */
+  size: number;
+  /** Last-modified time in epoch milliseconds (0 if unknown). */
+  mtimeMs: number;
+}
+
 /**
  * Abstraction over where user vault data physically lives. Implementations
  * receive forward-slash relative paths already scoped to a single user (the
@@ -69,6 +79,15 @@ export interface StorageProvider {
 
   /** Remove all data belonging to a user (account deletion). */
   removeUser(username: string): Promise<void>;
+
+  /**
+   * Optional fast path: list every file in the user's vault as flat relative
+   * paths in a single efficient operation. Providers backed by object storage
+   * implement this to avoid one network round-trip per directory when building
+   * the tree or exporting. Callers must fall back to recursive {@link list}
+   * when a provider does not implement it.
+   */
+  walkFiles?(username: string): Promise<StorageFile[]>;
 }
 
 /** DI token for the active storage provider. */

@@ -1,17 +1,17 @@
 import {
-    BadRequestException,
-    ConflictException,
-    Inject,
-    Injectable,
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ReadStream } from 'fs';
 import { basename, extname } from 'path';
 import { AppConfig } from '../config/configuration';
 import {
-    STORAGE_PROVIDER,
-    StorageProvider,
-    StorageStat,
+  STORAGE_PROVIDER,
+  StorageProvider,
+  StorageStat,
 } from '../storage/storage.interface';
 import { FileContent, SearchHit, TreeNode } from './vault.types';
 
@@ -108,7 +108,68 @@ export class VaultService {
 
   async listTree(username: string): Promise<TreeNode[]> {
     await this.ensureUserRoot(username);
+    // Fast path: object-storage providers can enumerate the whole vault in a
+    // single request, avoiding one network round-trip per directory.
+    const flat = await this.storage.walkFiles?.(username);
+    if (flat) {
+      return this.buildTreeFromFlat(flat);
+    }
     return this.walk(username, '');
+  }
+
+  /**
+   * Build the sorted directory tree from a flat list of file paths. Dotfiles
+   * (including '.keep' folder markers) are hidden but still materialise their
+   * parent folders, matching the recursive {@link walk} behaviour.
+   */
+  private buildTreeFromFlat(files: Array<{ relPath: string }>): TreeNode[] {
+    const root: TreeNode[] = [];
+    const dirIndex = new Map<string, TreeNode[]>();
+    dirIndex.set('', root);
+
+    const ensureDir = (dirPath: string): TreeNode[] => {
+      const existing = dirIndex.get(dirPath);
+      if (existing) {
+        return existing;
+      }
+      const slash = dirPath.lastIndexOf('/');
+      const parentPath = slash >= 0 ? dirPath.slice(0, slash) : '';
+      const name = slash >= 0 ? dirPath.slice(slash + 1) : dirPath;
+      const siblings = ensureDir(parentPath);
+      const children: TreeNode[] = [];
+      siblings.push({ name, path: dirPath, type: 'dir', children });
+      dirIndex.set(dirPath, children);
+      return children;
+    };
+
+    for (const { relPath } of files) {
+      const segments = relPath.split('/').filter(Boolean);
+      if (segments.length === 0) {
+        continue;
+      }
+      const leaf = segments[segments.length - 1];
+      const dirPath = segments.slice(0, -1).join('/');
+      const parent = ensureDir(dirPath);
+      if (leaf.startsWith('.')) {
+        continue; // hidden dotfile / folder marker — folder already created
+      }
+      parent.push({
+        name: leaf,
+        path: relPath,
+        type: 'file',
+        ext: this.ext(leaf),
+      });
+    }
+
+    const sortRecursive = (nodes: TreeNode[]): TreeNode[] => {
+      for (const node of nodes) {
+        if (node.children) {
+          node.children = sortRecursive(node.children);
+        }
+      }
+      return this.sortNodes(nodes);
+    };
+    return sortRecursive(root);
   }
 
   private async walk(username: string, relDir: string): Promise<TreeNode[]> {
@@ -273,6 +334,14 @@ export class VaultService {
   /** Collect every file in the vault as relative paths for export. */
   async listAllFiles(username: string): Promise<Array<{ relPath: string }>> {
     await this.ensureUserRoot(username);
+    // Fast path: enumerate the whole vault in one request when supported,
+    // skipping hidden dotfiles / folder markers to mirror the recursive walk.
+    const flat = await this.storage.walkFiles?.(username);
+    if (flat) {
+      return flat
+        .filter((f) => !f.relPath.split('/').some((seg) => seg.startsWith('.')))
+        .map((f) => ({ relPath: f.relPath }));
+    }
     const out: Array<{ relPath: string }> = [];
     const walk = async (relDir: string): Promise<void> => {
       const entries = await this.storage.list(username, relDir);
