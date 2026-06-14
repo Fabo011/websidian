@@ -428,8 +428,72 @@ a { color: var(--accent); }
 }
 .view-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-.editor-body { flex: 1; min-height: 0; display: flex; }
-.editor-body > [hidden] { display: none; }
+.editor-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.editor-surface { flex: 1; min-height: 0; display: flex; }
+.editor-surface > [hidden] { display: none; }
+
+/* Markdown formatting toolbar (edit mode for .md files) */
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-alt);
+  flex-shrink: 0;
+}
+.editor-toolbar[hidden] { display: none; }
+.md-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text);
+  padding: 5px 9px;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.md-btn:hover { background: var(--bg); border-color: var(--border); }
+.md-caret { font-size: 9px; color: var(--text-muted); }
+.md-dropdown { position: relative; display: inline-flex; }
+.md-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 170px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.md-menu[hidden] { display: none; }
+.md-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.md-menu-item:hover { background: var(--bg-alt); }
+.md-menu-item .md-sample {
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
 #editor {
   flex: 1;
   width: 100%;
@@ -480,6 +544,15 @@ a { color: var(--accent); }
 .markdown a.wo-wikilink { color: var(--accent); text-decoration: none; border-bottom: 1px dashed var(--accent); }
 .markdown a.wo-missing { color: var(--danger); border-bottom-color: var(--danger); }
 .markdown iframe.wo-pdf { width: 100%; height: 70vh; border: 1px solid var(--border); border-radius: 8px; }
+.markdown li.wo-task-item { list-style: none; margin-left: -1.4em; }
+.markdown input.wo-task {
+  margin-right: 8px;
+  width: 16px;
+  height: 16px;
+  vertical-align: -2px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
 
 .viewer-body { flex: 1; overflow: auto; padding: 20px; display: flex; justify-content: center; }
 .viewer-body img { max-width: 100%; height: auto; align-self: flex-start; }

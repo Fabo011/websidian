@@ -595,16 +595,22 @@ function setViewMode(viewing) {
   const editor = $('#editor');
   const preview = $('#preview');
   const toggle = $('#toggle-preview');
+  const toolbar = $('#editor-toolbar');
+  const isMarkdown =
+    state.current &&
+    (state.current.ext === 'md' || state.current.ext === 'markdown');
   state.viewing = viewing;
   if (viewing) {
     editor.hidden = true;
     preview.hidden = false;
+    if (toolbar) toolbar.hidden = true;
     renderPreviewNow();
     toggle.innerHTML = '<i class="bi bi-pencil"></i> <span class="btn-label">' + t('edit') + '</span>';
     toggle.title = t('title_toggle_view');
   } else {
     preview.hidden = true;
     editor.hidden = false;
+    if (toolbar) toolbar.hidden = !isMarkdown;
     toggle.innerHTML = '<i class="bi bi-eye"></i> <span class="btn-label">' + t('view') + '</span>';
     toggle.title = t('title_toggle_view');
   }
@@ -627,6 +633,98 @@ $('#toggle-preview').addEventListener('click', () => {
   setViewMode(!state.viewing);
 });
 
+/* ---------- markdown formatting toolbar ---------- */
+
+// Line-prefix actions add a marker at the start of each selected line.
+const MD_LINE_PREFIX = {
+  list: '- ',
+  checklist: '- [ ] ',
+  h1: '# ',
+  h2: '## ',
+  h3: '### ',
+  h4: '#### ',
+  h5: '##### ',
+  h6: '###### ',
+};
+
+/** Mark the editor dirty and refresh the preview after a programmatic edit. */
+function fireEditorInput() {
+  $('#editor').dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/** Wrap the current selection (or insert a placeholder) with before/after. */
+function wrapSelection(before, after, placeholder) {
+  const editor = $('#editor');
+  const { selectionStart: start, selectionEnd: end, value } = editor;
+  const selected = value.slice(start, end) || placeholder;
+  editor.value = value.slice(0, start) + before + selected + after + value.slice(end);
+  editor.selectionStart = start + before.length;
+  editor.selectionEnd = start + before.length + selected.length;
+  editor.focus();
+  fireEditorInput();
+}
+
+/** Prefix every line spanned by the selection with the given marker. */
+function applyLinePrefix(prefix) {
+  const editor = $('#editor');
+  const { selectionEnd: end, value } = editor;
+  const lineStart = value.lastIndexOf('\n', editor.selectionStart - 1) + 1;
+  const segment = value.slice(lineStart, end);
+  const updated = segment
+    .split('\n')
+    .map((line) => prefix + line)
+    .join('\n');
+  editor.value = value.slice(0, lineStart) + updated + value.slice(end);
+  editor.selectionStart = lineStart;
+  editor.selectionEnd = lineStart + updated.length;
+  editor.focus();
+  fireEditorInput();
+}
+
+function applyMarkdown(action) {
+  if (action === 'bold') {
+    wrapSelection('**', '**', 'text');
+  } else if (action === 'image') {
+    wrapSelection('![[', ']]', 'image.png');
+  } else if (action === 'wikilink') {
+    wrapSelection('[[', ']]', 'The System');
+  } else if (MD_LINE_PREFIX[action]) {
+    applyLinePrefix(MD_LINE_PREFIX[action]);
+  }
+}
+
+function closeHeadingMenu() {
+  const menu = $('#md-heading-menu');
+  if (menu) menu.hidden = true;
+  const toggle = $('#editor-toolbar [data-md-heading-toggle]');
+  if (toggle) toggle.setAttribute('aria-expanded', 'false');
+}
+
+$('#editor-toolbar').addEventListener('click', (e) => {
+  const action = e.target.closest('[data-md]');
+  if (action) {
+    e.preventDefault();
+    applyMarkdown(action.dataset.md);
+    closeHeadingMenu();
+    return;
+  }
+  const headingToggle = e.target.closest('[data-md-heading-toggle]');
+  if (headingToggle) {
+    e.preventDefault();
+    const menu = $('#md-heading-menu');
+    const open = menu.hidden;
+    menu.hidden = !open;
+    headingToggle.setAttribute('aria-expanded', String(open));
+  }
+});
+
+// Close the heading menu when clicking outside the dropdown.
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.md-dropdown')) {
+    closeHeadingMenu();
+  }
+});
+
 $('#preview').addEventListener('click', (e) => {
   const link = e.target.closest('a.wo-wikilink');
   if (link) {
@@ -635,6 +733,47 @@ $('#preview').addEventListener('click', (e) => {
     if (target) openFile(target);
   }
 });
+
+// Toggling a task-list checkbox in reading mode updates the source `- [ ]`
+// marker and persists the change. Checkboxes carry a document-order index that
+// maps to the Nth task line in the markdown source.
+$('#preview').addEventListener('change', async (e) => {
+  const box = e.target.closest('input.wo-task');
+  if (!box || !state.current) return;
+  const index = Number(box.dataset.taskIndex);
+  if (!toggleTaskInSource(index, box.checked)) {
+    return;
+  }
+  try {
+    await saveCurrent();
+  } catch (err) {
+    // Revert the checkbox if the save failed so UI and source stay in sync.
+    box.checked = !box.checked;
+    toggleTaskInSource(index, box.checked);
+  }
+});
+
+/**
+ * Flip the Nth task-list marker in the editor source to checked/unchecked.
+ * Returns true when a matching line was found and updated.
+ */
+function toggleTaskInSource(index, checked) {
+  const editor = $('#editor');
+  const lines = editor.value.split('\n');
+  let count = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^(\s*[-*+]\s+\[)([ xX])(\])/.exec(lines[i]);
+    if (!m) continue;
+    if (count === index) {
+      const at = m[1].length;
+      lines[i] = lines[i].slice(0, at) + (checked ? 'x' : ' ') + lines[i].slice(at + 1);
+      editor.value = lines.join('\n');
+      return true;
+    }
+    count++;
+  }
+  return false;
+}
 
 async function saveCurrent() {
   if (!state.current) return;

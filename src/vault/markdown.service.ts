@@ -46,6 +46,7 @@ export class MarkdownService {
       url.startsWith('wo-att:') ||
       defaultValidate(url);
     this.installRenderRules();
+    this.installTaskLists();
   }
 
   async render(
@@ -154,6 +155,53 @@ export class MarkdownService {
       }
       return defaultLinkOpen(tokens, idx, options, env, renderer);
     };
+  }
+
+  /**
+   * Render GFM-style task list items (`- [ ]` / `- [x]`) as interactive
+   * checkboxes. Each checkbox gets a sequential `data-task-index` (document
+   * order) so the client can map a click back to the right source line, toggle
+   * it, and persist the change.
+   */
+  private installTaskLists(): void {
+    this.md.core.ruler.after('inline', 'wo-task-lists', (state) => {
+      const tokens = state.tokens;
+      let taskIndex = 0;
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (token.type !== 'inline' || !token.children?.length) {
+          continue;
+        }
+        // Task list items have the shape: list_item_open, paragraph_open, inline.
+        if (
+          i < 2 ||
+          tokens[i - 1].type !== 'paragraph_open' ||
+          tokens[i - 2].type !== 'list_item_open'
+        ) {
+          continue;
+        }
+        const first = token.children[0];
+        if (first.type !== 'text') {
+          continue;
+        }
+        const match = /^\[([ xX])\]\s+/.exec(first.content);
+        if (!match) {
+          continue;
+        }
+        const checked = match[1].toLowerCase() === 'x';
+        // Drop the `[ ] ` marker from the visible text.
+        first.content = first.content.slice(match[0].length);
+        // Prepend a checkbox input.
+        const box = new state.Token('html_inline', '', 0);
+        box.content =
+          `<input type="checkbox" class="wo-task" ` +
+          `data-task-index="${taskIndex}"${checked ? ' checked' : ''}>`;
+        token.children.unshift(box);
+        // Tag the list item so the bullet can be hidden via CSS.
+        tokens[i - 2].attrJoin('class', 'wo-task-item');
+        taskIndex++;
+      }
+    });
   }
 
   private classifyHref(

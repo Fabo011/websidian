@@ -58,8 +58,40 @@
           </div>
         </div>
         <div class="editor-body" id="editor-body">
-          <textarea id="editor" spellcheck="false" placeholder="# Start writing…"></textarea>
-          <div id="preview" class="preview markdown" hidden></div>
+          <div id="editor-toolbar" class="editor-toolbar" hidden role="toolbar" aria-label="Markdown formatting">
+            <button type="button" class="md-btn" data-md="bold" title="Bold — wrap text in ** ** · e.g. **important**" data-i18n-attr="title:md_bold_tip;aria-label:md_bold_tip" aria-label="Bold">
+              <i class="bi bi-type-bold"></i>
+            </button>
+            <div class="md-dropdown">
+              <button type="button" class="md-btn" data-md-heading-toggle aria-haspopup="true" aria-expanded="false" title="Heading — pick a level (#, ##, …) · e.g. # Title" data-i18n-attr="title:md_heading_tip;aria-label:md_heading_tip" aria-label="Heading">
+                <i class="bi bi-type-h1"></i> <i class="bi bi-caret-down-fill md-caret"></i>
+              </button>
+              <div id="md-heading-menu" class="md-menu" hidden>
+                <button type="button" class="md-menu-item" data-md="h1"><span><i class="bi bi-type-h1"></i> Heading 1</span><span class="md-sample">#</span></button>
+                <button type="button" class="md-menu-item" data-md="h2"><span><i class="bi bi-type-h2"></i> Heading 2</span><span class="md-sample">##</span></button>
+                <button type="button" class="md-menu-item" data-md="h3"><span><i class="bi bi-type-h3"></i> Heading 3</span><span class="md-sample">###</span></button>
+                <button type="button" class="md-menu-item" data-md="h4"><span><i class="bi bi-type-h4"></i> Heading 4</span><span class="md-sample">####</span></button>
+                <button type="button" class="md-menu-item" data-md="h5"><span><i class="bi bi-type-h5"></i> Heading 5</span><span class="md-sample">#####</span></button>
+                <button type="button" class="md-menu-item" data-md="h6"><span><i class="bi bi-type-h6"></i> Heading 6</span><span class="md-sample">######</span></button>
+              </div>
+            </div>
+            <button type="button" class="md-btn" data-md="list" title="Bullet list — start a line with &quot;- &quot; · e.g. - item" data-i18n-attr="title:md_list_tip;aria-label:md_list_tip" aria-label="Bullet list">
+              <i class="bi bi-list-ul"></i>
+            </button>
+            <button type="button" class="md-btn" data-md="checklist" title="Task list — start a line with &quot;- [ ] &quot; · e.g. - [ ] to do" data-i18n-attr="title:md_check_tip;aria-label:md_check_tip" aria-label="Task list">
+              <i class="bi bi-check2-square"></i>
+            </button>
+            <button type="button" class="md-btn" data-md="image" title="Embed image — ![[file]] · e.g. ![[diagram.png]]" data-i18n-attr="title:md_image_tip;aria-label:md_image_tip" aria-label="Embed image">
+              <i class="bi bi-image"></i>
+            </button>
+            <button type="button" class="md-btn" data-md="wikilink" title="Internal link — [[Note]] · e.g. [[The System]]" data-i18n-attr="title:md_wikilink_tip;aria-label:md_wikilink_tip" aria-label="Internal link">
+              <i class="bi bi-link-45deg"></i>
+            </button>
+          </div>
+          <div class="editor-surface">
+            <textarea id="editor" spellcheck="false" placeholder="# Start writing…"></textarea>
+            <div id="preview" class="preview markdown" hidden></div>
+          </div>
         </div>
       </section>
 
