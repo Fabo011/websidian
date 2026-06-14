@@ -14,10 +14,6 @@
       <div id="search-results" class="search-results" hidden></div>
     </div>
     <div class="topbar-right">
-      <select id="lang-select" class="lang-select" data-lang-switch aria-label="Language" data-i18n-attr="aria-label:lang_switch">
-        <option value="en">EN</option>
-        <option value="de">DE</option>
-      </select>
       <button id="theme-toggle" class="icon-btn" title="Toggle light/dark" data-i18n-attr="title:toggle_theme"><i class="bi bi-circle-half"></i></button>
       <button id="account-btn" class="user" title="Account & storage" data-i18n-attr="title:account_storage"><i class="bi bi-person-circle"></i> <span class="user-name"><%= username %></span></button>
       <button id="logout-btn" class="btn-ghost"><i class="bi bi-box-arrow-right"></i> <span class="btn-label" data-i18n="logout">Logout</span></button>
@@ -151,6 +147,17 @@
         <div class="dashboard-row">
           <span class="dashboard-label" data-i18n="signed_in_as">Signed in as</span>
           <span id="dashboard-username" class="dashboard-value"></span>
+        </div>
+      </div>
+
+      <div class="dashboard-section">
+        <h4 class="dashboard-subtitle"><i class="bi bi-translate"></i> <span data-i18n="lang_switch">Language</span></h4>
+        <div class="dashboard-row">
+          <span class="dashboard-label" data-i18n="lang_switch">Language</span>
+          <select id="lang-select" class="lang-select" data-lang-switch aria-label="Language" data-i18n-attr="aria-label:lang_switch">
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+          </select>
         </div>
       </div>
 
