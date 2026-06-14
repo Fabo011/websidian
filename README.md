@@ -135,3 +135,11 @@ Docker image on your own server. You may **not** use it for any commercial
 purpose, including offering it to others as a hosted service. The `LICENSE` file
 governs in case of any conflict with this summary.
 
+
+---
+
+### Generate encryption key and jwt secret
+run the following command twice
+```
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```

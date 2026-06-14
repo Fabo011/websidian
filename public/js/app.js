@@ -55,7 +55,7 @@ function closeModal(result) {
   if (pending) pending.resolve(result);
 }
 
-function openModal({ title, message, isPrompt, value, placeholder, okText, cancelText, danger, inputType }) {
+function openModal({ title, message, isPrompt, value, placeholder, okText, cancelText, danger, inputType, hideCancel }) {
   return new Promise((resolve) => {
     // If another modal is open, cancel it first.
     if (modalActive) closeModal(isPromptDefault(modalActive));
@@ -85,6 +85,7 @@ function openModal({ title, message, isPrompt, value, placeholder, okText, cance
     const cancel = $('#modal-cancel');
     ok.textContent = okText || t('ok');
     cancel.textContent = cancelText || t('cancel');
+    cancel.hidden = !!hideCancel;
     ok.classList.toggle('btn-danger', !!danger);
 
     $('#modal-overlay').hidden = false;
@@ -135,6 +136,17 @@ function uiConfirm(title, opts) {
   return openModal({ title, isPrompt: false, ...(opts || {}) }).then(
     (r) => r === true,
   );
+}
+
+/** Styled replacement for window.alert. Resolves when dismissed. */
+function uiAlert(title, opts) {
+  return openModal({
+    title,
+    isPrompt: false,
+    hideCancel: true,
+    okText: t('ok'),
+    ...(opts || {}),
+  });
 }
 
 (function setupModalEvents() {
@@ -554,13 +566,22 @@ function showWelcome() {
 
 async function openFile(path) {
   const ext = extOf(path);
-  if (ext === 'excalidraw') {
-    return openExcalidraw(path);
+  showLoading(t('opening_file'));
+  try {
+    if (ext === 'excalidraw') {
+      return await openExcalidraw(path);
+    }
+    if (TEXT_EXTS.includes(ext)) {
+      return await openEditor(path, ext);
+    }
+    return openViewer(path, ext);
+  } catch (err) {
+    await uiAlert(t('open_failed_title'), {
+      message: err.message || t('open_failed_msg'),
+    });
+  } finally {
+    hideLoading();
   }
-  if (TEXT_EXTS.includes(ext)) {
-    return openEditor(path, ext);
-  }
-  return openViewer(path, ext);
 }
 
 /* ---------- text editor + preview ---------- */
@@ -977,31 +998,42 @@ $('#new-folder').addEventListener('click', () => createFolderIn(state.selectedDi
 $('#upload-btn').addEventListener('click', () => $('#upload-input').click());
 $('#upload-input').addEventListener('change', async (e) => {
   const files = Array.from(e.target.files || []);
-  for (const file of files) {
-    const fd = new FormData();
-    fd.append('file', file, file.name);
-    fd.append('folder', state.selectedDir);
-    await api('POST', '/api/upload', fd, true);
-  }
   e.target.value = '';
-  await loadTree();
-  flash(t('uploaded_n', { n: files.length }));
+  if (!files.length) return;
+  showLoading(t('uploading'));
+  try {
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append('file', file, file.name);
+      fd.append('folder', state.selectedDir);
+      await api('POST', '/api/upload', fd, true);
+    }
+    await loadTree();
+    flash(t('uploaded_n', { n: files.length }));
+  } catch (err) {
+    await uiAlert(t('upload_failed_title'), {
+      message: err.message || t('upload_failed_msg'),
+    });
+  } finally {
+    hideLoading();
+  }
 });
 
-// Enable directory selection where supported (desktop); otherwise fall back to
-// multi-file / .zip selection (mobile-friendly).
-(function setupImport() {
-  const input = $('#import-input');
-  const supportsDir = 'webkitdirectory' in document.createElement('input');
-  if (supportsDir) {
-    input.webkitdirectory = true;
-  } else {
-    input.setAttribute('accept', '*/*');
-  }
-  $('#import-btn').addEventListener('click', () => input.click());
-  input.addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
+// Import offers a styled choice between a .zip file (no browser warning) and a
+// folder upload. Folder selection relies on `webkitdirectory`, which makes the
+// browser show its own non-styleable "upload all files" confirmation — the zip
+// path avoids that entirely.
+function openImportModal() {
+  $('#import-overlay').hidden = false;
+}
+function closeImportModal() {
+  $('#import-overlay').hidden = true;
+}
+
+async function runImport(files) {
+  if (!files.length) return;
+  showLoading(t('importing'));
+  try {
     const fd = new FormData();
     const paths = [];
     for (const file of files) {
@@ -1014,9 +1046,50 @@ $('#upload-input').addEventListener('change', async (e) => {
     fd.append('paths', JSON.stringify(paths));
     fd.append('base', state.selectedDir);
     const res = await api('POST', '/api/import', fd, true);
-    e.target.value = '';
     await loadTree();
     flash(t('imported_n', { n: res.written || 0 }));
+  } catch (err) {
+    await uiAlert(t('import_failed_title'), {
+      message: err.message || t('import_failed_msg'),
+    });
+  } finally {
+    hideLoading();
+  }
+}
+
+(function setupImport() {
+  const folderInput = $('#import-input');
+  const zipInput = $('#import-zip-input');
+  const supportsDir = 'webkitdirectory' in document.createElement('input');
+  if (supportsDir) {
+    folderInput.webkitdirectory = true;
+  } else {
+    folderInput.setAttribute('accept', '*/*');
+  }
+
+  const onChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    await runImport(files);
+  };
+  folderInput.addEventListener('change', onChange);
+  zipInput.addEventListener('change', onChange);
+
+  $('#import-btn').addEventListener('click', openImportModal);
+  $('#import-modal-close').addEventListener('click', closeImportModal);
+  $('#import-overlay').addEventListener('click', (e) => {
+    if (e.target === $('#import-overlay')) closeImportModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('#import-overlay').hidden) closeImportModal();
+  });
+  $('#import-zip-choice').addEventListener('click', () => {
+    closeImportModal();
+    zipInput.click();
+  });
+  $('#import-folder-choice').addEventListener('click', () => {
+    closeImportModal();
+    folderInput.click();
   });
 })();
 
@@ -1245,6 +1318,33 @@ function flash(msg) {
   el.classList.add('show');
   clearTimeout(flashTimer);
   flashTimer = setTimeout(() => el.classList.remove('show'), 1600);
+}
+
+/* ---------- loading overlay ---------- */
+
+// Reference-counted so overlapping async operations don't hide the spinner
+// prematurely. S3-backed storage adds noticeable latency, so we surface a
+// spinner for file opens, uploads and imports to avoid confusing the user.
+let loadingCount = 0;
+function showLoading(msg) {
+  loadingCount += 1;
+  let el = $('#loading-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loading-overlay';
+    el.className = 'loading-overlay';
+    el.innerHTML =
+      '<div class="loading-box"><div class="spinner"></div><div class="loading-text"></div></div>';
+    document.body.appendChild(el);
+  }
+  el.querySelector('.loading-text').textContent = msg || t('loading');
+  el.hidden = false;
+}
+function hideLoading() {
+  loadingCount = Math.max(0, loadingCount - 1);
+  if (loadingCount > 0) return;
+  const el = $('#loading-overlay');
+  if (el) el.hidden = true;
 }
 
 /* ---------- init ---------- */

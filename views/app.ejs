@@ -176,8 +176,31 @@
     </div>
   </div>
 
+  <div id="import-overlay" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+      <div class="dashboard-head">
+        <h3 id="import-modal-title" class="modal-title"><i class="bi bi-folder-symlink"></i> <span data-i18n="import_title">Import notes</span></h3>
+        <button id="import-modal-close" class="icon-btn" title="Close" aria-label="Close" data-i18n-attr="title:close;aria-label:close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <p class="modal-message" data-i18n="import_choose_hint">Choose how you want to import your notes.</p>
+      <div class="import-options">
+        <button id="import-zip-choice" class="import-option" type="button">
+          <i class="bi bi-file-earmark-zip"></i>
+          <span class="import-option-title" data-i18n="import_zip">Zip file</span>
+          <span class="import-option-desc" data-i18n="import_zip_desc">Recommended — no browser warning. The archive is unpacked automatically.</span>
+        </button>
+        <button id="import-folder-choice" class="import-option" type="button">
+          <i class="bi bi-folder2-open"></i>
+          <span class="import-option-title" data-i18n="import_folder">Folder</span>
+          <span class="import-option-desc" data-i18n="import_folder_desc">Your browser will ask you to confirm the folder upload.</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <input id="upload-input" type="file" hidden multiple />
   <input id="import-input" type="file" hidden multiple />
+  <input id="import-zip-input" type="file" hidden accept=".zip,application/zip" />
 
   <script src="/public/js/app.js"></script>
 </body>
