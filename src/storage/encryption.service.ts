@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
-    createCipheriv,
-    createDecipheriv,
-    hkdfSync,
-    randomBytes,
-    scryptSync,
+  createCipheriv,
+  createDecipheriv,
+  hkdfSync,
+  randomBytes,
+  scryptSync,
 } from 'crypto';
 import { AppConfig } from '../config/configuration';
 
@@ -33,12 +33,15 @@ export class EncryptionService {
   private readonly enabled: boolean;
   private readonly masterKey: Buffer | null;
   private readonly userKeys = new Map<string, Buffer>();
+  /** Dedicated key for encrypting database column values. */
+  private readonly dbKey: Buffer | null;
 
   constructor(config: ConfigService) {
     const app = config.get<AppConfig>('app');
     this.enabled = app.encryption.enabled;
     if (!this.enabled) {
       this.masterKey = null;
+      this.dbKey = null;
       this.logger.warn(
         'Vault encryption at rest is DISABLED (ENCRYPTION_ENABLED=false). ' +
           'Files will be stored in plaintext.',
@@ -56,6 +59,17 @@ export class EncryptionService {
     }
     // Stretch the (possibly low-entropy) secret into a 32-byte master key.
     this.masterKey = scryptSync(secret, 'web-obsidian:master-v1', KEY_LEN);
+    // Derive a separate key for database columns so file and DB ciphertexts
+    // never share key material.
+    this.dbKey = Buffer.from(
+      hkdfSync(
+        'sha256',
+        this.masterKey,
+        Buffer.from('web-obsidian:db', 'utf8'),
+        Buffer.from('web-obsidian:db-v1'),
+        KEY_LEN,
+      ),
+    );
   }
 
   get isEnabled(): boolean {
@@ -114,5 +128,62 @@ export class EncryptionService {
     const decipher = createDecipheriv('aes-256-gcm', this.userKey(username), iv);
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  }
+
+  /**
+   * Encrypt a short database column value (e.g. a TOTP secret or Stripe id).
+   * Returns a base64 string of `MAGIC | iv | tag | ciphertext`, or the value
+   * unchanged when encryption is disabled / the value is null/empty.
+   */
+  encryptString(plaintext: string | null | undefined): string | null {
+    if (plaintext === null || plaintext === undefined) {
+      return (plaintext ?? null) as null;
+    }
+    if (!this.enabled || plaintext === '') {
+      return plaintext;
+    }
+    const iv = randomBytes(IV_LEN);
+    const cipher = createCipheriv('aes-256-gcm', this.dbKey, iv);
+    const ciphertext = Buffer.concat([
+      cipher.update(Buffer.from(plaintext, 'utf8')),
+      cipher.final(),
+    ]);
+    const tag = cipher.getAuthTag();
+    return Buffer.concat([MAGIC, iv, tag, ciphertext]).toString('base64');
+  }
+
+  /**
+   * Decrypt a value produced by {@link encryptString}. Values that are not in
+   * our encrypted format (e.g. written before encryption was enabled) are
+   * returned unchanged.
+   */
+  decryptString(value: string | null | undefined): string | null {
+    if (value === null || value === undefined) {
+      return (value ?? null) as null;
+    }
+    if (!this.enabled || value === '') {
+      return value;
+    }
+    let blob: Buffer;
+    try {
+      blob = Buffer.from(value, 'base64');
+    } catch {
+      return value; // not base64; treat as legacy plaintext
+    }
+    if (
+      blob.length < HEADER_LEN ||
+      !blob.subarray(0, MAGIC.length).equals(MAGIC)
+    ) {
+      return value; // legacy plaintext
+    }
+    const iv = blob.subarray(MAGIC.length, MAGIC.length + IV_LEN);
+    const tag = blob.subarray(MAGIC.length + IV_LEN, HEADER_LEN);
+    const ciphertext = blob.subarray(HEADER_LEN);
+    const decipher = createDecipheriv('aes-256-gcm', this.dbKey, iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([
+      decipher.update(ciphertext),
+      decipher.final(),
+    ]).toString('utf8');
   }
 }

@@ -947,4 +947,56 @@ a { color: var(--accent); }
   opacity: 0.85;
 }
 
+/* ===== Plans & billing ===== */
+.plan-cards {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 16px;
+}
+.plan-card {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: var(--bg);
+  transition: border-color 0.15s, background 0.15s;
+}
+.plan-card:hover { background: var(--row-hover); }
+.plan-card:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--row-selected);
+}
+.plan-card input { margin-right: 8px; }
+.plan-card-title { font-weight: 600; }
+.plan-card-desc {
+  display: block;
+  margin-top: 4px;
+  margin-left: 24px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.plan-options {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.plan-btn[hidden] { display: none; }
+
+.plan-warning {
+  border: 1px solid var(--accent);
+  background: var(--row-selected);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.plan-warning.danger {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+#manage-billing-btn { margin-top: 4px; }
+
 

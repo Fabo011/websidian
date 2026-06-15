@@ -1,15 +1,21 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { mkdirSync } from 'fs';
 import { AccountModule } from './account/account.module';
 import { AuthModule } from './auth/auth.module';
+import { BillingModule } from './billing/billing.module';
 import configuration, { AppConfig, databaseFile } from './config/configuration';
 import { StorageModule } from './storage/storage.module';
+import { BlacklistedUser } from './users/blacklisted-user.entity';
+import { PrivilegedUser } from './users/privileged-user.entity';
 import { User } from './users/user.entity';
 import { UsersModule } from './users/users.module';
 import { VaultModule } from './vault/vault.module';
 import { ViewsModule } from './views/views.module';
+
+const ENTITIES = [User, PrivilegedUser, BlacklistedUser];
 
 @Module({
   imports: [
@@ -17,6 +23,7 @@ import { ViewsModule } from './views/views.module';
       isGlobal: true,
       load: [configuration],
     }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -31,7 +38,7 @@ import { ViewsModule } from './views/views.module';
             password: pg.password,
             database: pg.database,
             ssl: pg.ssl ? { rejectUnauthorized: false } : false,
-            entities: [User],
+            entities: ENTITIES,
             synchronize: true,
           };
         }
@@ -40,7 +47,7 @@ import { ViewsModule } from './views/views.module';
           type: 'sqljs' as const,
           location: databaseFile(app.dataRoot),
           autoSave: true,
-          entities: [User],
+          entities: ENTITIES,
           synchronize: true,
         };
       },
@@ -50,6 +57,7 @@ import { ViewsModule } from './views/views.module';
     StorageModule,
     VaultModule,
     AccountModule,
+    BillingModule,
     ViewsModule,
   ],
 })

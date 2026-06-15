@@ -3,6 +3,32 @@ import { isAbsolute, join, resolve } from 'path';
 export type DatabaseType = 'sqlite' | 'postgres';
 export type StorageDriver = 'local' | 's3';
 
+/** The storage plans a user can be on. */
+export type PlanTier = 'free' | 'plus5' | 'plus20';
+
+const GIB = 1024 * 1024 * 1024;
+
+/** Per-plan storage allowance in bytes. */
+export interface TierConfig {
+  free: number;
+  plus5: number;
+  plus20: number;
+}
+
+/** Stripe billing configuration (all values come from the environment). */
+export interface StripeConfig {
+  /** Whether the billing feature is switched on (drives tiers + dashboard UI). */
+  enabled: boolean;
+  /** Whether Stripe is fully configured so checkout actually works. */
+  ready: boolean;
+  secretKey: string;
+  /** Recurring (annual) price IDs for each paid plan. */
+  priceId5gb: string;
+  priceId20gb: string;
+  /** Absolute base URL of this app, used to build redirect URLs. */
+  appUrl: string;
+}
+
 export interface PostgresConfig {
   host: string;
   port: number;
@@ -33,6 +59,10 @@ export interface AppConfig {
   cookieSecure: boolean;
   /** Per-user storage quota in bytes. 0 means unlimited. */
   storageQuotaBytes: number;
+  /** Storage allowance for each plan tier. */
+  tiers: TierConfig;
+  /** Stripe billing settings. */
+  stripe: StripeConfig;
   database: { type: DatabaseType; postgres: PostgresConfig };
   storage: { driver: StorageDriver; s3: S3Config };
   /** At-rest encryption of vault contents (AES-256-GCM in Node.js). */
@@ -78,6 +108,13 @@ export default (): { app: AppConfig } => {
   const storageQuotaBytes =
     quotaGb <= 0 ? 0 : Math.round(quotaGb * 1024 * 1024 * 1024);
 
+  // Billing can be switched off entirely (self-hosting). The feature flag
+  // (BILLING_ENABLED) drives the tier structure and dashboard UI. Defaults to
+  // on only when a Stripe secret key is present. When billing is off,
+  // STORAGE_QUOTA_GB is the allowance every account gets (free == max vault).
+  const hasStripeSecret = Boolean(process.env.STRIPE_SECRET_KEY?.trim());
+  const billingEnabled = parseBool(process.env.BILLING_ENABLED, hasStripeSecret);
+
   return {
     app: {
       port: parseInt(process.env.PORT ?? '3065', 10),
@@ -88,6 +125,25 @@ export default (): { app: AppConfig } => {
       allowRegistration: parseBool(process.env.ALLOW_REGISTRATION, true),
       cookieSecure: parseBool(process.env.COOKIE_SECURE, false),
       storageQuotaBytes,
+      tiers: {
+        // With billing on, the free tier is a fixed 1 GB and STORAGE_QUOTA_GB
+        // is ignored for the free plan. With billing off, every account gets
+        // STORAGE_QUOTA_GB (0 == unlimited).
+        free: billingEnabled ? 1 * GIB : storageQuotaBytes,
+        plus5: 5 * GIB,
+        plus20: 20 * GIB,
+      },
+      stripe: {
+        enabled: billingEnabled,
+        ready: billingEnabled && hasStripeSecret,
+        secretKey: process.env.STRIPE_SECRET_KEY?.trim() || '',
+        priceId5gb: process.env.STRIPE_PRICE_5GB?.trim() || '',
+        priceId20gb: process.env.STRIPE_PRICE_20GB?.trim() || '',
+        appUrl: (process.env.APP_URL?.trim() || 'http://localhost:3065').replace(
+          /\/+$/,
+          '',
+        ),
+      },
       database: {
         type: parseDatabaseType(process.env.DB_TYPE),
         postgres: {
@@ -125,4 +181,9 @@ export default (): { app: AppConfig } => {
 /** Absolute path to the sqlite database file. */
 export function databaseFile(dataRoot: string): string {
   return join(dataRoot, 'app.db');
+}
+
+/** Resolve the storage allowance (bytes) for a plan tier. */
+export function bytesForTier(tiers: TierConfig, tier: PlanTier): number {
+  return tiers[tier] ?? tiers.free;
 }

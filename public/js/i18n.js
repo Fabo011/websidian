@@ -85,6 +85,37 @@
       usage_of: '{used} of {total} used ({pct}%)',
       usage_error: 'Could not load storage usage.',
 
+      /* plans & billing */
+      plan: 'Plan',
+      current_plan: 'Current plan',
+      plan_free: 'Free — 1 GB',
+      plan_5gb_name: '5 GB',
+      plan_20gb_name: '20 GB',
+      plan_valid_until: 'Valid until',
+      upgrade_5gb: 'Upgrade to 5 GB — €42/year',
+      upgrade_20gb: 'Upgrade to 20 GB — €72/year',
+      manage_billing: 'Manage subscription',
+      billing_unavailable: 'Paid upgrades are currently unavailable.',
+      billing_error: 'Could not start the payment. Please try again.',
+      checkout_success: 'Payment received — your plan is now active.',
+      checkout_canceled: 'Checkout canceled. No changes were made.',
+      plan_privileged_hint: 'You have complimentary 20 GB access — no payment required.',
+      plan_warn_expiring:
+        'Your plan will not renew and ends in {days} day(s). Pay again to keep it, or reduce your vault to 1 GB — otherwise your account will be deleted.',
+      plan_blacklisted:
+        'Your vault is over the free 1 GB limit without an active payment. Upgrade or reduce your vault to 1 GB, or your account will be deleted.',
+      choose_plan: 'Choose your plan',
+      choose_plan_hint:
+        'Start free with 1 GB, or upgrade now for more storage. You can change this anytime in your dashboard.',
+      plan_free_card: 'Free',
+      plan_free_desc: '1 GB of storage. No payment required.',
+      plan_5gb_card: '5 GB',
+      plan_5gb_desc: '€42 / year (billed annually).',
+      plan_20gb_card: '20 GB',
+      plan_20gb_desc: '€72 / year (billed annually).',
+      continue_free: 'Continue with free 1 GB',
+      upgrade_pay: 'Upgrade & pay',
+
       /* modal defaults */
       ok: 'OK',
       cancel: 'Cancel',
@@ -288,6 +319,37 @@
       usage_unlimited: '{used} belegt (unbegrenzt)',
       usage_of: '{used} von {total} belegt ({pct}%)',
       usage_error: 'Speichernutzung konnte nicht geladen werden.',
+
+      /* Tarife & Abrechnung */
+      plan: 'Tarif',
+      current_plan: 'Aktueller Tarif',
+      plan_free: 'Kostenlos — 1 GB',
+      plan_5gb_name: '5 GB',
+      plan_20gb_name: '20 GB',
+      plan_valid_until: 'Gültig bis',
+      upgrade_5gb: 'Auf 5 GB upgraden — 42 €/Jahr',
+      upgrade_20gb: 'Auf 20 GB upgraden — 72 €/Jahr',
+      manage_billing: 'Abo verwalten',
+      billing_unavailable: 'Kostenpflichtige Upgrades sind derzeit nicht verfügbar.',
+      billing_error: 'Die Zahlung konnte nicht gestartet werden. Bitte versuche es erneut.',
+      checkout_success: 'Zahlung erhalten — dein Tarif ist jetzt aktiv.',
+      checkout_canceled: 'Bezahlung abgebrochen. Es wurden keine Änderungen vorgenommen.',
+      plan_privileged_hint: 'Du hast kostenlosen 20-GB-Zugang — keine Zahlung erforderlich.',
+      plan_warn_expiring:
+        'Dein Tarif wird nicht verlängert und endet in {days} Tag(en). Zahle erneut, um ihn zu behalten, oder reduziere deinen Tresor auf 1 GB — andernfalls wird dein Konto gelöscht.',
+      plan_blacklisted:
+        'Dein Tresor überschreitet das kostenlose 1-GB-Limit ohne aktive Zahlung. Upgrade oder reduziere deinen Tresor auf 1 GB, sonst wird dein Konto gelöscht.',
+      choose_plan: 'Wähle deinen Tarif',
+      choose_plan_hint:
+        'Starte kostenlos mit 1 GB oder upgrade jetzt für mehr Speicher. Du kannst dies jederzeit im Dashboard ändern.',
+      plan_free_card: 'Kostenlos',
+      plan_free_desc: '1 GB Speicher. Keine Zahlung erforderlich.',
+      plan_5gb_card: '5 GB',
+      plan_5gb_desc: '42 € / Jahr (jährliche Abrechnung).',
+      plan_20gb_card: '20 GB',
+      plan_20gb_desc: '72 € / Jahr (jährliche Abrechnung).',
+      continue_free: 'Kostenlos mit 1 GB fortfahren',
+      upgrade_pay: 'Upgraden & bezahlen',
 
       ok: 'OK',
       cancel: 'Abbrechen',

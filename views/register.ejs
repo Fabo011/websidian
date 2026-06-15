@@ -53,6 +53,32 @@
       </form>
     </section>
 
+    <section id="plan-step" class="auth-form" hidden>
+      <h2 data-i18n="choose_plan">Choose your plan</h2>
+      <p class="muted" data-i18n="choose_plan_hint">
+        Start free with 1 GB, or upgrade now for more storage. You can change this anytime in your dashboard.
+      </p>
+      <div class="plan-cards">
+        <label class="plan-card">
+          <input type="radio" name="plan" value="free" checked />
+          <span class="plan-card-title" data-i18n="plan_free_card">Free</span>
+          <span class="plan-card-desc" data-i18n="plan_free_desc">1 GB of storage. No payment required.</span>
+        </label>
+        <label class="plan-card">
+          <input type="radio" name="plan" value="plus5" />
+          <span class="plan-card-title" data-i18n="plan_5gb_card">5 GB</span>
+          <span class="plan-card-desc" data-i18n="plan_5gb_desc">€42 / year (billed annually).</span>
+        </label>
+        <label class="plan-card">
+          <input type="radio" name="plan" value="plus20" />
+          <span class="plan-card-title" data-i18n="plan_20gb_card">20 GB</span>
+          <span class="plan-card-desc" data-i18n="plan_20gb_desc">€72 / year (billed annually).</span>
+        </label>
+      </div>
+      <p class="form-error" id="plan-error" hidden></p>
+      <button type="button" id="plan-continue" class="btn-primary" data-i18n="continue_free">Continue with free 1 GB</button>
+    </section>
+
     <p class="auth-alt"><span data-i18n="have_account">Already have an account?</span> <a href="/login" data-i18n="signin">Sign in</a></p>
   </main>
 

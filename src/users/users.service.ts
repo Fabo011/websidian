@@ -18,6 +18,11 @@ export class UsersService {
     return this.users.findOne({ where: { id } });
   }
 
+  /** All users (used by the nightly billing/quota job). */
+  findAll(): Promise<User[]> {
+    return this.users.find();
+  }
+
   async count(): Promise<number> {
     return this.users.count();
   }
@@ -32,6 +37,9 @@ export class UsersService {
       passwordHash: data.passwordHash,
       totpSecret: data.totpSecret,
       totpEnabled: false,
+      plan: 'free',
+      subscriptionStatus: 'none',
+      cancelAtPeriodEnd: false,
     });
     return this.users.save(user);
   }

@@ -7,6 +7,8 @@ import * as express from 'express';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { AppConfig } from './config/configuration';
+import { registerColumnEncryptor } from './storage/encrypted-column.transformer';
+import { EncryptionService } from './storage/encryption.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -14,6 +16,10 @@ async function bootstrap() {
   });
   const config = app.get(ConfigService);
   const appConfig = config.get<AppConfig>('app');
+
+  // Wire encrypted DB columns to the active encryption service before any
+  // database read/write occurs.
+  registerColumnEncryptor(app.get(EncryptionService));
 
   app.use(express.json({ limit: '25mb' }));
   app.use(express.urlencoded({ extended: true, limit: '25mb' }));

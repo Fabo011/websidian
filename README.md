@@ -143,3 +143,8 @@ run the following command twice
 ```
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+---
+
+### Stripe testing
+https://docs.stripe.com/testing

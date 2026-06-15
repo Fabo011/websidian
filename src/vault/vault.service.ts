@@ -1,18 +1,18 @@
 import {
-  BadRequestException,
-  ConflictException,
-  Inject,
-  Injectable,
+    BadRequestException,
+    ConflictException,
+    Inject,
+    Injectable,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ReadStream } from 'fs';
 import { basename, extname } from 'path';
-import { AppConfig } from '../config/configuration';
 import {
-  STORAGE_PROVIDER,
-  StorageProvider,
-  StorageStat,
+    STORAGE_PROVIDER,
+    StorageProvider,
+    StorageStat,
 } from '../storage/storage.interface';
+import { EntitlementsService } from '../users/entitlements.service';
+import { UsersService } from '../users/users.service';
 import { FileContent, SearchHit, TreeNode } from './vault.types';
 
 /** Extensions treated as editable text (returned/saved as UTF-8 strings). */
@@ -42,12 +42,28 @@ export interface QuotaUsage {
 @Injectable()
 export class VaultService {
   constructor(
-    private readonly config: ConfigService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+    private readonly users: UsersService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
-  private get quotaBytes(): number {
-    return this.config.get<AppConfig>('app').storageQuotaBytes;
+  /**
+   * Resolve the effective storage quota (bytes) for a user, combining their
+   * plan, Stripe subscription window and privileged status. Falls back to the
+   * free allowance when the user record cannot be found.
+   */
+  private async quotaBytesFor(username: string): Promise<number> {
+    const user = await this.users.findByUsername(username.toLowerCase());
+    if (!user) {
+      return this.entitlements.freeBytes;
+    }
+    const ent = await this.entitlements.forUser(user);
+    return ent.quotaBytes;
+  }
+
+  /** Raw bytes consumed by a user's vault (no quota involved). */
+  usedBytes(username: string): Promise<number> {
+    return this.storage.usage(username);
   }
 
   /** Create the user's vault namespace if it does not yet exist. */
@@ -66,7 +82,7 @@ export class VaultService {
   /** Current storage usage and the configured quota for a user. */
   async usage(username: string): Promise<QuotaUsage> {
     const used = await this.storage.usage(username);
-    const limit = this.quotaBytes;
+    const limit = await this.quotaBytesFor(username);
     return { used, limit, unlimited: limit === 0 };
   }
 
@@ -79,7 +95,7 @@ export class VaultService {
     incomingBytes: number,
     freedBytes = 0,
   ): Promise<void> {
-    const limit = this.quotaBytes;
+    const limit = await this.quotaBytesFor(username);
     if (limit === 0) {
       return; // unlimited
     }

@@ -165,7 +165,26 @@
         <h4 class="dashboard-subtitle"><i class="bi bi-hdd"></i> <span data-i18n="storage">Storage</span></h4>
         <div class="usage-bar"><div id="usage-fill" class="usage-fill"></div></div>
         <div class="usage-text"><span id="usage-text" data-i18n="loading">Loading…</span></div>
-        <p class="dashboard-hint" data-i18n="free_plan_hint">Free plan. Upgrades for more storage are coming soon.</p>
+      </div>
+
+      <div class="dashboard-section" id="plan-section" hidden>
+        <h4 class="dashboard-subtitle"><i class="bi bi-stars"></i> <span data-i18n="plan">Plan</span></h4>
+        <div id="plan-warning" class="plan-warning" hidden></div>
+        <div class="dashboard-row">
+          <span class="dashboard-label" data-i18n="current_plan">Current plan</span>
+          <span id="plan-value" class="dashboard-value">—</span>
+        </div>
+        <div id="plan-valid-row" class="dashboard-row" hidden>
+          <span class="dashboard-label" data-i18n="plan_valid_until">Valid until</span>
+          <span id="plan-valid" class="dashboard-value"></span>
+        </div>
+        <p id="plan-privileged-hint" class="dashboard-hint" data-i18n="plan_privileged_hint" hidden>You have complimentary 20 GB access — no payment required.</p>
+        <div id="plan-upgrade" class="plan-options" hidden>
+          <button class="btn-primary plan-btn" type="button" data-plan="plus5"><i class="bi bi-arrow-up-circle"></i> <span data-i18n="upgrade_5gb">Upgrade to 5 GB — €42/year</span></button>
+          <button class="btn-primary plan-btn" type="button" data-plan="plus20"><i class="bi bi-arrow-up-circle"></i> <span data-i18n="upgrade_20gb">Upgrade to 20 GB — €72/year</span></button>
+        </div>
+        <button id="manage-billing-btn" class="btn-ghost" type="button" hidden><i class="bi bi-credit-card"></i> <span data-i18n="manage_billing">Manage subscription</span></button>
+        <p id="billing-unavailable" class="dashboard-hint" data-i18n="billing_unavailable" hidden>Paid upgrades are currently unavailable.</p>
       </div>
 
       <div class="dashboard-section danger-zone">

@@ -1231,10 +1231,137 @@ async function loadAccount() {
         pct: pct.toFixed(pct >= 10 ? 0 : 1),
       });
     }
+    await renderPlan(info);
   } catch (e) {
     text.textContent = t('usage_error');
   }
 }
+
+function planLabel(tier) {
+  if (tier === 'plus20') return t('plan_20gb_name');
+  if (tier === 'plus5') return t('plan_5gb_name');
+  return t('plan_free');
+}
+
+let _billingConfig = null;
+async function billingConfig() {
+  if (_billingConfig === null) {
+    try {
+      const cfg = await api('GET', '/api/billing/config');
+      _billingConfig = {
+        enabled: Boolean(cfg && cfg.enabled),
+        ready: Boolean(cfg && cfg.ready),
+      };
+    } catch {
+      _billingConfig = { enabled: false, ready: false };
+    }
+  }
+  return _billingConfig;
+}
+
+async function billingEnabled() {
+  return (await billingConfig()).enabled;
+}
+
+async function renderPlan(info) {
+  const section = $('#plan-section');
+  const warning = $('#plan-warning');
+  const planValue = $('#plan-value');
+  const validRow = $('#plan-valid-row');
+  const validVal = $('#plan-valid');
+  const privilegedHint = $('#plan-privileged-hint');
+  const upgrade = $('#plan-upgrade');
+  const manageBtn = $('#manage-billing-btn');
+  const unavailable = $('#billing-unavailable');
+
+  // When billing is switched off (self-hosting) there are no plans to manage:
+  // hide the whole section and just show storage usage elsewhere.
+  const cfg = await billingConfig();
+  if (section) section.hidden = !cfg.enabled;
+  if (!cfg.enabled) {
+    return;
+  }
+
+  // Reset.
+  warning.hidden = true;
+  warning.classList.remove('danger');
+  validRow.hidden = true;
+  privilegedHint.hidden = true;
+  upgrade.hidden = true;
+  manageBtn.hidden = true;
+  unavailable.hidden = true;
+
+  planValue.textContent = planLabel(info.effectiveTier || 'free');
+
+  // Privileged accounts: complimentary top tier, no billing UI.
+  if (info.privileged) {
+    privilegedHint.hidden = false;
+    return;
+  }
+
+  // Warnings (most severe first).
+  if (info.blacklisted) {
+    warning.textContent = t('plan_blacklisted');
+    warning.classList.add('danger');
+    warning.hidden = false;
+  } else if (info.warnExpiringSoon) {
+    warning.textContent = t('plan_warn_expiring', {
+      days: info.daysUntilExpiry != null ? info.daysUntilExpiry : 0,
+    });
+    warning.hidden = false;
+  }
+
+  // Paid-through date.
+  if (info.paidActive && info.currentPeriodEnd) {
+    validRow.hidden = false;
+    try {
+      validVal.textContent = new Date(info.currentPeriodEnd).toLocaleDateString();
+    } catch {
+      validVal.textContent = String(info.currentPeriodEnd);
+    }
+  }
+
+  // Offer upgrades to tiers above the current effective tier.
+  const tier = info.effectiveTier || 'free';
+  const btn5 = upgrade.querySelector('[data-plan="plus5"]');
+  const btn20 = upgrade.querySelector('[data-plan="plus20"]');
+  btn5.hidden = tier !== 'free';
+  btn20.hidden = tier === 'plus20';
+  upgrade.hidden = btn5.hidden && btn20.hidden;
+
+  // Feature is on but Stripe isn't configured yet: show the buttons disabled
+  // and a hint so the operator knows checkout will not work until keys are set.
+  if (!cfg.ready) {
+    unavailable.hidden = false;
+    upgrade.querySelectorAll('button').forEach((b) => (b.disabled = true));
+  } else {
+    upgrade.querySelectorAll('button').forEach((b) => (b.disabled = false));
+  }
+
+  // Allow managing/cancelling an existing subscription.
+  if (cfg.ready && info.subscriptionStatus && info.subscriptionStatus !== 'none') {
+    manageBtn.hidden = false;
+  }
+}
+
+async function startCheckout(plan) {
+  try {
+    const { url } = await api('POST', '/api/billing/checkout', { plan });
+    if (url) window.location.href = url;
+  } catch (e) {
+    flash((e && e.message) || t('billing_error'));
+  }
+}
+
+async function openBillingPortal() {
+  try {
+    const { url } = await api('POST', '/api/billing/portal');
+    if (url) window.location.href = url;
+  } catch (e) {
+    flash((e && e.message) || t('billing_error'));
+  }
+}
+
 
 async function deleteAccount() {
   const password = await uiPrompt(t('delete_account'), '', {
@@ -1287,6 +1414,11 @@ $('#dashboard-overlay').addEventListener('click', (e) => {
   if (e.target === $('#dashboard-overlay')) closeDashboard();
 });
 $('#delete-account-btn').addEventListener('click', deleteAccount);
+$('#plan-upgrade').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-plan]');
+  if (btn) startCheckout(btn.getAttribute('data-plan'));
+});
+$('#manage-billing-btn').addEventListener('click', openBillingPortal);
 document.addEventListener('keydown', (e) => {
   if (!$('#dashboard-overlay').hidden && e.key === 'Escape') {
     closeDashboard();
@@ -1351,3 +1483,36 @@ function hideLoading() {
 
 setSelectedDir('');
 loadTree().catch((e) => console.error(e));
+handleCheckoutReturn().catch((e) => console.error(e));
+
+/**
+ * After returning from Stripe Checkout the URL carries ?checkout=success&
+ * session_id=... We sync the account from that session (no webhooks), clean the
+ * URL, then open the dashboard so the user sees their new plan.
+ */
+async function handleCheckoutReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const checkout = params.get('checkout');
+  if (!checkout) return;
+  const sessionId = params.get('session_id');
+
+  // Strip the billing params from the URL without reloading.
+  params.delete('checkout');
+  params.delete('session_id');
+  const clean =
+    window.location.pathname +
+    (params.toString() ? '?' + params.toString() : '');
+  window.history.replaceState({}, '', clean);
+
+  if (checkout === 'success' && sessionId) {
+    try {
+      await api('POST', '/api/billing/sync', { sessionId });
+    } catch (e) {
+      /* best-effort; dashboard will still reflect server state */
+    }
+    flash(t('checkout_success'));
+  } else if (checkout === 'cancel') {
+    flash(t('checkout_canceled'));
+  }
+  openDashboard();
+}

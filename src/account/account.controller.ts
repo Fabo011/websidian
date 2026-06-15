@@ -14,6 +14,9 @@ import { AuthService } from '../auth/auth.service';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards';
+import { BillingService } from '../billing/billing.service';
+import { BlacklistService } from '../users/blacklist.service';
+import { EntitlementsService } from '../users/entitlements.service';
 import { UsersService } from '../users/users.service';
 import { VaultService } from '../vault/vault.service';
 import { DeleteAccountDto } from './dto/delete-account.dto';
@@ -25,17 +28,39 @@ export class AccountController {
     private readonly auth: AuthService,
     private readonly users: UsersService,
     private readonly vault: VaultService,
+    private readonly entitlements: EntitlementsService,
+    private readonly blacklist: BlacklistService,
+    private readonly billing: BillingService,
   ) {}
 
-  /** Current account info: username, storage usage and quota. */
+  /** Current account info: username, storage usage, plan and billing status. */
   @Get()
   async account(@CurrentUser() user: AuthenticatedUser) {
     const usage = await this.vault.usage(user.username);
+    let dbUser = await this.users.findByUsername(user.username);
+    // Pull the latest subscription state from Stripe (no webhooks). Best-effort
+    // and only when the user actually has a subscription to refresh.
+    if (this.billing.ready && dbUser?.stripeSubscriptionId) {
+      await this.billing.syncUser(dbUser);
+      dbUser = await this.users.findByUsername(user.username);
+    }
+    const ent = dbUser ? await this.entitlements.forUser(dbUser) : null;
+    const blacklisted = await this.blacklist.isBlacklisted(user.username);
     return {
       username: user.username,
       usedBytes: usage.used,
       quotaBytes: usage.limit,
       unlimited: usage.unlimited,
+      plan: ent?.plan ?? 'free',
+      effectiveTier: ent?.effectiveTier ?? 'free',
+      privileged: ent?.privileged ?? false,
+      subscriptionStatus: ent?.subscriptionStatus ?? 'none',
+      currentPeriodEnd: ent?.currentPeriodEnd ?? null,
+      cancelAtPeriodEnd: ent?.cancelAtPeriodEnd ?? false,
+      paidActive: ent?.paidActive ?? false,
+      daysUntilExpiry: ent?.daysUntilExpiry ?? null,
+      warnExpiringSoon: ent?.warnExpiringSoon ?? false,
+      blacklisted,
     };
   }
 

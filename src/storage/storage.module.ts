@@ -51,6 +51,6 @@ import { STORAGE_PROVIDER, StorageProvider } from './storage.interface';
       },
     },
   ],
-  exports: [STORAGE_PROVIDER],
+  exports: [STORAGE_PROVIDER, EncryptionService],
 })
 export class StorageModule {}
