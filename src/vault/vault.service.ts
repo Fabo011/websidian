@@ -1,15 +1,15 @@
 import {
-    BadRequestException,
-    ConflictException,
-    Inject,
-    Injectable,
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
 } from '@nestjs/common';
 import { ReadStream } from 'fs';
 import { basename, extname } from 'path';
 import {
-    STORAGE_PROVIDER,
-    StorageProvider,
-    StorageStat,
+  STORAGE_PROVIDER,
+  StorageProvider,
+  StorageStat,
 } from '../storage/storage.interface';
 import { EntitlementsService } from '../users/entitlements.service';
 import { UsersService } from '../users/users.service';
@@ -17,14 +17,67 @@ import { FileContent, SearchHit, TreeNode } from './vault.types';
 
 /** Extensions treated as editable text (returned/saved as UTF-8 strings). */
 const TEXT_EXTENSIONS = new Set([
+  // notes & data
   'md',
   'markdown',
   'txt',
   'excalidraw',
   'json',
   'csv',
+  'tsv',
   'yml',
   'yaml',
+  'toml',
+  'ini',
+  'conf',
+  'cfg',
+  'env',
+  'properties',
+  'xml',
+  'log',
+  // web
+  'html',
+  'htm',
+  'css',
+  'scss',
+  'sass',
+  'less',
+  // scripting & programming
+  'js',
+  'mjs',
+  'cjs',
+  'jsx',
+  'ts',
+  'tsx',
+  'py',
+  'rb',
+  'php',
+  'java',
+  'kt',
+  'kts',
+  'go',
+  'rs',
+  'c',
+  'h',
+  'cpp',
+  'cc',
+  'hpp',
+  'cs',
+  'swift',
+  'scala',
+  'lua',
+  'pl',
+  'r',
+  'sql',
+  'sh',
+  'bash',
+  'zsh',
+  'fish',
+  'ps1',
+  'bat',
+  'dockerfile',
+  'gradle',
+  'tex',
 ]);
 
 /** Extensions scanned for content search. */

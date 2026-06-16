@@ -40,6 +40,16 @@ export class RenderDto {
   content: string;
 }
 
+export class HighlightDto {
+  /** File extension (language hint) used to pick the highlighter. */
+  @IsString()
+  @MaxLength(20)
+  ext: string;
+
+  @IsString()
+  content: string;
+}
+
 export class UploadFolderDto {
   @IsOptional()
   @IsString()

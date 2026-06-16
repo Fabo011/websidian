@@ -26,6 +26,7 @@ import { JwtAuthGuard } from '../auth/guards';
 import { mimeForExt } from '../common/mime';
 import {
     CreateFolderDto,
+    HighlightDto,
     RenameDto,
     RenderDto,
     WriteFileDto,
@@ -209,6 +210,12 @@ export class VaultController {
     @Body() dto: RenderDto,
   ) {
     const html = await this.markdown.render(user.username, dto.path, dto.content);
+    return { html };
+  }
+
+  @Post('highlight')
+  highlight(@Body() dto: HighlightDto) {
+    const html = this.markdown.highlightFile(dto.ext, dto.content);
     return { html };
   }
 

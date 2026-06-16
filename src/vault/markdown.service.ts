@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import hljs from 'highlight.js';
 import MarkdownIt from 'markdown-it';
 import { extname, posix } from 'path';
 import {
@@ -38,6 +39,12 @@ export class MarkdownService {
       linkify: true,
       breaks: true,
       typographer: true,
+      // Syntax-highlight fenced code blocks with highlight.js. Returns a
+      // ready-made <pre><code> so markdown-it does not escape it again.
+      highlight: (code: string, lang: string): string => {
+        const inner = this.highlightToHtml(code, lang);
+        return `<pre class="hljs"><code>${inner}</code></pre>`;
+      },
     });
     // Allow our internal link schemes through markdown-it's URL validator.
     const defaultValidate = this.md.validateLink.bind(this.md);
@@ -62,6 +69,92 @@ export class MarkdownService {
     };
     const pre = this.preprocessWikilinks(content);
     return this.md.render(pre, { wo: ctx });
+  }
+
+  /**
+   * Highlight a whole source file as a single code block. Used by the file
+   * browser to display code files (.py, .ts, .yaml, …) read-only with the same
+   * highlight.js theme as fenced code blocks in markdown.
+   */
+  highlightFile(ext: string, content: string): string {
+    const inner = this.highlightToHtml(content, this.langForExt(ext));
+    return `<pre class="hljs code-file"><code>${inner}</code></pre>`;
+  }
+
+  /** Highlight code to inner HTML, falling back to escaped plaintext. */
+  private highlightToHtml(code: string, lang?: string): string {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return hljs.highlight(code, { language: lang, ignoreIllegals: true })
+          .value;
+      } catch {
+        /* fall through to auto/plain */
+      }
+    }
+    try {
+      return hljs.highlightAuto(code).value;
+    } catch {
+      return this.escapeHtml(code);
+    }
+  }
+
+  /** Map a file extension to a highlight.js language name. */
+  private langForExt(ext: string): string | undefined {
+    const map: Record<string, string> = {
+      js: 'javascript',
+      mjs: 'javascript',
+      cjs: 'javascript',
+      jsx: 'javascript',
+      ts: 'typescript',
+      tsx: 'typescript',
+      py: 'python',
+      rb: 'ruby',
+      php: 'php',
+      java: 'java',
+      kt: 'kotlin',
+      kts: 'kotlin',
+      go: 'go',
+      rs: 'rust',
+      c: 'c',
+      h: 'c',
+      cpp: 'cpp',
+      cc: 'cpp',
+      hpp: 'cpp',
+      cs: 'csharp',
+      swift: 'swift',
+      scala: 'scala',
+      lua: 'lua',
+      pl: 'perl',
+      r: 'r',
+      sql: 'sql',
+      sh: 'bash',
+      bash: 'bash',
+      zsh: 'bash',
+      fish: 'bash',
+      ps1: 'powershell',
+      bat: 'dos',
+      dockerfile: 'dockerfile',
+      gradle: 'gradle',
+      tex: 'latex',
+      html: 'xml',
+      htm: 'xml',
+      xml: 'xml',
+      css: 'css',
+      scss: 'scss',
+      sass: 'scss',
+      less: 'less',
+      json: 'json',
+      yml: 'yaml',
+      yaml: 'yaml',
+      toml: 'ini',
+      ini: 'ini',
+      conf: 'ini',
+      cfg: 'ini',
+      properties: 'ini',
+      md: 'markdown',
+      markdown: 'markdown',
+    };
+    return map[ext.toLowerCase()];
   }
 
   /** Replace Obsidian `[[..]]` and `![[..]]` syntax with markdown using custom schemes. */

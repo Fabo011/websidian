@@ -11,6 +11,7 @@
         <option value="en">EN</option>
         <option value="de">DE</option>
       </select>
+      <a class="btn-ghost" href="/docs" data-i18n="nav_docs">Docs</a>
       <a class="btn-ghost" href="/login" data-i18n="nav_signin">Sign in</a>
       <% if (typeof allowRegistration !== 'undefined' && allowRegistration) { %>
         <a class="btn-primary btn-inline" href="/register" data-i18n="nav_create">Create account</a>
@@ -34,12 +35,35 @@
       </div>
     </section>
 
+    <section class="landing-section notice-section">
+      <h2 data-i18n="why_title">Why web-obsidian — and what it is not</h2>
+      <p class="section-lead" data-i18n="why_not">
+        web-obsidian is an independent open-source project. It is not the original Obsidian
+        (obsidian.md), not affiliated with it, and not a competitor. The name only describes the
+        idea: an Obsidian-style markdown vault you open in any browser.
+      </p>
+      <p class="section-lead" data-i18n="why_reason">
+        The original Obsidian keeps notes locally on each device and relies on a sync service to
+        keep them aligned. In many companies you simply cannot install private sync clients or
+        extra apps on enterprise laptops — so that setup is impossible. A browser is almost
+        always available, so your vault stays reachable. Nothing to install, no local storage
+        used on your phone or PC, and no encrypted backups for you to manage.
+      </p>
+      <p class="section-lead docs-quote" data-i18n="why_brain">
+        It is intentionally simple — just what you need in daily work and private life. The human
+        brain is made for having ideas, not for holding them. This is your second brain.
+      </p>
+      <p class="section-lead">
+        <a class="text-link" href="/docs" data-i18n="why_learn_more">Read the documentation →</a>
+      </p>
+    </section>
+
     <section class="landing-section">
-      <h2 data-i18n="diff_title">How it differs from Obsidian</h2>
+      <h2 data-i18n="diff_title">How it differs from obsidian.md</h2>
       <p class="section-lead" data-i18n="diff_lead">
-        The original Obsidian is a desktop app that keeps your notes offline on each device
-        and relies on a separate sync service to keep them in step. web-obsidian flips that
-        around: your vault lives online and you simply log in.
+        The original Obsidian is a great desktop app that keeps your notes offline on each device
+        and relies on a sync service to keep them in step. web-obsidian flips that
+        around: your vault lives online and you simply log in into encrypted vault with 2fa.
       </p>
       <div class="compare-grid">
         <div class="compare-card">
@@ -83,7 +107,7 @@
     <section class="landing-section">
       <h2 data-i18n="features_title">Features</h2>
       <p class="section-lead" data-i18n="features_lead">
-        All the everyday building blocks of the original offline Obsidian &mdash; available
+        All the everyday building blocks you need available
         online.
       </p>
       <ul class="feature-list">
@@ -99,6 +123,38 @@
         <li><i class="bi bi-lock"></i> <span data-i18n="feat_enc">AES-256 encryption at rest</span></li>
         <li><i class="bi bi-moon-stars"></i> <span data-i18n="feat_themes">Light &amp; dark themes</span></li>
       </ul>
+    </section>
+
+    <section class="landing-section pricing-section" id="pricing">
+      <h2 data-i18n="pricing_title">Simple, encrypted storage</h2>
+      <p class="section-lead" data-i18n="pricing_lead">
+        Start free with 1 GB. Upgrade when you need more room — every plan is encrypted at rest.
+      </p>
+      <div class="pricing-grid">
+        <div class="pricing-card">
+          <h3 data-i18n="pricing_free_name">Free</h3>
+          <p class="pricing-amount" data-i18n="pricing_free_amount">1 GB</p>
+          <p class="pricing-desc" data-i18n="pricing_free_desc">Encrypted storage. No payment required.</p>
+        </div>
+        <div class="pricing-card featured">
+          <h3 data-i18n="pricing_5gb_name">5 GB</h3>
+          <p class="pricing-amount"><%= (typeof pricing !== 'undefined' && pricing.price5gb) ? pricing.price5gb : '—' %><span class="pricing-period" data-i18n="pricing_per_year"> / year</span></p>
+          <p class="pricing-desc" data-i18n="pricing_enc_desc">Encrypted storage for your growing vault.</p>
+        </div>
+        <div class="pricing-card">
+          <h3 data-i18n="pricing_20gb_name">20 GB</h3>
+          <p class="pricing-amount"><%= (typeof pricing !== 'undefined' && pricing.price20gb) ? pricing.price20gb : '—' %><span class="pricing-period" data-i18n="pricing_per_year"> / year</span></p>
+          <p class="pricing-desc" data-i18n="pricing_enc_desc">Encrypted storage for your growing vault.</p>
+        </div>
+      </div>
+      <p class="section-lead pricing-contact">
+        <span data-i18n="pricing_more">Need more storage?</span>
+        <% if (typeof pricing !== 'undefined' && pricing.contactEmail) { %>
+          <a class="text-link" href="mailto:<%= pricing.contactEmail %>"><%= pricing.contactEmail %></a>
+        <% } else { %>
+          <span data-i18n="pricing_contact_us">Contact us.</span>
+        <% } %>
+      </p>
     </section>
 
     <section class="landing-cta">

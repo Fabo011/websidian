@@ -15,6 +15,12 @@ const MIME_BY_EXT: Record<string, string> = {
   bmp: 'image/bmp',
   mp4: 'video/mp4',
   mp3: 'audio/mpeg',
+  // Office documents
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  xls: 'application/vnd.ms-excel',
+  odt: 'application/vnd.oasis.opendocument.text',
+  ods: 'application/vnd.oasis.opendocument.spreadsheet',
 };
 
 export function mimeForExt(ext: string): string {

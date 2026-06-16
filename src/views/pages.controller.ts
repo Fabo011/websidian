@@ -36,9 +36,17 @@ export class PagesController {
     if (!username) {
       return res.render('landing', {
         allowRegistration: this.app.allowRegistration,
+        pricing: this.app.pricing,
       });
     }
     return res.render('app', { username });
+  }
+
+  @Get('/docs')
+  docs(@Req() req: Request, @Res() res: Response) {
+    return res.render('docs', {
+      loggedIn: Boolean(this.currentUsername(req)),
+    });
   }
 
   @Get('/imprint')

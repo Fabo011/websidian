@@ -79,6 +79,9 @@
       free_plan_hint: 'Free plan. Upgrades for more storage are coming soon.',
       danger_zone: 'Danger zone',
       security: 'Security',
+      help: 'Help',
+      docs_hint: 'Learn how syncing, backups, 2FA and encryption work.',
+      open_docs: 'Open documentation',
       change_password: 'Change password',
       change_password_hint:
         'Changing your password requires your current password and a code from your authenticator app.',
@@ -214,7 +217,30 @@
       /* landing */
       nav_signin: 'Sign in',
       nav_create: 'Create account',
+      nav_docs: 'Docs',
       home: 'Home',
+      back_home: 'Back to home',
+      back_to_vault: 'Back to vault',
+      why_title: 'Why web-obsidian — and what it is not',
+      why_not:
+        'web-obsidian is an independent open-source project. It is not the original Obsidian (obsidian.md), not affiliated with it, and not a competitor. The name only describes the idea: an Obsidian-style markdown vault you open in any browser.',
+      why_reason:
+        'The original Obsidian keeps notes locally on each device and relies on a sync service to keep them aligned. In many companies you simply cannot install private sync clients or extra apps on enterprise laptops — so that setup is impossible. A browser is almost always available, so your vault stays reachable. Nothing to install, no local storage used on your phone or PC, and no encrypted backups for you to manage.',
+      why_brain:
+        'It is intentionally simple — just what you need in daily work and private life. The human brain is made for having ideas, not for holding them. This is your second brain.',
+      why_learn_more: 'Read the documentation →',
+      pricing_title: 'Simple, encrypted storage',
+      pricing_lead:
+        'Start free with 1 GB. Upgrade when you need more room — every plan is encrypted at rest.',
+      pricing_free_name: 'Free',
+      pricing_free_amount: '1 GB',
+      pricing_free_desc: 'Encrypted storage. No payment required.',
+      pricing_5gb_name: '5 GB',
+      pricing_20gb_name: '20 GB',
+      pricing_enc_desc: 'Encrypted storage for your growing vault.',
+      pricing_per_year: ' / year',
+      pricing_more: 'Need more storage?',
+      pricing_contact_us: 'Contact us.',
       hero_title: 'Your knowledge vault, in the browser.',
       hero_lead:
         'web-obsidian is an open-source, privacy-first knowledge vault you reach from any browser. Take notes, organize nested folders, sketch with Excalidraw and read PDFs — all online, with nothing to install. Your vault is encrypted at rest with AES-256.',
@@ -328,6 +354,9 @@
         'Kostenloser Tarif. Mehr Speicher ist bald verfügbar.',
       danger_zone: 'Gefahrenbereich',
       security: 'Sicherheit',
+      help: 'Hilfe',
+      docs_hint: 'Erfahre, wie Synchronisierung, Backups, 2FA und Verschlüsselung funktionieren.',
+      open_docs: 'Dokumentation öffnen',
       change_password: 'Passwort ändern',
       change_password_hint:
         'Zum Ändern deines Passworts sind dein aktuelles Passwort und ein Code aus deiner Authenticator-App erforderlich.',
@@ -462,7 +491,30 @@
 
       nav_signin: 'Anmelden',
       nav_create: 'Konto erstellen',
+      nav_docs: 'Doku',
       home: 'Startseite',
+      back_home: 'Zurück zur Startseite',
+      back_to_vault: 'Zurück zum Tresor',
+      why_title: 'Warum web-obsidian – und was es nicht ist',
+      why_not:
+        'web-obsidian ist ein unabhängiges Open-Source-Projekt. Es ist nicht das originale Obsidian (obsidian.md), steht in keiner Verbindung dazu und ist kein Konkurrenzprodukt. Der Name beschreibt nur die Idee: ein Obsidian-artiger Markdown-Tresor, den du in jedem Browser öffnest.',
+      why_reason:
+        'Das originale Obsidian speichert Notizen lokal auf jedem Gerät und benötigt einen Sync-Dienst, um sie abzugleichen. In vielen Unternehmen darfst du auf Firmen-Laptops keine privaten Sync-Clients oder zusätzliche Apps installieren – damit ist dieser Aufbau unmöglich. Ein Browser ist jedoch fast immer verfügbar, sodass dein Tresor erreichbar bleibt. Nichts zu installieren, kein lokaler Speicher auf Handy oder PC und keine verschlüsselten Backups, um die du dich kümmern musst.',
+      why_brain:
+        'Es ist bewusst einfach gehalten – genau das, was du im Alltag und im Privatleben brauchst. Das menschliche Gehirn ist dazu da, Ideen zu haben, nicht sie zu speichern. Das ist dein zweites Gehirn.',
+      why_learn_more: 'Zur Dokumentation →',
+      pricing_title: 'Einfacher, verschlüsselter Speicher',
+      pricing_lead:
+        'Starte kostenlos mit 1 GB. Upgrade, wenn du mehr Platz brauchst – jeder Tarif ist verschlüsselt gespeichert.',
+      pricing_free_name: 'Kostenlos',
+      pricing_free_amount: '1 GB',
+      pricing_free_desc: 'Verschlüsselter Speicher. Keine Zahlung nötig.',
+      pricing_5gb_name: '5 GB',
+      pricing_20gb_name: '20 GB',
+      pricing_enc_desc: 'Verschlüsselter Speicher für deinen wachsenden Tresor.',
+      pricing_per_year: ' / Jahr',
+      pricing_more: 'Mehr Speicher nötig?',
+      pricing_contact_us: 'Kontaktiere uns.',
       hero_title: 'Dein Wissens-Tresor – im Browser.',
       hero_lead:
         'web-obsidian ist ein quelloffener, datenschutzorientierter Wissens-Tresor, den du aus jedem Browser erreichst. Notizen schreiben, verschachtelte Ordner organisieren, mit Excalidraw skizzieren und PDFs lesen – alles online, ohne Installation. Dein Tresor wird ruhend mit AES-256 verschlüsselt.',

@@ -170,7 +170,22 @@ function uiAlert(title, opts) {
 })();
 
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'];
-const TEXT_EXTS = ['md', 'markdown', 'txt', 'json', 'csv', 'yml', 'yaml'];
+// Editable text/code files (must mirror TEXT_EXTENSIONS in vault.service.ts).
+const TEXT_EXTS = [
+  'md', 'markdown', 'txt', 'json', 'csv', 'tsv', 'yml', 'yaml', 'toml', 'ini',
+  'conf', 'cfg', 'env', 'properties', 'xml', 'log',
+  'html', 'htm', 'css', 'scss', 'sass', 'less',
+  'js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'py', 'rb', 'php', 'java', 'kt',
+  'kts', 'go', 'rs', 'c', 'h', 'cpp', 'cc', 'hpp', 'cs', 'swift', 'scala',
+  'lua', 'pl', 'r', 'sql', 'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat',
+  'dockerfile', 'gradle', 'tex',
+];
+// Binary office documents rendered read-only by the office viewer bundle.
+const OFFICE_EXTS = ['docx', 'xlsx', 'xls', 'odt', 'ods'];
+// Code/config files that are not markdown notes (shown with a code preview).
+const CODE_EXTS = TEXT_EXTS.filter(
+  (e) => e !== 'md' && e !== 'markdown' && e !== 'txt',
+);
 
 function extOf(name) {
   const i = name.lastIndexOf('.');
@@ -422,8 +437,11 @@ function fileIcon(ext) {
   if (ext === 'excalidraw') return 'bi-pencil-square';
   if (ext === 'md' || ext === 'markdown') return 'bi-file-earmark-text';
   if (ext === 'txt') return 'bi-file-earmark';
-  if (ext === 'json' || ext === 'yml' || ext === 'yaml' || ext === 'csv')
-    return 'bi-file-earmark-code';
+  if (ext === 'docx') return 'bi-file-earmark-word';
+  if (ext === 'xlsx' || ext === 'xls' || ext === 'ods')
+    return 'bi-file-earmark-spreadsheet';
+  if (ext === 'odt') return 'bi-file-earmark-richtext';
+  if (CODE_EXTS.includes(ext)) return 'bi-file-earmark-code';
   return 'bi-paperclip';
 }
 
@@ -596,9 +614,12 @@ async function openEditor(path, ext) {
   const editor = $('#editor');
   editor.value = data.content;
   const isMarkdown = ext === 'md' || ext === 'markdown';
-  $('#toggle-preview').style.display = isMarkdown ? '' : 'none';
+  const isCode = CODE_EXTS.includes(ext);
+  // Markdown and code/config files offer a reading view (rendered preview or
+  // syntax-highlighted code); plain .txt has no preview.
+  $('#toggle-preview').style.display = isMarkdown || isCode ? '' : 'none';
   // Markdown files open in reading (view) mode by default; other text files
-  // (txt, json, csv, …) open in edit mode since they have no preview.
+  // (txt, json, code, …) open in edit mode.
   if (isMarkdown) {
     setViewMode(true);
   } else {
@@ -639,12 +660,22 @@ function setViewMode(viewing) {
 
 async function renderPreviewNow() {
   if (!state.current) return;
+  const ext = state.current.ext;
+  const isMarkdown = ext === 'md' || ext === 'markdown';
   try {
-    const data = await api('POST', '/api/render', {
-      path: state.current.path,
-      content: $('#editor').value,
-    });
-    $('#preview').innerHTML = data.html;
+    if (isMarkdown) {
+      const data = await api('POST', '/api/render', {
+        path: state.current.path,
+        content: $('#editor').value,
+      });
+      $('#preview').innerHTML = data.html;
+    } else {
+      const data = await api('POST', '/api/highlight', {
+        ext,
+        content: $('#editor').value,
+      });
+      $('#preview').innerHTML = data.html;
+    }
   } catch (e) {
     /* ignore preview errors */
   }
@@ -859,7 +890,58 @@ function openViewer(path, ext) {
     frame.src = attachmentUrl(path);
     frame.className = 'pdf-frame';
     body.appendChild(frame);
+  } else if (OFFICE_EXTS.includes(ext)) {
+    renderOffice(path, ext, body);
   } else {
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = t('no_preview');
+    body.appendChild(p);
+  }
+}
+
+/* ---------- office document viewer (Word / Excel / OpenDocument) ---------- */
+
+let officeLoading = null;
+function ensureOffice() {
+  if (window.OfficeViewer) return Promise.resolve();
+  if (officeLoading) return officeLoading;
+  officeLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = '/public/js/office-bundle.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Failed to load the document viewer.'));
+    document.body.appendChild(s);
+  });
+  return officeLoading;
+}
+
+async function renderOffice(path, ext, body) {
+  body.innerHTML = '';
+  const status = document.createElement('p');
+  status.className = 'muted';
+  status.textContent = t('loading');
+  body.appendChild(status);
+  try {
+    const res = await fetch(attachmentUrl(path), { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('fetch failed');
+    const buf = await res.arrayBuffer();
+    await ensureOffice();
+    // Guard against the user navigating away while loading.
+    if (!state.current || state.current.path !== path) return;
+    body.innerHTML = '';
+    const container = document.createElement('div');
+    container.className = 'office-doc';
+    body.appendChild(container);
+    if (ext === 'docx') {
+      await window.OfficeViewer.renderDocx(container, buf);
+    } else if (ext === 'odt') {
+      window.OfficeViewer.renderOdt(container, buf);
+    } else {
+      window.OfficeViewer.renderSpreadsheet(container, buf);
+    }
+  } catch (e) {
+    body.innerHTML = '';
     const p = document.createElement('p');
     p.className = 'muted';
     p.textContent = t('no_preview');

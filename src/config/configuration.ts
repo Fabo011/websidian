@@ -67,6 +67,18 @@ export interface AppConfig {
   storage: { driver: StorageDriver; s3: S3Config };
   /** At-rest encryption of vault contents (AES-256-GCM in Node.js). */
   encryption: { enabled: boolean; key: string };
+  /** Marketing/pricing copy surfaced on the public landing page. */
+  pricing: PricingConfig;
+}
+
+/** Display-only pricing shown on the landing page (set via environment). */
+export interface PricingConfig {
+  /** Human-readable price for the 5 GB plan, e.g. "€42 / year". */
+  price5gb: string;
+  /** Human-readable price for the 20 GB plan, e.g. "€72 / year". */
+  price20gb: string;
+  /** Contact address shown for custom / larger storage requests. */
+  contactEmail: string;
 }
 
 function parseBool(value: string | undefined, fallback: boolean): boolean {
@@ -173,6 +185,11 @@ export default (): { app: AppConfig } => {
             '',
           ),
         },
+      },
+      pricing: {
+        price5gb: process.env.PRICE_5GB?.trim() || '',
+        price20gb: process.env.PRICE_20GB?.trim() || '',
+        contactEmail: process.env.CONTACT_EMAIL?.trim() || '',
       },
     },
   };

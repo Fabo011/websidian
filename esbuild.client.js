@@ -48,6 +48,19 @@ async function main() {
     recursive: true,
   });
   console.log('Bootstrap Icons assets ready.');
+
+  // Bundle the read-only office document viewer (Word/Excel/ODT).
+  await esbuild.build({
+    entryPoints: ['client/office-entry.js'],
+    bundle: true,
+    format: 'iife',
+    outfile: 'public/js/office-bundle.js',
+    minify: true,
+    sourcemap: false,
+    define: { 'process.env.NODE_ENV': '"production"' },
+    logLevel: 'info',
+  });
+  console.log('Office viewer bundle ready.');
 }
 
 main().catch((err) => {
