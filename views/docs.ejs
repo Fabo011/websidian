@@ -30,9 +30,11 @@
         <a href="#what">What web-obsidian is</a>
         <a href="#sync">Changes are not real-time</a>
         <a href="#backup">Backing up your vault</a>
+        <a href="#trash">Deleting files (trash)</a>
         <a href="#twofa">Two-factor authentication</a>
         <a href="#encryption">At-rest encryption</a>
         <a href="#password">No password reset</a>
+        <a href="#weblinks">Web links</a>
         <a href="#files">Supported files</a>
         <a href="#architecture">Architecture</a>
       </nav>
@@ -93,6 +95,28 @@
         </p>
       </section>
 
+      <section class="legal-section" id="trash">
+        <h2>Deleting files (trash &amp; recovery window)</h2>
+        <p>
+          When you delete a file or folder it is <strong>not erased right away</strong>. It is
+          moved to a hidden, per-account trash so an accidental deletion can be recovered. While
+          an item sits in the trash it is hidden from your file tree, but it still
+          <strong>counts toward your storage quota</strong> until it is permanently removed.
+        </p>
+        <p>
+          A daily clean-up job permanently removes items that have been in the trash longer than
+          a fixed <strong>retention window</strong> &mdash; <strong>7 days by default</strong>.
+          The job runs once a day, so the retention setting controls <em>how long an item stays
+          recoverable</em>, not how often the clean-up runs. After the window passes the item is
+          gone for good and cannot be restored.
+        </p>
+        <p>
+          Self-hosting? The window is configurable with the
+          <code>TRASH_RETENTION_DAYS</code> environment variable (set it to <code>0</code> to
+          disable the trash entirely so deletions are immediate).
+        </p>
+      </section>
+
       <section class="legal-section" id="twofa">
         <h2>Two-factor authentication (2FA / TOTP)</h2>
         <p>
@@ -137,6 +161,36 @@
           <a href="https://bitwarden.com" target="_blank" rel="noopener noreferrer">Bitwarden</a>
           &mdash; to store your password and to hold your 2FA (Bitwarden can generate the TOTP
           codes for you).
+        </p>
+      </section>
+
+      <section class="legal-section" id="weblinks">
+        <h2>Web links (save a link once, open it safely forever)</h2>
+        <p>
+          The <strong>Web links</strong> manager lets you keep your important links inside your
+          vault &mdash; with a name, category and description &mdash; instead of scattering them
+          across browser bookmarks. Open the manager from the toolbar, add a link or import a CSV
+          (the Linky export format is supported), and search across everything you saved.
+        </p>
+        <p>
+          <strong>The idea.</strong> Your bookmarks normally live inside one browser on one
+          device. Reinstall the browser, switch machines, or log in from a locked-down work
+          computer and they are gone. Web links live in your encrypted vault, so they travel with
+          your account: save a link once and reach it from anywhere you can open web-obsidian.
+        </p>
+        <p>
+          <strong>Why it is safer.</strong> The risky moment with any link is the
+          <em>first</em> time &mdash; that is when you judge whether a URL really points where it
+          claims. Vet a link once, store the exact address, and from then on you always open
+          <em>that</em> verified URL. You are no longer re-reading a link someone pasted into an
+          email or chat, where the visible text can hide a different, manipulated destination.
+          The stored URL is encrypted at rest like the rest of your vault.
+        </p>
+        <p>
+          <strong>Independent of the browser.</strong> Because the links are kept server-side in
+          your vault rather than in a browser profile, they are not tied to any one browser,
+          extension or sync account. Nothing to install, nothing to export when you move devices
+          &mdash; just log in and your trusted links are there.
         </p>
       </section>
 

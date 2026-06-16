@@ -4,8 +4,11 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { randomBytes } from 'crypto';
 import { ReadStream } from 'fs';
 import { basename, extname } from 'path';
+import { AppConfig } from '../config/configuration';
 import {
   STORAGE_PROVIDER,
   StorageProvider,
@@ -92,13 +95,30 @@ export interface QuotaUsage {
   unlimited: boolean;
 }
 
+/**
+ * Hidden per-user folder that holds soft-deleted items until the purge cron
+ * permanently removes them. Items live under
+ * `.trash/<deletedAtMs>-<rand>/<original relative path>`. The leading dot keeps
+ * the whole tree out of listings, search, quota and exports (object-storage
+ * providers exclude it explicitly).
+ */
+export const TRASH_DIR = '.trash';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class VaultService {
   constructor(
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
     private readonly users: UsersService,
     private readonly entitlements: EntitlementsService,
+    private readonly config: ConfigService,
   ) {}
+
+  /** Days a deleted item stays in the trash before permanent removal. */
+  private get trashRetentionDays(): number {
+    return this.config.get<AppConfig>('app')?.trashRetentionDays ?? 0;
+  }
 
   /**
    * Resolve the effective storage quota (bytes) for a user, combining their
@@ -215,6 +235,9 @@ export class VaultService {
       const segments = relPath.split('/').filter(Boolean);
       if (segments.length === 0) {
         continue;
+      }
+      if (segments[0] === TRASH_DIR) {
+        continue; // soft-deleted items are hidden from the tree
       }
       const leaf = segments[segments.length - 1];
       const dirPath = segments.slice(0, -1).join('/');
@@ -344,7 +367,48 @@ export class VaultService {
     if (!relPath) {
       throw new BadRequestException('Path is required.');
     }
-    await this.storage.remove(username, relPath);
+    const clean = relPath.replace(/^\/+|\/+$/g, '');
+    // Soft-delete: move the entry into the user's hidden trash so it can be
+    // recovered until the purge cron permanently removes it. Items already in
+    // the trash (or the trash folder itself) are removed for good, and when
+    // retention is disabled deletions are immediate.
+    const inTrash = clean === TRASH_DIR || clean.startsWith(`${TRASH_DIR}/`);
+    if (this.trashRetentionDays <= 0 || inTrash) {
+      await this.storage.remove(username, clean);
+      return;
+    }
+    const stamp = `${Date.now()}-${randomBytes(4).toString('hex')}`;
+    await this.storage.move(username, clean, `${TRASH_DIR}/${stamp}/${clean}`);
+  }
+
+  /**
+   * Permanently remove trashed batches older than the retention window for a
+   * single user. Each batch folder is named `<deletedAtMs>-<rand>`; the leading
+   * timestamp decides expiry. Returns the number of batches purged.
+   */
+  async purgeExpiredTrash(username: string): Promise<number> {
+    if (this.trashRetentionDays <= 0) {
+      return 0;
+    }
+    if (!(await this.storage.isDir(username, TRASH_DIR))) {
+      return 0;
+    }
+    const cutoff = Date.now() - this.trashRetentionDays * DAY_MS;
+    const batches = await this.storage.list(username, TRASH_DIR);
+    let purged = 0;
+    for (const entry of batches) {
+      if (entry.type !== 'dir') {
+        continue;
+      }
+      const dash = entry.name.indexOf('-');
+      const ts = Number(dash > 0 ? entry.name.slice(0, dash) : entry.name);
+      if (!Number.isFinite(ts) || ts > cutoff) {
+        continue;
+      }
+      await this.storage.remove(username, `${TRASH_DIR}/${entry.name}`);
+      purged++;
+    }
+    return purged;
   }
 
   /** Persist an uploaded binary/file into the given folder, returning its relative path. */

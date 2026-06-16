@@ -1,32 +1,39 @@
 import {
-  CopyObjectCommand,
-  DeleteObjectsCommand,
-  GetObjectCommand,
-  HeadObjectCommand,
-  ListObjectsV2Command,
-  PutObjectCommand,
-  S3Client,
-  _Object,
+    CopyObjectCommand,
+    DeleteObjectsCommand,
+    GetObjectCommand,
+    HeadObjectCommand,
+    ListObjectsV2Command,
+    PutObjectCommand,
+    S3Client,
+    _Object,
 } from '@aws-sdk/client-s3';
 import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
+    BadRequestException,
+    Injectable,
+    Logger,
+    NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Readable } from 'stream';
 import { AppConfig, S3Config } from '../config/configuration';
 import {
-  StorageEntry,
-  StorageFile,
-  StorageProvider,
-  StorageReadStream,
-  StorageStat,
+    StorageEntry,
+    StorageFile,
+    StorageProvider,
+    StorageReadStream,
+    StorageStat,
 } from './storage.interface';
 
 /** Zero-byte marker object that keeps an otherwise-empty "folder" listable. */
 const KEEP_MARKER = '.keep';
+
+/**
+ * Hidden per-user folder holding soft-deleted items. Excluded from walkFiles so
+ * trashed data never appears in the tree or exports. It still counts toward the
+ * user's quota. Mirrors `TRASH_DIR` in the vault service.
+ */
+const TRASH_DIR = '.trash';
 
 /** How long a computed usage total stays cached, in milliseconds. */
 const USAGE_TTL_MS = 10_000;
@@ -389,6 +396,9 @@ export class S3StorageProvider implements StorageProvider {
       if (!obj.Key) continue;
       const relPath = this.relFromKey(username, obj.Key);
       if (!relPath) continue;
+      if (relPath === TRASH_DIR || relPath.startsWith(`${TRASH_DIR}/`)) {
+        continue; // hide soft-deleted items from tree/export
+      }
       files.push({
         relPath,
         size: obj.Size ?? 0,

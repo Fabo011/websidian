@@ -59,6 +59,12 @@ export interface AppConfig {
   cookieSecure: boolean;
   /** Per-user storage quota in bytes. 0 means unlimited. */
   storageQuotaBytes: number;
+  /**
+   * Days a deleted item stays in the per-user trash before it is permanently
+   * removed by the purge cron. 0 (or less) disables soft-delete so deletions
+   * are immediate.
+   */
+  trashRetentionDays: number;
   /** Storage allowance for each plan tier. */
   tiers: TierConfig;
   /** Stripe billing settings. */
@@ -137,6 +143,7 @@ export default (): { app: AppConfig } => {
       allowRegistration: parseBool(process.env.ALLOW_REGISTRATION, true),
       cookieSecure: parseBool(process.env.COOKIE_SECURE, false),
       storageQuotaBytes,
+      trashRetentionDays: parseNumber(process.env.TRASH_RETENTION_DAYS, 7),
       tiers: {
         // With billing on, the free tier is a fixed 1 GB and STORAGE_QUOTA_GB
         // is ignored for the free plan. With billing off, every account gets

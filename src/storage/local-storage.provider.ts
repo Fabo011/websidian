@@ -12,6 +12,13 @@ import {
 } from './storage.interface';
 
 /**
+ * Hidden per-user folder holding soft-deleted items. Excluded from listings and
+ * the tree, but its contents still count toward the user's quota. Mirrors
+ * `TRASH_DIR` in the vault service.
+ */
+const TRASH_DIR = '.trash';
+
+/**
  * Stores vault data on the server's local filesystem under
  * `dataRoot/<username>/`. This is the default provider.
  */
@@ -163,7 +170,9 @@ export class LocalStorageProvider implements StorageProvider {
         return; // directory may not exist yet
       }
       for (const entry of entries) {
-        if (entry.name.startsWith('.')) {
+        // Skip hidden dotfiles/markers, but still descend into the trash folder
+        // so soft-deleted items count toward the user's quota.
+        if (entry.name.startsWith('.') && entry.name !== TRASH_DIR) {
           continue;
         }
         const abs = join(dir, entry.name);
