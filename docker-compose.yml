@@ -24,12 +24,12 @@ services:
       # backed up; if empty it is derived from JWT_SECRET.
       ENCRYPTION_KEY: "${ENCRYPTION_KEY:-}"
       # Database: "sqlite" (default) or "postgres".
-      DB_TYPE: "${DB_TYPE:-sqlite}"
+      DB_TYPE: "${DB_TYPE:-postgres}"
       # Postgres settings (only used when DB_TYPE=postgres):
-      DB_HOST: "${DB_HOST:-localhost}"
+      DB_HOST: "${DB_HOST:-postgres}"
       DB_PORT: "${DB_PORT:-5432}"
       DB_USERNAME: "${DB_USERNAME:-postgres}"
-      DB_PASSWORD: "${DB_PASSWORD:-}"
+      DB_PASSWORD: "${DB_PASSWORD:-postgres}"
       DB_DATABASE: "${DB_DATABASE:-web_obsidian}"
       DB_SSL: "${DB_SSL:-false}"
       # Vault storage backend: "local" (default) or "s3" (S3-compatible, e.g. MEGA S4).
@@ -43,6 +43,23 @@ services:
       S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY:-}"
       S3_FORCE_PATH_STYLE: "${S3_FORCE_PATH_STYLE:-true}"
       S3_PREFIX: "${S3_PREFIX:-}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: web-obsidian-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${DB_USERNAME:-postgres}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-postgres}"
+      POSTGRES_DB: "${DB_DATABASE:-web_obsidian}"
     volumes:
-      # Persisted application data — back this folder up on the host.
-      - ./data:/app/data
+      # Persisted Postgres data — back this volume up - mega.
+      # PG 18+ stores data in version-specific subdirs, so mount the parent
+      # /var/lib/postgresql (not /var/lib/postgresql/data).
+      - postgres-data:/var/lib/postgresql
+
+volumes:
+  postgres-data:
