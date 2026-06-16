@@ -136,6 +136,31 @@
     </div>
   </div>
 
+  <div id="change-password-overlay" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="change-password-title">
+      <div class="dashboard-head">
+        <h3 id="change-password-title" class="modal-title"><i class="bi bi-key"></i> <span data-i18n="change_password">Change password</span></h3>
+        <button id="change-password-close" class="icon-btn" title="Close" aria-label="Close" data-i18n-attr="title:close;aria-label:close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <p class="modal-message" data-i18n="change_password_hint">Changing your password requires your current password and a code from your authenticator app.</p>
+      <form id="change-password-form" autocomplete="off">
+        <label class="modal-label" for="cp-current" data-i18n="current_password">Current password</label>
+        <input id="cp-current" class="modal-input" type="password" autocomplete="current-password" required />
+        <label class="modal-label" for="cp-new" data-i18n="new_password">New password</label>
+        <input id="cp-new" class="modal-input" type="password" autocomplete="new-password" minlength="8" required />
+        <label class="modal-label" for="cp-confirm" data-i18n="confirm_new_password">Confirm new password</label>
+        <input id="cp-confirm" class="modal-input" type="password" autocomplete="new-password" minlength="8" required />
+        <label class="modal-label" for="cp-code" data-i18n="totp_code">Authenticator code</label>
+        <input id="cp-code" class="modal-input" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code" required />
+        <p id="cp-error" class="modal-error" hidden></p>
+        <div class="modal-actions">
+          <button id="cp-cancel" class="btn-ghost" type="button" data-i18n="cancel">Cancel</button>
+          <button id="cp-submit" class="btn-primary" type="submit" data-i18n="change_password">Change password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="dashboard-overlay" class="modal-overlay" hidden>
     <div class="modal dashboard" role="dialog" aria-modal="true" aria-labelledby="dashboard-title">
       <div class="dashboard-head">
@@ -185,6 +210,12 @@
         </div>
         <button id="manage-billing-btn" class="btn-ghost" type="button" hidden><i class="bi bi-credit-card"></i> <span data-i18n="manage_billing">Manage subscription</span></button>
         <p id="billing-unavailable" class="dashboard-hint" data-i18n="billing_unavailable" hidden>Paid upgrades are currently unavailable.</p>
+      </div>
+
+      <div class="dashboard-section">
+        <h4 class="dashboard-subtitle"><i class="bi bi-shield-lock"></i> <span data-i18n="security">Security</span></h4>
+        <p class="dashboard-hint" data-i18n="change_password_hint">Changing your password requires your current password and a code from your authenticator app.</p>
+        <button id="change-password-btn" class="btn-ghost" type="button"><i class="bi bi-key"></i> <span data-i18n="change_password">Change password</span></button>
       </div>
 
       <div class="dashboard-section danger-zone">

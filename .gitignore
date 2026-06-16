@@ -3,7 +3,10 @@
 /node_modules
 /build
 data-smoke/
+data-test/
 data/
+.github/
+skills-lock.json
 
 # Logs
 logs
@@ -21,7 +24,6 @@ lerna-debug.log*
 /coverage
 /.nyc_output
 
-data-test/
 
 # IDEs and editors
 /.idea

@@ -1408,18 +1408,114 @@ async function deleteAccount() {
   flash(msg);
 }
 
+/* ---------- change password ---------- */
+
+function openChangePassword() {
+  const overlay = $('#change-password-overlay');
+  $('#cp-current').value = '';
+  $('#cp-new').value = '';
+  $('#cp-confirm').value = '';
+  $('#cp-code').value = '';
+  const err = $('#cp-error');
+  err.hidden = true;
+  err.textContent = '';
+  overlay.hidden = false;
+  $('#cp-current').focus();
+}
+
+function closeChangePassword() {
+  $('#change-password-overlay').hidden = true;
+}
+
+function showChangePasswordError(msg) {
+  const err = $('#cp-error');
+  err.textContent = msg;
+  err.hidden = false;
+}
+
+async function submitChangePassword(e) {
+  if (e) e.preventDefault();
+  const currentPassword = $('#cp-current').value;
+  const newPassword = $('#cp-new').value;
+  const confirm = $('#cp-confirm').value;
+  const code = $('#cp-code').value.trim();
+
+  if (!currentPassword || !newPassword || !code) {
+    showChangePasswordError(t('cp_fill_all'));
+    return;
+  }
+  if (newPassword.length < 8) {
+    showChangePasswordError(t('cp_too_short'));
+    return;
+  }
+  if (newPassword !== confirm) {
+    showChangePasswordError(t('cp_mismatch'));
+    return;
+  }
+  if (!/^\d{6}$/.test(code)) {
+    showChangePasswordError(t('cp_bad_code'));
+    return;
+  }
+
+  const btn = $('#cp-submit');
+  btn.disabled = true;
+  // Direct fetch so a 400/401 does not trigger the global auth redirect.
+  let res;
+  try {
+    res = await fetch('/api/account/password', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword, code }),
+    });
+  } catch {
+    btn.disabled = false;
+    showChangePasswordError(t('network_error'));
+    return;
+  }
+  btn.disabled = false;
+
+  if (res.ok) {
+    closeChangePassword();
+    flash(t('cp_success'));
+    return;
+  }
+
+  let msg = t('cp_failed');
+  try {
+    const data = await res.json();
+    if (data && data.message) {
+      msg = Array.isArray(data.message) ? data.message.join(' ') : data.message;
+    }
+  } catch {
+    /* ignore */
+  }
+  showChangePasswordError(msg);
+}
+
 $('#account-btn').addEventListener('click', openDashboard);
 $('#dashboard-close').addEventListener('click', closeDashboard);
 $('#dashboard-overlay').addEventListener('click', (e) => {
   if (e.target === $('#dashboard-overlay')) closeDashboard();
 });
 $('#delete-account-btn').addEventListener('click', deleteAccount);
+$('#change-password-btn').addEventListener('click', openChangePassword);
+$('#change-password-close').addEventListener('click', closeChangePassword);
+$('#cp-cancel').addEventListener('click', closeChangePassword);
+$('#change-password-form').addEventListener('submit', submitChangePassword);
+$('#change-password-overlay').addEventListener('click', (e) => {
+  if (e.target === $('#change-password-overlay')) closeChangePassword();
+});
 $('#plan-upgrade').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-plan]');
   if (btn) startCheckout(btn.getAttribute('data-plan'));
 });
 $('#manage-billing-btn').addEventListener('click', openBillingPortal);
 document.addEventListener('keydown', (e) => {
+  if (!$('#change-password-overlay').hidden && e.key === 'Escape') {
+    closeChangePassword();
+    return;
+  }
   if (!$('#dashboard-overlay').hidden && e.key === 'Escape') {
     closeDashboard();
   }

@@ -614,7 +614,7 @@ a { color: var(--accent); }
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s, transform 0.2s;
-  z-index: 80;
+  z-index: 200;
 }
 .flash.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -694,6 +694,8 @@ a { color: var(--accent); }
   padding: 16px;
 }
 .modal-overlay[hidden] { display: none; }
+/* Opens on top of the account dashboard overlay, which shares z-index 100. */
+#change-password-overlay { z-index: 110; }
 .modal {
   width: 100%;
   max-width: 420px;
@@ -733,6 +735,19 @@ a { color: var(--accent); }
 .modal-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+.modal-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.modal-error {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--danger, #e5484d);
+  line-height: 1.5;
 }
 .modal-actions {
   display: flex;

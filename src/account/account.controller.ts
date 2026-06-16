@@ -3,6 +3,8 @@ import {
     Controller,
     Delete,
     Get,
+    HttpCode,
+    Post,
     Req,
     Res,
     UnauthorizedException,
@@ -19,6 +21,7 @@ import { BlacklistService } from '../users/blacklist.service';
 import { EntitlementsService } from '../users/entitlements.service';
 import { UsersService } from '../users/users.service';
 import { VaultService } from '../vault/vault.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
 
 @Controller('api/account')
@@ -62,6 +65,25 @@ export class AccountController {
       warnExpiringSoon: ent?.warnExpiringSoon ?? false,
       blacklisted,
     };
+  }
+
+  /**
+   * Change the account password. Requires the current password and a valid
+   * TOTP code as a second factor.
+   */
+  @Post('password')
+  @HttpCode(200)
+  async changePassword(
+    @CurrentUser() current: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    await this.auth.changePassword(
+      current.id,
+      dto.currentPassword,
+      dto.newPassword,
+      dto.code,
+    );
+    return { ok: true };
   }
 
   /**

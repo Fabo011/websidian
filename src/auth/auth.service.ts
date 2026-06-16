@@ -79,6 +79,41 @@ export class AuthService {
     return authenticator.verify({ token: code, secret: user.totpSecret });
   }
 
+  /**
+   * Change a user's password. Requires the current password and a valid TOTP
+   * code as a second factor before the new password is stored.
+   */
+  async changePassword(
+    userId: number,
+    currentPassword: string,
+    newPassword: string,
+    code: string,
+  ): Promise<void> {
+    const user = await this.users.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Account no longer exists.');
+    }
+
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) {
+      throw new UnauthorizedException('Current password is incorrect.');
+    }
+
+    if (!this.verifyTotp(user, code)) {
+      throw new BadRequestException('Incorrect code. Please try again.');
+    }
+
+    const same = await bcrypt.compare(newPassword, user.passwordHash);
+    if (same) {
+      throw new BadRequestException(
+        'The new password must be different from the current one.',
+      );
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.users.save(user);
+  }
+
   /** Confirm the second factor and mark TOTP as enabled (idempotent). */
   async confirmTotp(userId: number, code: string): Promise<User> {
     const user = await this.users.findById(userId);
