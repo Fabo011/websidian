@@ -1,11 +1,11 @@
 import {
-    Body,
-    Controller,
-    ForbiddenException,
-    Post,
-    Req,
-    Res,
-    UseGuards,
+  Body,
+  Controller,
+  ForbiddenException,
+  Post,
+  Req,
+  Res,
+  UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CookieOptions, Request, Response } from 'express';
@@ -76,6 +76,12 @@ export class AuthController {
     const { user, secret, otpauthUrl, qrDataUrl } = await this.auth.register(
       dto.username,
       dto.password,
+      {
+        kdfSalt: dto.kdfSalt,
+        recoverySalt: dto.recoverySalt,
+        wrappedVaultKey: dto.wrappedVaultKey,
+        recoveryWrappedVaultKey: dto.recoveryWrappedVaultKey,
+      },
     );
     const pending = this.auth.signToken(user, 'pending');
     this.setPendingCookie(res, pending);
@@ -103,7 +109,14 @@ export class AuthController {
     const user = await this.auth.confirmTotp(current.id, dto.code);
     const token = this.auth.signToken(user, 'auth');
     this.setAuthCookie(res, token);
-    return { ok: true };
+    // Hand back the (server-opaque) wrapped vault key + KDF salt so the client
+    // can derive its wrapping key from the password it still holds in memory
+    // and unwrap the vault key locally. The server never sees the vault key.
+    return {
+      ok: true,
+      kdfSalt: user.kdfSalt,
+      wrappedVaultKey: user.wrappedVaultKey,
+    };
   }
 
   @Post('logout')

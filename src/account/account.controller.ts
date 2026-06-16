@@ -1,14 +1,14 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    HttpCode,
-    Post,
-    Req,
-    Res,
-    UnauthorizedException,
-    UseGuards,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AUTH_COOKIE } from '../auth/auth.constants';
@@ -69,6 +69,25 @@ export class AccountController {
   }
 
   /**
+   * Return the (server-opaque) wrapped vault key and KDF salt for the
+   * authenticated user. The client uses these to re-derive its wrapping key
+   * from the password and unlock the vault key locally — e.g. after a page
+   * reload in a fresh tab where the in-memory key was lost. The server never
+   * sees the vault key itself.
+   */
+  @Get('keys')
+  async keys(@CurrentUser() user: AuthenticatedUser) {
+    const dbUser = await this.users.findByUsername(user.username);
+    if (!dbUser) {
+      throw new UnauthorizedException('Account no longer exists.');
+    }
+    return {
+      kdfSalt: dbUser.kdfSalt,
+      wrappedVaultKey: dbUser.wrappedVaultKey,
+    };
+  }
+
+  /**
    * Change the account password. Requires the current password and a valid
    * TOTP code as a second factor.
    */
@@ -83,6 +102,7 @@ export class AccountController {
       dto.currentPassword,
       dto.newPassword,
       dto.code,
+      { kdfSalt: dto.newKdfSalt, wrappedVaultKey: dto.newWrappedVaultKey },
     );
     return { ok: true };
   }

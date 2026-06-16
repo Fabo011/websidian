@@ -25,7 +25,8 @@
       <p class="hero-lead" data-i18n="hero_lead">
         web-obsidian is an open-source, privacy-first knowledge vault you reach from any
         browser. Take notes, organize nested folders, sketch with Excalidraw and read PDFs &mdash;
-        all online, with nothing to install. Your vault is encrypted at rest with AES-256.
+        all online, with nothing to install. Everything is end-to-end encrypted in your browser,
+        so only you can read your vault &mdash; not even the server can.
       </p>
       <div class="hero-actions">
         <a class="btn-primary btn-inline" href="/login" data-i18n="hero_open">Open your vault</a>
@@ -63,7 +64,7 @@
       <p class="section-lead" data-i18n="diff_lead">
         The original Obsidian is a great desktop app that keeps your notes offline on each device
         and relies on a sync service to keep them in step. web-obsidian flips that
-        around: your vault lives online and you simply log in into encrypted vault with 2fa.
+        around: your vault lives online, end-to-end encrypted, and you simply log in with 2FA.
       </p>
       <div class="compare-grid">
         <div class="compare-card">
@@ -83,15 +84,16 @@
         <div class="compare-card">
           <h3 data-i18n="card_secure_h">Account-based &amp; secure</h3>
           <p data-i18n="card_secure_p">
-            Access is protected by your account with optional two-factor authentication (2FA).
+            Access is protected by your account with required two-factor authentication (2FA).
             Privacy comes first &mdash; no tracking, no analytics.
           </p>
         </div>
         <div class="compare-card">
-          <h3 data-i18n="card_enc_h">Encrypted at rest</h3>
+          <h3 data-i18n="card_enc_h">Zero-knowledge encryption</h3>
           <p data-i18n="card_enc_p">
-            Your notes, drawings and files are encrypted on the server with AES-256-GCM before
-            they touch disk or object storage, so the stored data is unreadable on its own.
+            Your notes, drawings and files are encrypted in your browser with AES-256-GCM. The
+            server only ever receives ciphertext, so nobody &mdash; not even us &mdash; can read
+            your vault.
           </p>
         </div>
         <div class="compare-card">
@@ -118,12 +120,44 @@
         <li><i class="bi bi-pencil"></i> <span data-i18n="feat_excalidraw">Excalidraw drawing integration</span></li>
         <li><i class="bi bi-file-earmark-pdf"></i> <span data-i18n="feat_pdf">Built-in PDF viewer</span></li>
         <li><i class="bi bi-paperclip"></i> <span data-i18n="feat_attach">Attachments &amp; file uploads</span></li>
-        <li><i class="bi bi-search"></i> <span data-i18n="feat_search">Full-text search across your vault</span></li>
-        <li><i class="bi bi-box-arrow-down"></i> <span data-i18n="feat_export">Export your whole vault as a zip</span></li>
+        <li><i class="bi bi-search"></i> <span data-i18n="feat_search">Full-text search that runs in your browser</span></li>
+        <li><i class="bi bi-box-arrow-down"></i> <span data-i18n="feat_export">Export your whole vault as a decrypted zip</span></li>
         <li><i class="bi bi-shield-lock"></i> <span data-i18n="feat_2fa">Two-factor authentication (2FA)</span></li>
-        <li><i class="bi bi-lock"></i> <span data-i18n="feat_enc">AES-256 encryption at rest</span></li>
+        <li><i class="bi bi-lock"></i> <span data-i18n="feat_enc">Zero-knowledge end-to-end encryption</span></li>
+        <li><i class="bi bi-key"></i> <span data-i18n="feat_recovery">Recovery key to restore access if you forget your password</span></li>
         <li><i class="bi bi-moon-stars"></i> <span data-i18n="feat_themes">Light &amp; dark themes</span></li>
       </ul>
+    </section>
+
+    <section class="landing-section">
+      <h2 data-i18n="e2e_title">Zero-knowledge by design</h2>
+      <p class="section-lead" data-i18n="e2e_lead">
+        Your vault is encrypted and decrypted entirely in your browser. Your password never
+        leaves your device, and the server only ever stores ciphertext it cannot read.
+      </p>
+      <div class="compare-grid">
+        <div class="compare-card">
+          <h3 data-i18n="e2e_point_keys_h">Only you hold the keys</h3>
+          <p data-i18n="e2e_point_keys_p">
+            Your encryption key is derived from your password in your browser and is never sent
+            to the server. We physically cannot read your notes, drawings or files.
+          </p>
+        </div>
+        <div class="compare-card">
+          <h3 data-i18n="e2e_point_recovery_h">Keep your recovery key safe</h3>
+          <p data-i18n="e2e_point_recovery_p">
+            When you sign up you receive a one-time recovery key. It is the only way back in if
+            you ever forget your password. Store it somewhere safe.
+          </p>
+        </div>
+        <div class="compare-card">
+          <h3 data-i18n="e2e_point_lost_h">Lost password, lost data</h3>
+          <p data-i18n="e2e_point_lost_p">
+            Because nobody but you can decrypt your vault, we cannot reset your password for you.
+            If you lose both your password and your recovery key, the data is gone for good.
+          </p>
+        </div>
+      </div>
     </section>
 
     <section class="landing-section pricing-section" id="pricing">

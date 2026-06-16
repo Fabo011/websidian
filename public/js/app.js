@@ -203,6 +203,121 @@ function attachmentUrl(p) {
   return '/api/attachment?path=' + encodeURIComponent(p);
 }
 
+/* ---------- end-to-end encryption ---------- */
+
+// The vault key (VK) lives only in the browser. WOCrypto restores it from this
+// tab's sessionStorage on a fresh page load; if it is missing we ask the user
+// to unlock by re-deriving it from their password (the server can hand us the
+// wrapped key + salt but never the key itself).
+let vaultKey = null;
+
+/** Decrypted-attachment blob URL cache: vault path -> objectURL. */
+const attachmentBlobCache = new Map();
+
+/** Ensure the vault key is available, prompting for the password if needed. */
+async function ensureVaultKey() {
+  if (vaultKey) return vaultKey;
+  vaultKey = await window.WOCrypto.getVaultKey();
+  if (vaultKey) return vaultKey;
+  // Fresh tab / cleared memory: re-derive from the password.
+  vaultKey = await promptUnlock();
+  return vaultKey;
+}
+
+/**
+ * Prompt for the account password and unlock the vault key. Fetches the
+ * (server-opaque) wrapped key + salt and unwraps locally.
+ */
+async function promptUnlock() {
+  for (;;) {
+    const password = await uiPrompt(t('unlock_title'), '', {
+      title: t('unlock_title'),
+      message: t('unlock_msg'),
+      placeholder: t('password'),
+      okText: t('unlock_action'),
+      inputType: 'password',
+    });
+    if (password == null) {
+      // User dismissed: without the key the app is unusable, so send to login.
+      window.location.href = '/login';
+      throw new Error('Vault locked');
+    }
+    try {
+      const keys = await api('GET', '/api/account/keys');
+      if (!keys || !keys.wrappedVaultKey || !keys.kdfSalt) {
+        throw new Error('missing key material');
+      }
+      return await window.WOCrypto.unlockVaultKey(
+        password,
+        keys.kdfSalt,
+        keys.wrappedVaultKey,
+      );
+    } catch (e) {
+      await uiAlert(t('unlock_failed_title'), { message: t('unlock_failed_msg') });
+    }
+  }
+}
+
+/** Encrypt note text to the base64 ciphertext the file API expects. */
+async function encryptContent(text) {
+  const key = await ensureVaultKey();
+  return window.WOCrypto.encryptTextToB64(key, text || '');
+}
+
+/** Decrypt base64 ciphertext returned by the file API back to text. */
+async function decryptContent(b64) {
+  if (b64 == null || b64 === '') return '';
+  const key = await ensureVaultKey();
+  return window.WOCrypto.decryptB64ToText(key, b64);
+}
+
+/** Encrypt raw file bytes into a Blob of ciphertext for upload. */
+async function encryptFileBlob(file) {
+  const key = await ensureVaultKey();
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const ct = await window.WOCrypto.encryptBytes(key, bytes);
+  return new Blob([ct], { type: 'application/octet-stream' });
+}
+
+/**
+ * Fetch an encrypted attachment, decrypt it, and return a blob: URL the browser
+ * can render directly. Results are cached per vault path for the page session.
+ */
+async function attachmentBlobUrl(path, mime) {
+  if (attachmentBlobCache.has(path)) return attachmentBlobCache.get(path);
+  const key = await ensureVaultKey();
+  const res = await fetch(attachmentUrl(path), { credentials: 'same-origin' });
+  if (!res.ok) throw new Error('attachment fetch failed');
+  const cipher = new Uint8Array(await res.arrayBuffer());
+  const plain = await window.WOCrypto.decryptBytes(key, cipher);
+  const blob = new Blob([plain], { type: mime || mimeForPath(path) });
+  const url = URL.createObjectURL(blob);
+  attachmentBlobCache.set(path, url);
+  return url;
+}
+
+/** Best-effort MIME type from a file extension for decrypted blob previews. */
+function mimeForPath(path) {
+  const ext = extOf(path);
+  const map = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+    webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp',
+    pdf: 'application/pdf',
+  };
+  return map[ext] || 'application/octet-stream';
+}
+
+/** Collect every vault-relative file path from the loaded tree for link resolution. */
+function collectVaultPaths() {
+  const paths = [];
+  document.querySelectorAll('#tree [data-path]').forEach((el) => {
+    if (el.getAttribute('data-type') !== 'dir') {
+      paths.push(el.getAttribute('data-path'));
+    }
+  });
+  return paths;
+}
+
 /* ---------- state ---------- */
 
 const state = {
@@ -234,6 +349,9 @@ async function loadTree() {
   const container = $('#tree');
   container.innerHTML = '';
   container.appendChild(buildList(tree));
+  // The vault changed shape; drop the cached full-text index so the next search
+  // rebuilds it from the current files.
+  invalidateSearchIndex();
 }
 
 // Dropping on empty tree space moves an entry to the vault root.
@@ -531,13 +649,16 @@ async function uploadDataTransfer(dt, targetDir) {
   const hasFolders = entries.some((en) => en.path.includes('/'));
   showLoading(t('uploading'));
   try {
+    // Encrypt every file's bytes in the browser before upload so the server
+    // only ever stores ciphertext. Names/paths stay plaintext.
     if (hasFolders) {
       // Preserve the folder structure via the import endpoint.
       const fd = new FormData();
       const paths = [];
       for (const en of entries) {
         paths.push(en.path);
-        fd.append('files', en.file, en.path.split('/').pop());
+        const blob = await encryptFileBlob(en.file);
+        fd.append('files', blob, en.path.split('/').pop());
       }
       fd.append('paths', JSON.stringify(paths));
       fd.append('base', targetDir);
@@ -546,7 +667,8 @@ async function uploadDataTransfer(dt, targetDir) {
     } else {
       for (const en of entries) {
         const fd = new FormData();
-        fd.append('file', en.file, en.file.name);
+        const blob = await encryptFileBlob(en.file);
+        fd.append('file', blob, en.file.name);
         fd.append('folder', targetDir);
         await api('POST', '/api/upload', fd, true);
       }
@@ -776,13 +898,14 @@ async function openFile(path) {
 
 async function openEditor(path, ext) {
   const data = await api('GET', '/api/file?path=' + encodeURIComponent(path));
+  const content = await decryptContent(data.content);
   hideAllViews();
   state.current = { path, ext, version: data.version };
   state.dirty = false;
   $('#editor-view').hidden = false;
   renderBreadcrumb($('#current-path'), path);
   const editor = $('#editor');
-  editor.value = data.content;
+  editor.value = content;
   const isMarkdown = ext === 'md' || ext === 'markdown';
   const isCode = CODE_EXTS.includes(ext);
   // Markdown and code/config files offer a reading view (rendered preview or
@@ -833,24 +956,60 @@ async function renderPreviewNow() {
   if (!state.current) return;
   const ext = state.current.ext;
   const isMarkdown = ext === 'md' || ext === 'markdown';
+  const preview = $('#preview');
   try {
     if (isMarkdown) {
-      const data = await api('POST', '/api/render', {
-        path: state.current.path,
-        content: $('#editor').value,
+      // Render entirely in the browser: the server can no longer read the
+      // (encrypted) note. Attachments render as a 1x1 placeholder first, then
+      // their decrypted blob: URLs are swapped in asynchronously.
+      preview.innerHTML = window.WOMarkdown.render($('#editor').value, {
+        notePath: state.current.path,
+        files: collectVaultPaths(),
+        attachmentSrc: () => PLACEHOLDER_SRC,
       });
-      $('#preview').innerHTML = data.html;
+      await hydrateAttachments(preview);
     } else {
-      const data = await api('POST', '/api/highlight', {
-        ext,
-        content: $('#editor').value,
-      });
-      $('#preview').innerHTML = data.html;
+      preview.innerHTML = window.WOMarkdown.highlightFile(ext, $('#editor').value);
     }
-    enhanceCodeBlocks($('#preview'));
+    enhanceCodeBlocks(preview);
   } catch (e) {
     /* ignore preview errors */
   }
+}
+
+// Transparent 1x1 GIF used while an attachment's decrypted blob URL loads.
+const PLACEHOLDER_SRC =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+/**
+ * Replace placeholder attachment sources with decrypted blob: URLs. Every
+ * rendered attachment carries its vault path in `data-wo-att`; we decrypt each
+ * referenced file once and point the element at the resulting blob URL.
+ */
+async function hydrateAttachments(container) {
+  const nodes = container.querySelectorAll('[data-wo-att]');
+  const seen = new Map();
+  await Promise.all(
+    Array.from(nodes).map(async (el) => {
+      const path = el.getAttribute('data-wo-att');
+      if (!path) return;
+      try {
+        let urlP = seen.get(path);
+        if (!urlP) {
+          urlP = attachmentBlobUrl(path);
+          seen.set(path, urlP);
+        }
+        const url = await urlP;
+        if (el.tagName === 'IMG' || el.tagName === 'IFRAME') {
+          el.src = url;
+        } else if (el.tagName === 'A') {
+          el.href = url;
+        }
+      } catch (e) {
+        /* missing/unreadable attachment: leave placeholder */
+      }
+    }),
+  );
 }
 
 /** Add a "copy" button to every highlighted code block in `container`. */
@@ -949,7 +1108,7 @@ async function embedDroppedFiles(files) {
   try {
     for (const file of files) {
       const fd = new FormData();
-      fd.append('file', file, file.name);
+      fd.append('file', await encryptFileBlob(file), file.name);
       fd.append('folder', folder);
       const res = await api('POST', '/api/upload', fd, true);
       const name = basename((res && res.path) || file.name);
@@ -1148,7 +1307,7 @@ async function saveCurrent() {
   if (!state.current) return;
   const payload = {
     path: state.current.path,
-    content: $('#editor').value,
+    content: await encryptContent($('#editor').value),
     baseVersion: state.current.version,
   };
   let result;
@@ -1175,6 +1334,7 @@ async function saveCurrent() {
   }
   if (result && result.version) state.current.version = result.version;
   state.dirty = false;
+  invalidateSearchIndex();
   flash(t('saved'));
 }
 $('#save-btn').addEventListener('click', saveCurrent);
@@ -1194,19 +1354,21 @@ function openViewer(path, ext) {
   state.current = { path, ext };
   $('#viewer-view').hidden = false;
   renderBreadcrumb($('#viewer-path'), path);
-  $('#viewer-download').href = attachmentUrl(path);
   const body = $('#viewer-body');
   body.innerHTML = '';
+  const downloadLink = $('#viewer-download');
+  downloadLink.removeAttribute('href');
+
   if (IMAGE_EXTS.includes(ext)) {
     const img = document.createElement('img');
-    img.src = attachmentUrl(path);
     img.alt = basename(path);
     body.appendChild(img);
+    setViewerSources(path, [img], downloadLink);
   } else if (ext === 'pdf') {
     const frame = document.createElement('iframe');
-    frame.src = attachmentUrl(path);
     frame.className = 'pdf-frame';
     body.appendChild(frame);
+    setViewerSources(path, [frame], downloadLink);
   } else if (OFFICE_EXTS.includes(ext)) {
     renderOffice(path, ext, body);
   } else {
@@ -1214,6 +1376,24 @@ function openViewer(path, ext) {
     p.className = 'muted';
     p.textContent = t('no_preview');
     body.appendChild(p);
+  }
+}
+
+/**
+ * Decrypt an attachment once and point the given preview elements (and the
+ * download link) at the resulting blob: URL.
+ */
+async function setViewerSources(path, elements, downloadLink) {
+  try {
+    const url = await attachmentBlobUrl(path);
+    if (!state.current || state.current.path !== path) return;
+    for (const el of elements) el.src = url;
+    if (downloadLink) {
+      downloadLink.href = url;
+      downloadLink.setAttribute('download', basename(path));
+    }
+  } catch (e) {
+    /* leave the viewer empty if decryption fails */
   }
 }
 
@@ -1240,9 +1420,16 @@ async function renderOffice(path, ext, body) {
   status.textContent = t('loading');
   body.appendChild(status);
   try {
+    const key = await ensureVaultKey();
     const res = await fetch(attachmentUrl(path), { credentials: 'same-origin' });
     if (!res.ok) throw new Error('fetch failed');
-    const buf = await res.arrayBuffer();
+    const cipher = new Uint8Array(await res.arrayBuffer());
+    const plain = await window.WOCrypto.decryptBytes(key, cipher);
+    // OfficeViewer expects an ArrayBuffer; hand it the decrypted bytes' buffer.
+    const buf = plain.buffer.slice(
+      plain.byteOffset,
+      plain.byteOffset + plain.byteLength,
+    );
     await ensureOffice();
     // Guard against the user navigating away while loading.
     if (!state.current || state.current.path !== path) return;
@@ -1293,7 +1480,8 @@ async function openExcalidraw(path) {
   try {
     const data = await api('GET', '/api/file?path=' + encodeURIComponent(path));
     state.current.version = data.version;
-    initial = data.content ? JSON.parse(data.content) : null;
+    const content = await decryptContent(data.content);
+    initial = content ? JSON.parse(content) : null;
   } catch (e) {
     initial = null;
   }
@@ -1311,7 +1499,7 @@ async function saveExcalidraw() {
   const json = window.ExcalidrawEditor.serialize(state.excalidraw);
   const payload = {
     path: state.current.path,
-    content: json,
+    content: await encryptContent(json),
     baseVersion: state.current.version,
   };
   let result;
@@ -1349,7 +1537,7 @@ async function createNoteIn(targetDir) {
   if (!name) return;
   if (!/\.[a-z0-9]+$/i.test(name)) name += '.md';
   const path = targetDir ? targetDir + '/' + name : name;
-  await api('PUT', '/api/file', { path, content: '' });
+  await api('PUT', '/api/file', { path, content: await encryptContent('') });
   expandAncestors(targetDir);
   await loadTree();
   openFile(path);
@@ -1366,7 +1554,7 @@ async function createFileIn(targetDir) {
   if (!/\.[a-z0-9]+$/i.test(name)) name += '.excalidraw';
   const path = targetDir ? targetDir + '/' + name : name;
   try {
-    await api('PUT', '/api/file', { path, content: '' });
+    await api('PUT', '/api/file', { path, content: await encryptContent('') });
   } catch (e) {
     flash(e.message || t('could_not_create'));
     return;
@@ -1401,7 +1589,7 @@ $('#upload-input').addEventListener('change', async (e) => {
   try {
     for (const file of files) {
       const fd = new FormData();
-      fd.append('file', file, file.name);
+      fd.append('file', await encryptFileBlob(file), file.name);
       fd.append('folder', state.selectedDir);
       await api('POST', '/api/upload', fd, true);
     }
@@ -1431,14 +1619,33 @@ async function runImport(files) {
   if (!files.length) return;
   showLoading(t('importing'));
   try {
-    const fd = new FormData();
-    const paths = [];
+    // Build a flat list of {path, bytes}. Any .zip is expanded in the browser
+    // (the server can't read encrypted contents), and every entry is encrypted
+    // before upload.
+    const items = [];
     for (const file of files) {
       const rel = file.webkitRelativePath || file.name;
-      paths.push(rel);
-      // Send the basename as the multipart filename; the relative path is sent
-      // separately in `paths` so the folder structure survives intact.
-      fd.append('files', file, rel.split('/').pop());
+      if (rel.toLowerCase().endsWith('.zip')) {
+        const buf = new Uint8Array(await file.arrayBuffer());
+        for (const entry of window.WOZip.unzip(buf)) {
+          items.push({ path: entry.path, bytes: entry.bytes });
+        }
+      } else {
+        items.push({ path: rel, bytes: new Uint8Array(await file.arrayBuffer()) });
+      }
+    }
+
+    const key = await ensureVaultKey();
+    const fd = new FormData();
+    const paths = [];
+    for (const item of items) {
+      paths.push(item.path);
+      const ct = await window.WOCrypto.encryptBytes(key, item.bytes);
+      fd.append(
+        'files',
+        new Blob([ct], { type: 'application/octet-stream' }),
+        item.path.split('/').pop(),
+      );
     }
     fd.append('paths', JSON.stringify(paths));
     fd.append('base', state.selectedDir);
@@ -1499,22 +1706,28 @@ $('#export-btn').addEventListener('click', async () => {
   if (icon) icon.className = 'bi bi-arrow-repeat spin';
   flash(t('preparing_download'));
   try {
-    const res = await fetch('/api/export', { credentials: 'same-origin' });
-    if (!res.ok) throw new Error('export failed');
-
-    // Derive the filename the server suggested, falling back to a sane default.
-    let filename = 'vault.zip';
-    const disposition = res.headers.get('Content-Disposition') || '';
-    const match = /filename="?([^"]+)"?/i.exec(disposition);
-    if (match && match[1]) {
+    // Build the export archive in the browser: the server only holds
+    // ciphertext, so we fetch every file, decrypt it with the vault key, and
+    // zip the plaintext locally.
+    const key = await ensureVaultKey();
+    const list = await api('GET', '/api/files');
+    const files = {};
+    for (const entry of list || []) {
+      const res = await fetch(attachmentUrl(entry.path), {
+        credentials: 'same-origin',
+      });
+      if (!res.ok) continue;
+      const cipher = new Uint8Array(await res.arrayBuffer());
       try {
-        filename = decodeURIComponent(match[1]);
-      } catch {
-        filename = match[1];
+        files[entry.path] = await window.WOCrypto.decryptBytes(key, cipher);
+      } catch (e) {
+        /* skip files that fail to decrypt */
       }
     }
-
-    const blob = await res.blob();
+    const zipped = window.WOZip.zip(files);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const filename = 'vault-' + stamp + '.zip';
+    const blob = new Blob([zipped], { type: 'application/zip' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -1533,6 +1746,71 @@ $('#export-btn').addEventListener('click', async () => {
 
 /* ---------- search ---------- */
 
+// Client-side content index. The server can only match file *names* now (it
+// holds ciphertext), so full-text search runs in the browser over decrypted
+// notes. The index is built lazily on first search and reused thereafter.
+const searchIndex = { built: false, building: null, docs: [] };
+
+// Extensions worth indexing for full-text search (text-like notes/config).
+const SEARCH_EXTS = new Set([
+  'md', 'markdown', 'txt', 'json', 'csv', 'tsv', 'yml', 'yaml', 'toml', 'ini',
+  'html', 'htm', 'xml', 'css', 'scss', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'py',
+  'rb', 'php', 'java', 'go', 'rs', 'c', 'h', 'cpp', 'sh', 'sql', 'log',
+]);
+
+async function buildSearchIndex() {
+  if (searchIndex.built) return;
+  if (searchIndex.building) return searchIndex.building;
+  searchIndex.building = (async () => {
+    const key = await ensureVaultKey();
+    const list = await api('GET', '/api/files');
+    const docs = [];
+    for (const entry of list || []) {
+      if (!SEARCH_EXTS.has(extOf(entry.path))) continue;
+      try {
+        const res = await fetch(attachmentUrl(entry.path), {
+          credentials: 'same-origin',
+        });
+        if (!res.ok) continue;
+        const cipher = new Uint8Array(await res.arrayBuffer());
+        const bytes = await window.WOCrypto.decryptBytes(key, cipher);
+        const text = new TextDecoder().decode(bytes);
+        docs.push({ path: entry.path, name: basename(entry.path), text });
+      } catch (e) {
+        /* skip unreadable files */
+      }
+    }
+    searchIndex.docs = docs;
+    searchIndex.built = true;
+    searchIndex.building = null;
+  })();
+  return searchIndex.building;
+}
+
+/** Invalidate the content index after the vault changes. */
+function invalidateSearchIndex() {
+  searchIndex.built = false;
+  searchIndex.building = null;
+  searchIndex.docs = [];
+}
+
+/** Search decrypted notes for `q`, returning {path, name, snippet} matches. */
+function searchContent(q) {
+  const needle = q.toLowerCase();
+  const hits = [];
+  for (const doc of searchIndex.docs) {
+    const idx = doc.text.toLowerCase().indexOf(needle);
+    if (idx < 0) continue;
+    const start = Math.max(0, idx - 30);
+    const end = Math.min(doc.text.length, idx + needle.length + 30);
+    let snippet = doc.text.slice(start, end).replace(/\s+/g, ' ').trim();
+    if (start > 0) snippet = '…' + snippet;
+    if (end < doc.text.length) snippet = snippet + '…';
+    hits.push({ path: doc.path, name: doc.name, snippet });
+  }
+  return hits;
+}
+
 const runSearch = debounce(async (q) => {
   const box = $('#search-results');
   if (!q.trim()) {
@@ -1540,7 +1818,31 @@ const runSearch = debounce(async (q) => {
     box.innerHTML = '';
     return;
   }
-  const hits = await api('GET', '/api/search?q=' + encodeURIComponent(q));
+  // Name matches come from the server; content matches are computed locally
+  // over the decrypted index. Merge them, de-duplicating by path.
+  let hits = [];
+  try {
+    const nameHits = await api('GET', '/api/search?q=' + encodeURIComponent(q));
+    hits = Array.isArray(nameHits) ? nameHits.slice() : [];
+  } catch (e) {
+    hits = [];
+  }
+  try {
+    await buildSearchIndex();
+    const byPath = new Set(hits.map((h) => h.path));
+    for (const ch of searchContent(q)) {
+      if (byPath.has(ch.path)) {
+        // Enrich the existing name hit with a content snippet.
+        const existing = hits.find((h) => h.path === ch.path);
+        if (existing && !existing.snippet) existing.snippet = ch.snippet;
+      } else {
+        hits.push(ch);
+        byPath.add(ch.path);
+      }
+    }
+  } catch (e) {
+    /* content search unavailable; fall back to name hits only */
+  }
   box.innerHTML = '';
   if (!hits.length) {
     box.innerHTML = '<div class="search-empty">' + t('no_matches') + '</div>';
@@ -1613,6 +1915,8 @@ document.querySelectorAll('[data-mobile-back]').forEach((btn) => {
 
 $('#logout-btn').addEventListener('click', async () => {
   await api('POST', '/auth/logout');
+  // Forget the vault key so it can't be reused by a later session in this tab.
+  window.WOCrypto.clearVaultKey();
   window.location.href = '/login';
 });
 
@@ -1891,6 +2195,31 @@ async function submitChangePassword(e) {
 
   const btn = $('#cp-submit');
   btn.disabled = true;
+
+  // Re-wrap the vault key for the new password entirely in the browser. The
+  // server stores the new wrapped key + salt but never sees the vault key. We
+  // fetch the current wrapped key + salt, unwrap with the old password, and
+  // re-wrap with the new one. The vault itself is NOT re-encrypted.
+  let rewrap;
+  try {
+    const keys = await api('GET', '/api/account/keys');
+    if (!keys || !keys.wrappedVaultKey || !keys.kdfSalt) {
+      throw new Error('missing key material');
+    }
+    const { newKdfSalt, newWrappedVaultKey } =
+      await window.WOCrypto.rewrapForNewPassword(
+        currentPassword,
+        keys.kdfSalt,
+        keys.wrappedVaultKey,
+        newPassword,
+      );
+    rewrap = { newKdfSalt, newWrappedVaultKey };
+  } catch (e) {
+    btn.disabled = false;
+    showChangePasswordError(t('cp_wrong_current') || t('cp_failed'));
+    return;
+  }
+
   // Direct fetch so a 400/401 does not trigger the global auth redirect.
   let res;
   try {
@@ -1898,7 +2227,13 @@ async function submitChangePassword(e) {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentPassword, newPassword, code }),
+      body: JSON.stringify({
+        currentPassword,
+        newPassword,
+        code,
+        newKdfSalt: rewrap.newKdfSalt,
+        newWrappedVaultKey: rewrap.newWrappedVaultKey,
+      }),
     });
   } catch {
     btn.disabled = false;
@@ -2587,7 +2922,12 @@ function hideLoading() {
 /* ---------- init ---------- */
 
 setSelectedDir('');
-loadTree().catch((e) => console.error(e));
+// Ensure the vault key is available before anything tries to read encrypted
+// files. On a fresh tab this re-derives it from the password; if the user
+// dismisses the prompt they are redirected to login.
+ensureVaultKey()
+  .then(() => loadTree())
+  .catch((e) => console.error(e));
 handleCheckoutReturn().catch((e) => console.error(e));
 
 /**

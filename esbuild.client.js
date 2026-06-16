@@ -61,6 +61,35 @@ async function main() {
     logLevel: 'info',
   });
   console.log('Office viewer bundle ready.');
+
+  // Bundle the client-side markdown renderer (markdown-it + highlight.js).
+  // With end-to-end encryption the server can't read note contents, so the
+  // former server-side render/highlight endpoints now run in the browser.
+  await esbuild.build({
+    entryPoints: ['client/markdown-entry.js'],
+    bundle: true,
+    format: 'iife',
+    outfile: 'public/js/markdown-bundle.js',
+    minify: true,
+    sourcemap: false,
+    define: { 'process.env.NODE_ENV': '"production"' },
+    logLevel: 'info',
+  });
+  console.log('Markdown renderer bundle ready.');
+
+  // Bundle the client-side zip helper (fflate). Import/export must pack and
+  // unpack archives in the browser since the server only holds ciphertext.
+  await esbuild.build({
+    entryPoints: ['client/zip-entry.js'],
+    bundle: true,
+    format: 'iife',
+    outfile: 'public/js/zip-bundle.js',
+    minify: true,
+    sourcemap: false,
+    define: { 'process.env.NODE_ENV': '"production"' },
+    logLevel: 'info',
+  });
+  console.log('Zip helper bundle ready.');
 }
 
 main().catch((err) => {

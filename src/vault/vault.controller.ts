@@ -17,7 +17,6 @@ import {
     FileInterceptor,
     FilesInterceptor,
 } from '@nestjs/platform-express';
-import AdmZip from 'adm-zip';
 import { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { AuthenticatedUser } from '../auth/auth.types';
@@ -26,12 +25,9 @@ import { JwtAuthGuard } from '../auth/guards';
 import { mimeForExt } from '../common/mime';
 import {
     CreateFolderDto,
-    HighlightDto,
     RenameDto,
-    RenderDto,
     WriteFileDto,
 } from './dto/vault.dto';
-import { MarkdownService } from './markdown.service';
 import { VaultService } from './vault.service';
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB per file
@@ -39,10 +35,7 @@ const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB per file
 @Controller('api')
 @UseGuards(JwtAuthGuard)
 export class VaultController {
-  constructor(
-    private readonly vault: VaultService,
-    private readonly markdown: MarkdownService,
-  ) {}
+  constructor(private readonly vault: VaultService) {}
 
   @Get('tree')
   tree(@CurrentUser() user: AuthenticatedUser) {
@@ -164,11 +157,9 @@ export class VaultController {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const relName = relPaths[i] || file.originalname || 'file';
-      if (relName.toLowerCase().endsWith('.zip')) {
-        written += await this.extractZip(user.username, base, file.buffer);
-        continue;
-      }
-      // relName carries the relative path (e.g. "MyVault/sub/note.md").
+      // Each uploaded file is opaque ciphertext produced in the browser. Zip
+      // archives are expanded client-side (the server cannot read encrypted
+      // contents), so here we only ever write individual files.
       const rel = this.joinImportPath(base, relName);
       await this.vault.writeAtPath(user.username, rel, file.buffer);
       written += 1;
@@ -176,47 +167,10 @@ export class VaultController {
     return { ok: true, written };
   }
 
-  private async extractZip(
-    username: string,
-    base: string,
-    buffer: Buffer,
-  ): Promise<number> {
-    const zip = new AdmZip(buffer);
-    let count = 0;
-    for (const entry of zip.getEntries()) {
-      if (entry.isDirectory) {
-        continue;
-      }
-      const entryName = entry.entryName.replace(/\\/g, '/');
-      if (entryName.split('/').some((seg) => seg === '..')) {
-        continue; // skip traversal attempts inside the archive
-      }
-      const rel = this.joinImportPath(base, entryName);
-      await this.vault.writeAtPath(username, rel, entry.getData());
-      count += 1;
-    }
-    return count;
-  }
-
   private joinImportPath(base: string, name: string): string {
     const cleanName = name.replace(/\\/g, '/').replace(/^\/+/, '');
     const cleanBase = base.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
     return cleanBase ? `${cleanBase}/${cleanName}` : cleanName;
-  }
-
-  @Post('render')
-  async render(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: RenderDto,
-  ) {
-    const html = await this.markdown.render(user.username, dto.path, dto.content);
-    return { html };
-  }
-
-  @Post('highlight')
-  highlight(@Body() dto: HighlightDto) {
-    const html = this.markdown.highlightFile(dto.ext, dto.content);
-    return { html };
   }
 
   @Get('search')
@@ -227,27 +181,16 @@ export class VaultController {
     return this.vault.search(user.username, q);
   }
 
-  @Get('export')
-  async exportVault(
-    @CurrentUser() user: AuthenticatedUser,
-    @Res() res: Response,
-  ) {
+  /**
+   * List every file in the vault (flat, with sizes). Used by the client to
+   * build an export archive locally: it fetches each file's ciphertext, decrypts
+   * it in the browser, and zips the plaintext. The server can no longer build a
+   * useful export itself because it only holds ciphertext.
+   */
+  @Get('files')
+  async listFiles(@CurrentUser() user: AuthenticatedUser) {
     const files = await this.vault.listAllFiles(user.username);
-    const zip = new AdmZip();
-    for (const file of files) {
-      const data = await this.vault.readBytes(user.username, file.relPath);
-      zip.addFile(file.relPath, data);
-    }
-    const buffer = zip.toBuffer();
-    const stamp = new Date().toISOString().slice(0, 10);
-    const filename = `${user.username}-vault-${stamp}.zip`;
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Length', String(buffer.length));
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${encodeURIComponent(filename)}"`,
-    );
-    res.end(buffer);
+    return files.map((f) => ({ path: f.relPath }));
   }
 
   @Get('attachment')

@@ -5,17 +5,19 @@ A small, self-hosted Obsidian-like markdown knowledge app.
 - **Backend:** NestJS 11 (Express), server-rendered EJS — runs on **Node.js 24 LTS**
 - **User store:** SQLite (TypeORM `sql.js` driver) at `data/app.db` by default,
   or **PostgreSQL** (`DB_TYPE=postgres`)
-- **Vaults:** stored on the server's disk under `data/<username>/` by default
-  (an S3-compatible storage backend is scaffolded but not yet implemented)
+- **Vaults:** stored on the server's disk under `data/<storageId>/` by default,
+  or in **S3-compatible object storage** (`STORAGE_DRIVER=s3`)
 - **Auth:** username + password with **mandatory TOTP 2FA**, JWT in an httpOnly cookie
-- **Encryption at rest:** vault contents are encrypted with **AES-256-GCM** before
-  being written to disk or object storage (exports are decrypted)
+- **Zero-knowledge end-to-end encryption:** vault contents (notes, drawings,
+  attachments) are encrypted **in your browser** with **AES-256-GCM**; the
+  server only ever stores ciphertext it cannot read. A one-time **recovery key**
+  is issued at registration to restore access if you forget your password
 - **Account dashboard:** click your username to see storage usage against your
   quota and to delete your account (and all its data)
 - **Features:** create/edit/delete markdown notes, nested folders, attachments
   (PDF/jpg/png), inline `.excalidraw` editing, Obsidian `[[wikilinks]]`,
-  filename + content search, folder/`.zip` import & export, light/dark theme,
-  responsive UI
+  filename + client-side content search, folder/`.zip` import &amp; decrypted
+  export, light/dark theme, responsive UI
 
 ## Configuration
 
@@ -30,8 +32,8 @@ Copy `.env.example` to `.env` and adjust:
 | `ALLOW_REGISTRATION` | `true`               | Set `false` to disable self-service registration |
 | `COOKIE_SECURE`      | `false`              | Set `true` when served over HTTPS                |
 | `STORAGE_QUOTA_GB`   | `8`                  | Per-user storage limit in GB (`0` = unlimited)   |
-| `ENCRYPTION_ENABLED` | `true`               | Encrypt vault contents at rest (AES-256-GCM)     |
-| `ENCRYPTION_KEY`     | _(from JWT_SECRET)_  | Master key for at-rest encryption — keep stable  |
+| `ENCRYPTION_ENABLED` | `true`               | Encrypt sensitive DB columns at rest (TOTP/Stripe) |
+| `ENCRYPTION_KEY`     | _(from JWT_SECRET)_  | Master key for the DB-column encryption — keep stable |
 
 Generate a secret with `openssl rand -hex 32`.
 
@@ -45,10 +47,12 @@ Generate a secret with `openssl rand -hex 32`.
 
 `STORAGE_DRIVER` selects where vault files are stored (default `local`, the
 server's filesystem). An `s3` driver targeting S3-compatible object storage
-(AWS S3, MinIO, Mega S3, etc.) is scaffolded with full configuration
+(AWS S3, MinIO, Mega S3, etc.) is available with full configuration
 (`S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`,
-`S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`, `S3_PREFIX`) but is **not yet
-implemented** — selecting it currently fails fast.
+`S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`, `S3_PREFIX`). Either way the
+backend is a **blind blob store**: files are stored under an immutable random
+`storageId` per account (never the username) and their contents are already
+end-to-end encrypted ciphertext.
 
 ### Storage quota
 
@@ -57,23 +61,37 @@ uploads and imports that would exceed the quota are rejected. Set
 `STORAGE_QUOTA_GB=0` for unlimited storage. (Paid upgrades for more storage are
 planned.)
 
-### Encryption at rest
+### Zero-knowledge end-to-end encryption
 
-With `ENCRYPTION_ENABLED=true` (the default), all vault payloads (notes,
-drawings, attachments, PDFs) are encrypted with **AES-256-GCM** in Node.js
-before they are written to local disk or object storage. A server-side master
-key (`ENCRYPTION_KEY`, or derived from `JWT_SECRET` when unset) is stretched
-with scrypt, and each account gets its own key derived with HKDF, so users are
-cryptographically isolated and the stored files are unreadable on their own.
+Vault contents are **end-to-end encrypted in your browser** — the server never
+sees your password or any plaintext, and stores only opaque ciphertext.
 
-**Set a dedicated, stable `ENCRYPTION_KEY`** (e.g. `openssl rand -hex 32`) and
-back it up — if the key changes, previously stored data can no longer be
-decrypted.
+- At registration the browser generates a random 256-bit **vault key (VK)** and
+  encrypts every note, drawing and attachment with **AES-256-GCM** under it.
+- The VK is wrapped twice: once with a key derived from your **password**
+  (PBKDF2-SHA256, 600,000 iterations) and once with a key derived from a
+  one-time **recovery key**. Only these two wrapped blobs are stored on the
+  server; the VK itself never leaves your device.
+- Because the server cannot read your files, **markdown rendering, full-text
+  content search, and `.zip` export all run in your browser**. Filenames and
+  folder names stay in plaintext so the vault tree still works server-side; only
+  file *contents* are encrypted.
 
-This is encryption *at rest*, not zero-knowledge E2EE: while you are signed in,
-the server holds the key in memory to render and search your notes. The
-**Export** feature always produces a **decrypted** `.zip` so you keep a
-portable, platform-independent backup.
+Encrypted blobs use the format `MAGIC("WOE1") | iv(12) | ciphertext+tag`.
+
+> **Keep your recovery key.** It is shown **once** during sign-up and is the
+> only way back in if you forget your password. If you lose **both** your
+> password and your recovery key, your data is unrecoverable — by design,
+> nobody (including the operator) can decrypt it for you.
+
+The separate server-side `ENCRYPTION_KEY` (`ENCRYPTION_ENABLED=true`) is used
+only to encrypt sensitive **database columns** (TOTP secrets, Stripe IDs), not
+vault content. Set a dedicated, stable value (`openssl rand -hex 32`) and back
+it up.
+
+The **Export** feature decrypts your vault in the browser and produces a
+**decrypted** `.zip`, so you always keep a portable, platform-independent
+backup.
 
 ## Run locally
 
@@ -81,12 +99,14 @@ Requires **Node.js 24+**.
 
 ```bash
 npm install
-npm run build:client   # bundles the Excalidraw editor + copies its assets
+npm run build:client   # bundles the in-browser editors, crypto, markdown & zip
 npm run start:dev      # or: npm run build && npm run start:prod
 ```
 
 Open http://localhost:3065, register an account, scan the QR code (or type the
-shown secret) into an authenticator app, and confirm the 6-digit code.
+shown secret) into an authenticator app, and confirm the 6-digit code. During
+sign-up you are shown a **one-time recovery key** — save it before continuing;
+it is the only way to regain access if you forget your password.
 
 ## Run with Docker
 
@@ -114,7 +134,10 @@ password to confirm).
 Use the **Import** button in the sidebar:
 
 - **Desktop:** pick a folder; its structure is preserved.
-- **Mobile:** select multiple files or upload a `.zip` (unpacked server-side).
+- **Mobile:** select multiple files or upload a `.zip`.
+
+Imports are expanded and encrypted **in your browser** before upload, so the
+server only ever receives ciphertext.
 
 ## Continuous delivery
 

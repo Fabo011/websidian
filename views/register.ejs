@@ -18,7 +18,7 @@
       <p class="auth-note muted">
         <span data-i18n="reg_pwmanager_before">Tip: use a password manager such as</span>
         <a href="https://bitwarden.com" target="_blank" rel="noopener noreferrer">Bitwarden</a>
-        <span data-i18n="reg_pwmanager_after">to store your password and TOTP secret. You can change your password and authenticator later, but they cannot be reset if lost — so keep them safe.</span>
+        <span data-i18n="reg_pwmanager_after">to store your password, recovery key and TOTP secret. Your vault is end-to-end encrypted: if you lose your password, only the recovery key can restore access — so keep them safe.</span>
       </p>
       <label>
         <span data-i18n="username">Username</span>
@@ -35,6 +35,28 @@
       <p class="form-error" id="register-error" hidden></p>
       <button type="submit" class="btn-primary" data-i18n="create_account">Create account</button>
     </form>
+
+    <section id="recovery-step" class="auth-form" hidden>
+      <h2 data-i18n="recovery_key_title">Save your recovery key</h2>
+      <p class="muted" data-i18n="recovery_key_help">
+        Your notes are end-to-end encrypted. This recovery key is the
+        <strong>only</strong> way to regain access if you forget your password.
+        We cannot see it or reset it. Store it somewhere safe and offline.
+      </p>
+      <div class="recovery-key-box">
+        <code id="recovery-key" class="recovery-key"></code>
+        <div class="recovery-key-actions">
+          <button type="button" id="copy-recovery" class="btn-ghost" data-i18n="copy">Copy</button>
+          <button type="button" id="download-recovery" class="btn-ghost" data-i18n="recovery_download">Download .txt</button>
+        </div>
+      </div>
+      <label class="recovery-confirm">
+        <input type="checkbox" id="recovery-confirm" />
+        <span data-i18n="recovery_confirm">I have saved my recovery key. I understand it cannot be recovered if lost.</span>
+      </label>
+      <p class="form-error" id="recovery-error" hidden></p>
+      <button type="button" id="recovery-continue" class="btn-primary" disabled data-i18n="continue">Continue</button>
+    </section>
 
     <section id="enroll-step" class="auth-form" hidden>
       <h2 data-i18n="setup_2fa">Set up two-factor auth</h2>
@@ -87,6 +109,7 @@
     <p class="auth-alt"><span data-i18n="have_account">Already have an account?</span> <a href="/login" data-i18n="signin">Sign in</a></p>
   </main>
 
+  <script src="/public/js/crypto.js"></script>
   <script src="/public/js/auth.js"></script>
 </body>
 </html>

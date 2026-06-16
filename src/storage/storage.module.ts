@@ -1,7 +1,6 @@
 import { Global, Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppConfig } from '../config/configuration';
-import { EncryptingStorageProvider } from './encrypting-storage.provider';
 import { EncryptionService } from './encryption.service';
 import { LocalStorageProvider } from './local-storage.provider';
 import { S3StorageProvider } from './s3-storage.provider';
@@ -9,9 +8,12 @@ import { STORAGE_PROVIDER, StorageProvider } from './storage.interface';
 
 /**
  * Provides the active {@link StorageProvider} (local filesystem by default,
- * or S3-compatible object storage when `STORAGE_DRIVER=s3`). When encryption
- * at rest is enabled (the default), the chosen provider is wrapped so all
- * file contents are encrypted with AES-256-GCM before being stored.
+ * or S3-compatible object storage when `STORAGE_DRIVER=s3`).
+ *
+ * File *contents* are end-to-end encrypted on the client (zero-knowledge), so
+ * the server stores opaque ciphertext blobs and performs no file encryption of
+ * its own. {@link EncryptionService} is still provided here because it encrypts
+ * sensitive *database columns* (TOTP secrets, Stripe ids) at rest.
  */
 @Global()
 @Module({
@@ -21,33 +23,22 @@ import { STORAGE_PROVIDER, StorageProvider } from './storage.interface';
     EncryptionService,
     {
       provide: STORAGE_PROVIDER,
-      inject: [
-        ConfigService,
-        LocalStorageProvider,
-        S3StorageProvider,
-        EncryptionService,
-      ],
+      inject: [ConfigService, LocalStorageProvider, S3StorageProvider],
       useFactory: (
         config: ConfigService,
         local: LocalStorageProvider,
         s3: S3StorageProvider,
-        crypto: EncryptionService,
       ): StorageProvider => {
         const app = config.get<AppConfig>('app');
         const logger = new Logger('StorageModule');
-        let base: StorageProvider = local;
         if (app.storage.driver === 's3') {
           logger.log(
             `Using S3 object storage (bucket "${app.storage.s3.bucket}"` +
               `${app.storage.s3.endpoint ? `, endpoint ${app.storage.s3.endpoint}` : ''}).`,
           );
-          base = s3;
+          return s3;
         }
-        if (crypto.isEnabled) {
-          logger.log('Vault encryption at rest is enabled (AES-256-GCM).');
-          return new EncryptingStorageProvider(base, crypto);
-        }
-        return base;
+        return local;
       },
     },
   ],

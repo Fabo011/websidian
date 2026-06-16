@@ -124,6 +124,22 @@
       cp_bad_code: 'Enter the 6-digit code from your authenticator.',
       cp_success: 'Password changed.',
       cp_failed: 'Could not change password.',
+      cp_wrong_current: 'Your current password is incorrect.',
+
+      /* end-to-end encryption: unlock + recovery */
+      unlock_title: 'Unlock your vault',
+      unlock_msg:
+        'Enter your password to unlock your end-to-end encrypted notes.',
+      unlock_action: 'Unlock',
+      unlock_failed_title: 'Could not unlock',
+      unlock_failed_msg:
+        'That password could not unlock your vault. Please try again.',
+      recovery_key_title: 'Save your recovery key',
+      recovery_key_help:
+        'Your notes are end-to-end encrypted. This recovery key is the only way to regain access if you forget your password. We cannot see it or reset it. Store it somewhere safe and offline.',
+      recovery_download: 'Download .txt',
+      recovery_confirm:
+        'I have saved my recovery key. I understand it cannot be recovered if lost.',
       reset_totp: 'Reset authenticator (2FA)',
       reset_totp_hint:
         'Switching to a new phone or authenticator app? Reset your two-factor authentication to pair a new device.',
@@ -254,7 +270,7 @@
       copy: 'Copy',
       reg_pwmanager_before: 'Tip: use a password manager such as',
       reg_pwmanager_after:
-        'to store your password and TOTP secret. You can change your password and authenticator later, but they cannot be reset if lost — so keep them safe.',
+        'to store your password, recovery key and TOTP secret. Your vault is end-to-end encrypted: if you lose your password, only the recovery key can restore access — so keep them safe.',
       verification_code: 'Verification code',
       confirm_finish: 'Confirm & finish',
       have_account: 'Already have an account?',
@@ -270,30 +286,30 @@
       why_not:
         'web-obsidian is an independent open-source project. It is not the original Obsidian (obsidian.md), not affiliated with it, and not a competitor. The name only describes the idea: an Obsidian-style markdown vault you open in any browser.',
       why_reason:
-        'The original Obsidian keeps notes locally on each device and relies on a sync service to keep them aligned. In many companies you simply cannot install private sync clients or extra apps on enterprise laptops — so that setup is impossible. A browser is almost always available, so your vault stays reachable. Nothing to install, no local storage used on your phone or PC, and no encrypted backups for you to manage.',
+        'The original Obsidian keeps notes locally on each device and relies on a sync service to keep them aligned. In many companies you simply cannot install private sync clients or extra apps on enterprise laptops — so that setup is impossible. A browser is almost always available, so your vault stays reachable. Nothing to install, no local storage used on your phone or PC, and no encrypted backups for you to manage. Everything is end-to-end encrypted in your browser, so the server only ever stores unreadable ciphertext.',
       why_brain:
         'It is intentionally simple — just what you need in daily work and private life. The human brain is made for having ideas, not for holding them. This is your second brain.',
       why_learn_more: 'Read the documentation →',
-      pricing_title: 'Simple, encrypted storage',
+      pricing_title: 'Simple, end-to-end encrypted storage',
       pricing_lead:
-        'Start free with 1 GB. Upgrade when you need more room — every plan is encrypted at rest.',
+        'Start free with 1 GB. Upgrade when you need more room — every plan is end-to-end encrypted, readable only by you.',
       pricing_free_name: 'Free',
       pricing_free_amount: '1 GB',
-      pricing_free_desc: 'Encrypted storage. No payment required.',
+      pricing_free_desc: 'End-to-end encrypted storage. No payment required.',
       pricing_5gb_name: '5 GB',
       pricing_20gb_name: '20 GB',
-      pricing_enc_desc: 'Encrypted storage for your growing vault.',
+      pricing_enc_desc: 'End-to-end encrypted storage for your growing vault.',
       pricing_per_year: ' / year',
       pricing_more: 'Need more storage?',
       pricing_contact_us: 'Contact us.',
       hero_title: 'Your knowledge vault, in the browser.',
       hero_lead:
-        'web-obsidian is an open-source, privacy-first knowledge vault you reach from any browser. Take notes, organize nested folders, sketch with Excalidraw and read PDFs — all online, with nothing to install. Your vault is encrypted at rest with AES-256.',
+        'web-obsidian is an open-source, privacy-first knowledge vault you reach from any browser. Take notes, organize nested folders, sketch with Excalidraw and read PDFs — all online, with nothing to install. Everything is end-to-end encrypted in your browser, so only you can read your vault — not even the server can.',
       hero_open: 'Open your vault',
       hero_create_free: 'Create a free account',
       diff_title: 'How it differs from Obsidian',
       diff_lead:
-        'The original Obsidian is a desktop app that keeps your notes offline on each device and relies on a separate sync service to keep them in step. web-obsidian flips that around: your vault lives online and you simply log in.',
+        'The original Obsidian is a desktop app that keeps your notes offline on each device and relies on a separate sync service to keep them in step. web-obsidian flips that around: your vault lives online, end-to-end encrypted, and you simply log in.',
       card_nosync_h: 'Nothing to sync',
       card_nosync_p:
         'There is no sync to set up or pay for. Your notes are always in one place — log in from a laptop, PC or phone and pick up exactly where you left off.',
@@ -302,10 +318,10 @@
         'Built for the cloud and the browser instead of an offline desktop install. Open a tab on any device and your full vault is there.',
       card_secure_h: 'Account-based & secure',
       card_secure_p:
-        'Access is protected by your account with optional two-factor authentication (2FA). Privacy comes first — no tracking, no analytics.',
-      card_enc_h: 'Encrypted at rest',
+        'Access is protected by your account with required two-factor authentication (2FA). Privacy comes first — no tracking, no analytics.',
+      card_enc_h: 'Zero-knowledge encryption',
       card_enc_p:
-        'Your notes, drawings and files are encrypted on the server with AES-256-GCM before they touch disk or object storage, so the stored data is unreadable on its own.',
+        'Your notes, drawings and files are encrypted in your browser with AES-256-GCM. The server only ever receives ciphertext, so nobody — not even us — can read your vault.',
       card_oss_h: 'Open source',
       card_oss_p:
         'The full source code is public. Use the hosted version or self-host it yourself from the published container image.',
@@ -319,11 +335,24 @@
       feat_excalidraw: 'Excalidraw drawing integration',
       feat_pdf: 'Built-in PDF viewer',
       feat_attach: 'Attachments & file uploads',
-      feat_search: 'Full-text search across your vault',
-      feat_export: 'Export your whole vault as a zip',
+      feat_search: 'Full-text search that runs in your browser',
+      feat_export: 'Export your whole vault as a decrypted zip',
       feat_2fa: 'Two-factor authentication (2FA)',
-      feat_enc: 'AES-256 encryption at rest',
+      feat_enc: 'Zero-knowledge end-to-end encryption',
+      feat_recovery: 'Recovery key to restore access if you forget your password',
       feat_themes: 'Light & dark themes',
+      e2e_title: 'Zero-knowledge by design',
+      e2e_lead:
+        'Your vault is encrypted and decrypted entirely in your browser. Your password never leaves your device, and the server only ever stores ciphertext it cannot read.',
+      e2e_point_keys_h: 'Only you hold the keys',
+      e2e_point_keys_p:
+        'Your encryption key is derived from your password in your browser and is never sent to the server. We physically cannot read your notes, drawings or files.',
+      e2e_point_recovery_h: 'Keep your recovery key safe',
+      e2e_point_recovery_p:
+        'When you sign up you receive a one-time recovery key. It is the only way back in if you ever forget your password. Store it somewhere safe.',
+      e2e_point_lost_h: 'Lost password, lost data',
+      e2e_point_lost_p:
+        'Because nobody but you can decrypt your vault, we cannot reset your password for you. If you lose both your password and your recovery key, the data is gone for good.',
       cta_title: 'Ready to start?',
 
       /* footer */
@@ -445,6 +474,22 @@
       cp_bad_code: 'Gib den 6-stelligen Code aus deiner Authenticator-App ein.',
       cp_success: 'Passwort geändert.',
       cp_failed: 'Passwort konnte nicht geändert werden.',
+      cp_wrong_current: 'Dein aktuelles Passwort ist falsch.',
+
+      /* Ende-zu-Ende-Verschlüsselung: Entsperren + Wiederherstellung */
+      unlock_title: 'Tresor entsperren',
+      unlock_msg:
+        'Gib dein Passwort ein, um deine Ende-zu-Ende-verschlüsselten Notizen zu entsperren.',
+      unlock_action: 'Entsperren',
+      unlock_failed_title: 'Entsperren fehlgeschlagen',
+      unlock_failed_msg:
+        'Mit diesem Passwort konnte dein Tresor nicht entsperrt werden. Bitte versuche es erneut.',
+      recovery_key_title: 'Speichere deinen Wiederherstellungsschlüssel',
+      recovery_key_help:
+        'Deine Notizen sind Ende-zu-Ende-verschlüsselt. Dieser Wiederherstellungsschlüssel ist die einzige Möglichkeit, wieder Zugriff zu erhalten, falls du dein Passwort vergisst. Wir können ihn weder sehen noch zurücksetzen. Bewahre ihn sicher und offline auf.',
+      recovery_download: '.txt herunterladen',
+      recovery_confirm:
+        'Ich habe meinen Wiederherstellungsschlüssel gespeichert. Mir ist bewusst, dass er nicht wiederhergestellt werden kann, wenn er verloren geht.',
       reset_totp: 'Authenticator zurücksetzen (2FA)',
       reset_totp_hint:
         'Neues Smartphone oder eine neue Authenticator-App? Setze deine Zwei-Faktor-Authentifizierung zurück, um ein neues Gerät zu koppeln.',
@@ -575,7 +620,7 @@
       copy: 'Kopieren',
       reg_pwmanager_before: 'Tipp: Nutze einen Passwort-Manager wie',
       reg_pwmanager_after:
-        'um dein Passwort und deinen TOTP-Schlüssel zu speichern. Du kannst Passwort und Authenticator später ändern, aber sie können bei Verlust nicht zurückgesetzt werden — bewahre sie daher sicher auf.',
+        'um dein Passwort, deinen Wiederherstellungsschlüssel und deinen TOTP-Schlüssel zu speichern. Dein Tresor ist Ende-zu-Ende verschlüsselt: Wenn du dein Passwort verlierst, kann nur der Wiederherstellungsschlüssel den Zugang wiederherstellen — bewahre sie daher sicher auf.',
       verification_code: 'Bestätigungscode',
       confirm_finish: 'Bestätigen & abschließen',
       have_account: 'Hast du bereits ein Konto?',
@@ -590,30 +635,30 @@
       why_not:
         'web-obsidian ist ein unabhängiges Open-Source-Projekt. Es ist nicht das originale Obsidian (obsidian.md), steht in keiner Verbindung dazu und ist kein Konkurrenzprodukt. Der Name beschreibt nur die Idee: ein Obsidian-artiger Markdown-Tresor, den du in jedem Browser öffnest.',
       why_reason:
-        'Das originale Obsidian speichert Notizen lokal auf jedem Gerät und benötigt einen Sync-Dienst, um sie abzugleichen. In vielen Unternehmen darfst du auf Firmen-Laptops keine privaten Sync-Clients oder zusätzliche Apps installieren – damit ist dieser Aufbau unmöglich. Ein Browser ist jedoch fast immer verfügbar, sodass dein Tresor erreichbar bleibt. Nichts zu installieren, kein lokaler Speicher auf Handy oder PC und keine verschlüsselten Backups, um die du dich kümmern musst.',
+        'Das originale Obsidian speichert Notizen lokal auf jedem Gerät und benötigt einen Sync-Dienst, um sie abzugleichen. In vielen Unternehmen darfst du auf Firmen-Laptops keine privaten Sync-Clients oder zusätzliche Apps installieren – damit ist dieser Aufbau unmöglich. Ein Browser ist jedoch fast immer verfügbar, sodass dein Tresor erreichbar bleibt. Nichts zu installieren, kein lokaler Speicher auf Handy oder PC und keine verschlüsselten Backups, um die du dich kümmern musst. Alles wird Ende-zu-Ende in deinem Browser verschlüsselt, sodass der Server nur unlesbaren Chiffretext speichert.',
       why_brain:
         'Es ist bewusst einfach gehalten – genau das, was du im Alltag und im Privatleben brauchst. Das menschliche Gehirn ist dazu da, Ideen zu haben, nicht sie zu speichern. Das ist dein zweites Gehirn.',
       why_learn_more: 'Zur Dokumentation →',
-      pricing_title: 'Einfacher, verschlüsselter Speicher',
+      pricing_title: 'Einfacher, Ende-zu-Ende-verschlüsselter Speicher',
       pricing_lead:
-        'Starte kostenlos mit 1 GB. Upgrade, wenn du mehr Platz brauchst – jeder Tarif ist verschlüsselt gespeichert.',
+        'Starte kostenlos mit 1 GB. Upgrade, wenn du mehr Platz brauchst – jeder Tarif ist Ende-zu-Ende verschlüsselt und nur für dich lesbar.',
       pricing_free_name: 'Kostenlos',
       pricing_free_amount: '1 GB',
-      pricing_free_desc: 'Verschlüsselter Speicher. Keine Zahlung nötig.',
+      pricing_free_desc: 'Ende-zu-Ende-verschlüsselter Speicher. Keine Zahlung nötig.',
       pricing_5gb_name: '5 GB',
       pricing_20gb_name: '20 GB',
-      pricing_enc_desc: 'Verschlüsselter Speicher für deinen wachsenden Tresor.',
+      pricing_enc_desc: 'Ende-zu-Ende-verschlüsselter Speicher für deinen wachsenden Tresor.',
       pricing_per_year: ' / Jahr',
       pricing_more: 'Mehr Speicher nötig?',
       pricing_contact_us: 'Kontaktiere uns.',
       hero_title: 'Dein Wissens-Tresor – im Browser.',
       hero_lead:
-        'web-obsidian ist ein quelloffener, datenschutzorientierter Wissens-Tresor, den du aus jedem Browser erreichst. Notizen schreiben, verschachtelte Ordner organisieren, mit Excalidraw skizzieren und PDFs lesen – alles online, ohne Installation. Dein Tresor wird ruhend mit AES-256 verschlüsselt.',
+        'web-obsidian ist ein quelloffener, datenschutzorientierter Wissens-Tresor, den du aus jedem Browser erreichst. Notizen schreiben, verschachtelte Ordner organisieren, mit Excalidraw skizzieren und PDFs lesen – alles online, ohne Installation. Alles wird Ende-zu-Ende in deinem Browser verschlüsselt, sodass nur du deinen Tresor lesen kannst – nicht einmal der Server.',
       hero_open: 'Tresor öffnen',
       hero_create_free: 'Kostenloses Konto erstellen',
       diff_title: 'Worin es sich von Obsidian unterscheidet',
       diff_lead:
-        'Das originale Obsidian ist eine Desktop-App, die deine Notizen auf jedem Gerät offline speichert und einen separaten Sync-Dienst benötigt, um sie abzugleichen. web-obsidian dreht das um: Dein Tresor liegt online und du meldest dich einfach an.',
+        'Das originale Obsidian ist eine Desktop-App, die deine Notizen auf jedem Gerät offline speichert und einen separaten Sync-Dienst benötigt, um sie abzugleichen. web-obsidian dreht das um: Dein Tresor liegt online, Ende-zu-Ende verschlüsselt, und du meldest dich einfach an.',
       card_nosync_h: 'Kein Sync nötig',
       card_nosync_p:
         'Es gibt keinen Sync einzurichten oder zu bezahlen. Deine Notizen sind immer an einem Ort – melde dich von Laptop, PC oder Handy an und mach genau dort weiter, wo du aufgehört hast.',
@@ -622,10 +667,10 @@
         'Für die Cloud und den Browser gebaut statt für eine Offline-Desktop-Installation. Öffne einen Tab auf einem beliebigen Gerät und dein gesamter Tresor ist da.',
       card_secure_h: 'Kontobasiert & sicher',
       card_secure_p:
-        'Der Zugang ist durch dein Konto mit optionaler Zwei-Faktor-Authentifizierung (2FA) geschützt. Datenschutz steht an erster Stelle – kein Tracking, keine Analyse.',
-      card_enc_h: 'Ruhend verschlüsselt',
+        'Der Zugang ist durch dein Konto mit erforderlicher Zwei-Faktor-Authentifizierung (2FA) geschützt. Datenschutz steht an erster Stelle – kein Tracking, keine Analyse.',
+      card_enc_h: 'Zero-Knowledge-Verschlüsselung',
       card_enc_p:
-        'Deine Notizen, Zeichnungen und Dateien werden auf dem Server mit AES-256-GCM verschlüsselt, bevor sie auf die Festplatte oder den Objektspeicher gelangen – die gespeicherten Daten sind für sich allein unlesbar.',
+        'Deine Notizen, Zeichnungen und Dateien werden in deinem Browser mit AES-256-GCM verschlüsselt. Der Server erhält ausschließlich Chiffretext, sodass niemand – auch wir nicht – deinen Tresor lesen kann.',
       card_oss_h: 'Open Source',
       card_oss_p:
         'Der gesamte Quellcode ist öffentlich. Nutze die gehostete Version oder betreibe es selbst über das veröffentlichte Container-Image.',
@@ -639,11 +684,24 @@
       feat_excalidraw: 'Excalidraw-Zeichenintegration',
       feat_pdf: 'Eingebauter PDF-Viewer',
       feat_attach: 'Anhänge & Datei-Uploads',
-      feat_search: 'Volltextsuche über deinen gesamten Tresor',
-      feat_export: 'Exportiere deinen gesamten Tresor als Zip',
+      feat_search: 'Volltextsuche, die in deinem Browser läuft',
+      feat_export: 'Exportiere deinen gesamten Tresor als entschlüsseltes Zip',
       feat_2fa: 'Zwei-Faktor-Authentifizierung (2FA)',
-      feat_enc: 'AES-256-Verschlüsselung im Ruhezustand',
+      feat_enc: 'Zero-Knowledge-Ende-zu-Ende-Verschlüsselung',
+      feat_recovery: 'Wiederherstellungsschlüssel, um den Zugang bei vergessenem Passwort wiederzuerlangen',
       feat_themes: 'Helle & dunkle Designs',
+      e2e_title: 'Zero-Knowledge by Design',
+      e2e_lead:
+        'Dein Tresor wird vollständig in deinem Browser ver- und entschlüsselt. Dein Passwort verlässt nie dein Gerät, und der Server speichert ausschließlich Chiffretext, den er nicht lesen kann.',
+      e2e_point_keys_h: 'Nur du hältst die Schlüssel',
+      e2e_point_keys_p:
+        'Dein Verschlüsselungsschlüssel wird in deinem Browser aus deinem Passwort abgeleitet und nie an den Server gesendet. Wir können deine Notizen, Zeichnungen oder Dateien physisch nicht lesen.',
+      e2e_point_recovery_h: 'Bewahre deinen Wiederherstellungsschlüssel sicher auf',
+      e2e_point_recovery_p:
+        'Bei der Registrierung erhältst du einen einmaligen Wiederherstellungsschlüssel. Er ist der einzige Weg zurück, falls du dein Passwort vergisst. Bewahre ihn an einem sicheren Ort auf.',
+      e2e_point_lost_h: 'Passwort verloren, Daten verloren',
+      e2e_point_lost_p:
+        'Da niemand außer dir deinen Tresor entschlüsseln kann, können wir dein Passwort nicht für dich zurücksetzen. Wenn du sowohl dein Passwort als auch deinen Wiederherstellungsschlüssel verlierst, sind die Daten unwiederbringlich verloren.',
       cta_title: 'Bereit loszulegen?',
 
       footer_love_pre: 'Entwickelt mit',

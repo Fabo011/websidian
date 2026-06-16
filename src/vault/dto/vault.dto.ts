@@ -31,25 +31,6 @@ export class RenameDto {
   to: string;
 }
 
-export class RenderDto {
-  @IsString()
-  @MaxLength(4096)
-  path: string;
-
-  @IsString()
-  content: string;
-}
-
-export class HighlightDto {
-  /** File extension (language hint) used to pick the highlighter. */
-  @IsString()
-  @MaxLength(20)
-  ext: string;
-
-  @IsString()
-  content: string;
-}
-
 export class UploadFolderDto {
   @IsOptional()
   @IsString()

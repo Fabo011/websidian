@@ -83,9 +83,6 @@ const TEXT_EXTENSIONS = new Set([
   'tex',
 ]);
 
-/** Extensions scanned for content search. */
-const SEARCHABLE_EXTENSIONS = new Set(['md', 'markdown', 'txt']);
-
 export interface QuotaUsage {
   /** Bytes currently used. */
   used: number;
@@ -134,14 +131,34 @@ export class VaultService {
     return ent.quotaBytes;
   }
 
+  /**
+   * Resolve a username to its immutable, opaque storage namespace id. All
+   * storage-provider calls go through this so a recycled username can never
+   * reach a previous owner's folder. Cached because storageId never changes.
+   */
+  private readonly storageIds = new Map<string, string>();
+  private async sid(username: string): Promise<string> {
+    const key = username.toLowerCase();
+    let id = this.storageIds.get(key);
+    if (!id) {
+      const user = await this.users.findByUsername(key);
+      if (!user) {
+        throw new BadRequestException('Unknown user.');
+      }
+      id = user.storageId;
+      this.storageIds.set(key, id);
+    }
+    return id;
+  }
+
   /** Raw bytes consumed by a user's vault (no quota involved). */
-  usedBytes(username: string): Promise<number> {
-    return this.storage.usage(username);
+  async usedBytes(username: string): Promise<number> {
+    return this.storage.usage(await this.sid(username));
   }
 
   /** Create the user's vault namespace if it does not yet exist. */
   async ensureUserRoot(username: string): Promise<void> {
-    await this.storage.ensureUser(username);
+    await this.storage.ensureUser(await this.sid(username));
   }
 
   isTextFile(relPathOrName: string): boolean {
@@ -154,7 +171,7 @@ export class VaultService {
 
   /** Current storage usage and the configured quota for a user. */
   async usage(username: string): Promise<QuotaUsage> {
-    const used = await this.storage.usage(username);
+    const used = await this.storage.usage(await this.sid(username));
     const limit = await this.quotaBytesFor(username);
     return { used, limit, unlimited: limit === 0 };
   }
@@ -172,7 +189,7 @@ export class VaultService {
     if (limit === 0) {
       return; // unlimited
     }
-    const used = await this.storage.usage(username);
+    const used = await this.storage.usage(await this.sid(username));
     const projected = used - freedBytes + incomingBytes;
     if (projected > limit) {
       throw new BadRequestException(
@@ -197,13 +214,14 @@ export class VaultService {
 
   async listTree(username: string): Promise<TreeNode[]> {
     await this.ensureUserRoot(username);
+    const storageId = await this.sid(username);
     // Fast path: object-storage providers can enumerate the whole vault in a
     // single request, avoiding one network round-trip per directory.
-    const flat = await this.storage.walkFiles?.(username);
+    const flat = await this.storage.walkFiles?.(storageId);
     if (flat) {
       return this.buildTreeFromFlat(flat);
     }
-    return this.walk(username, '');
+    return this.walk(storageId, '');
   }
 
   /**
@@ -264,8 +282,8 @@ export class VaultService {
     return sortRecursive(root);
   }
 
-  private async walk(username: string, relDir: string): Promise<TreeNode[]> {
-    const entries = await this.storage.list(username, relDir);
+  private async walk(storageId: string, relDir: string): Promise<TreeNode[]> {
+    const entries = await this.storage.list(storageId, relDir);
     const nodes: TreeNode[] = [];
     for (const entry of entries) {
       const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
@@ -274,7 +292,7 @@ export class VaultService {
           name: entry.name,
           path: rel,
           type: 'dir',
-          children: await this.walk(username, rel),
+          children: await this.walk(storageId, rel),
         });
       } else {
         nodes.push({
@@ -306,13 +324,16 @@ export class VaultService {
     if (!this.isTextFile(relPath)) {
       throw new BadRequestException('This file is not editable as text.');
     }
-    const stat = await this.storage.statFile(username, relPath);
-    const content = await this.storage.readText(username, relPath);
+    const storageId = await this.sid(username);
+    const stat = await this.storage.statFile(storageId, relPath);
+    // Contents are end-to-end encrypted: we return the opaque ciphertext as
+    // base64 and the client decrypts it locally with the vault key.
+    const blob = await this.storage.readBytes(storageId, relPath);
     return {
       path: relPath,
       name: basename(relPath),
       ext: this.ext(relPath),
-      content,
+      content: blob.toString('base64'),
       version: this.versionOf(stat),
     };
   }
@@ -326,12 +347,13 @@ export class VaultService {
     if (!relPath || relPath.endsWith('/')) {
       throw new BadRequestException('A file name is required.');
     }
+    const storageId = await this.sid(username);
     // If the caller loaded a specific version, ensure the file has not changed
     // underneath them since (concurrent edit detection). An empty/undefined
     // baseVersion means "force write" (new file or explicit overwrite).
     let existingSize = 0;
-    if (await this.storage.isFile(username, relPath)) {
-      const current = await this.storage.statFile(username, relPath);
+    if (await this.storage.isFile(storageId, relPath)) {
+      const current = await this.storage.statFile(storageId, relPath);
       existingSize = current.size;
       if (baseVersion && this.versionOf(current) !== baseVersion) {
         throw new ConflictException(
@@ -339,10 +361,12 @@ export class VaultService {
         );
       }
     }
-    const data = Buffer.from(content, 'utf8');
+    // `content` is base64-encoded ciphertext produced by the client; store the
+    // raw bytes verbatim (the server cannot read them).
+    const data = Buffer.from(content, 'base64');
     await this.assertWithinQuota(username, data.length, existingSize);
-    await this.storage.writeBytes(username, relPath, data);
-    const stat = await this.storage.statFile(username, relPath);
+    await this.storage.writeBytes(storageId, relPath, data);
+    const stat = await this.storage.statFile(storageId, relPath);
     return {
       path: relPath,
       name: basename(relPath),
@@ -356,17 +380,18 @@ export class VaultService {
     if (!relPath) {
       throw new BadRequestException('A folder name is required.');
     }
-    await this.storage.makeDir(username, relPath);
+    await this.storage.makeDir(await this.sid(username), relPath);
   }
 
   async rename(username: string, from: string, to: string): Promise<void> {
-    await this.storage.move(username, from, to);
+    await this.storage.move(await this.sid(username), from, to);
   }
 
   async deleteEntry(username: string, relPath: string): Promise<void> {
     if (!relPath) {
       throw new BadRequestException('Path is required.');
     }
+    const storageId = await this.sid(username);
     const clean = relPath.replace(/^\/+|\/+$/g, '');
     // Soft-delete: move the entry into the user's hidden trash so it can be
     // recovered until the purge cron permanently removes it. Items already in
@@ -374,11 +399,11 @@ export class VaultService {
     // retention is disabled deletions are immediate.
     const inTrash = clean === TRASH_DIR || clean.startsWith(`${TRASH_DIR}/`);
     if (this.trashRetentionDays <= 0 || inTrash) {
-      await this.storage.remove(username, clean);
+      await this.storage.remove(storageId, clean);
       return;
     }
     const stamp = `${Date.now()}-${randomBytes(4).toString('hex')}`;
-    await this.storage.move(username, clean, `${TRASH_DIR}/${stamp}/${clean}`);
+    await this.storage.move(storageId, clean, `${TRASH_DIR}/${stamp}/${clean}`);
   }
 
   /**
@@ -390,11 +415,12 @@ export class VaultService {
     if (this.trashRetentionDays <= 0) {
       return 0;
     }
-    if (!(await this.storage.isDir(username, TRASH_DIR))) {
+    const storageId = await this.sid(username);
+    if (!(await this.storage.isDir(storageId, TRASH_DIR))) {
       return 0;
     }
     const cutoff = Date.now() - this.trashRetentionDays * DAY_MS;
-    const batches = await this.storage.list(username, TRASH_DIR);
+    const batches = await this.storage.list(storageId, TRASH_DIR);
     let purged = 0;
     for (const entry of batches) {
       if (entry.type !== 'dir') {
@@ -405,7 +431,7 @@ export class VaultService {
       if (!Number.isFinite(ts) || ts > cutoff) {
         continue;
       }
-      await this.storage.remove(username, `${TRASH_DIR}/${entry.name}`);
+      await this.storage.remove(storageId, `${TRASH_DIR}/${entry.name}`);
       purged++;
     }
     return purged;
@@ -422,13 +448,14 @@ export class VaultService {
     if (!safeName) {
       throw new BadRequestException('Invalid file name.');
     }
+    const storageId = await this.sid(username);
     const relPath = destFolder ? `${destFolder}/${safeName}` : safeName;
     let existingSize = 0;
-    if (await this.storage.isFile(username, relPath)) {
-      existingSize = (await this.storage.statFile(username, relPath)).size;
+    if (await this.storage.isFile(storageId, relPath)) {
+      existingSize = (await this.storage.statFile(storageId, relPath)).size;
     }
     await this.assertWithinQuota(username, data.length, existingSize);
-    await this.storage.writeBytes(username, relPath, data);
+    await this.storage.writeBytes(storageId, relPath, data);
     return relPath;
   }
 
@@ -438,22 +465,23 @@ export class VaultService {
     relPath: string,
     data: Buffer,
   ): Promise<string> {
+    const storageId = await this.sid(username);
     let existingSize = 0;
-    if (await this.storage.isFile(username, relPath)) {
-      existingSize = (await this.storage.statFile(username, relPath)).size;
+    if (await this.storage.isFile(storageId, relPath)) {
+      existingSize = (await this.storage.statFile(storageId, relPath)).size;
     }
     await this.assertWithinQuota(username, data.length, existingSize);
-    await this.storage.writeBytes(username, relPath, data);
+    await this.storage.writeBytes(storageId, relPath, data);
     return relPath;
   }
 
-  /** Resolve a file for streaming as an attachment. */
+  /** Resolve a file for streaming as an attachment (opaque ciphertext bytes). */
   async resolveAttachment(
     username: string,
     relPath: string,
   ): Promise<{ stream: ReadStream; size: number; ext: string; name: string }> {
     const { stream, size } = await this.storage.openReadStream(
-      username,
+      await this.sid(username),
       relPath,
     );
     return {
@@ -467,9 +495,10 @@ export class VaultService {
   /** Collect every file in the vault as relative paths for export. */
   async listAllFiles(username: string): Promise<Array<{ relPath: string }>> {
     await this.ensureUserRoot(username);
+    const storageId = await this.sid(username);
     // Fast path: enumerate the whole vault in one request when supported,
     // skipping hidden dotfiles / folder markers to mirror the recursive walk.
-    const flat = await this.storage.walkFiles?.(username);
+    const flat = await this.storage.walkFiles?.(storageId);
     if (flat) {
       return flat
         .filter((f) => !f.relPath.split('/').some((seg) => seg.startsWith('.')))
@@ -477,7 +506,7 @@ export class VaultService {
     }
     const out: Array<{ relPath: string }> = [];
     const walk = async (relDir: string): Promise<void> => {
-      const entries = await this.storage.list(username, relDir);
+      const entries = await this.storage.list(storageId, relDir);
       for (const entry of entries) {
         const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
         if (entry.type === 'dir') {
@@ -491,71 +520,61 @@ export class VaultService {
     return out;
   }
 
-  /** Read a file's raw bytes (used by export to build a zip). */
+  /** Read a file's raw (still-encrypted) bytes (used by export to build a zip). */
   async readBytes(username: string, relPath: string): Promise<Buffer> {
-    return this.storage.readBytes(username, relPath);
+    return this.storage.readBytes(await this.sid(username), relPath);
   }
 
   async fileExists(username: string, relPath: string): Promise<boolean> {
-    return this.storage.isFile(username, relPath);
+    return this.storage.isFile(await this.sid(username), relPath);
   }
 
   /** Delete all of a user's vault data (used by account deletion). */
   async deleteUserData(username: string): Promise<void> {
-    await this.storage.removeUser(username);
+    const storageId = await this.sid(username);
+    await this.storage.removeUser(storageId);
+    this.storageIds.delete(username.toLowerCase());
   }
 
-
+  /**
+   * Filename-only search performed server-side. File *contents* are end-to-end
+   * encrypted and unreadable here, so content matching is handled entirely by
+   * the client against its local encrypted search index. This endpoint covers
+   * the cheap path-name case (and is a useful fallback if the client index is
+   * still warming up).
+   */
   async search(username: string, query: string): Promise<SearchHit[]> {
     const q = query.trim().toLowerCase();
     if (!q) {
       return [];
     }
     await this.ensureUserRoot(username);
+    const storageId = await this.sid(username);
     const hits: SearchHit[] = [];
-    await this.searchWalk(username, '', q, hits);
+    await this.searchWalk(storageId, '', q, hits);
     return hits.slice(0, 100);
   }
 
   private async searchWalk(
-    username: string,
+    storageId: string,
     relDir: string,
     q: string,
     hits: SearchHit[],
   ): Promise<void> {
-    const entries = await this.storage.list(username, relDir);
+    const entries = await this.storage.list(storageId, relDir);
     for (const entry of entries) {
       const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
       if (entry.type === 'dir') {
-        await this.searchWalk(username, rel, q, hits);
+        await this.searchWalk(storageId, rel, q, hits);
         continue;
       }
-      const matchedName = entry.name.toLowerCase().includes(q);
-      let matchedContent = false;
-      let snippet: string | undefined;
-      if (SEARCHABLE_EXTENSIONS.has(this.ext(entry.name))) {
-        try {
-          const content = await this.storage.readText(username, rel);
-          const idx = content.toLowerCase().indexOf(q);
-          if (idx >= 0) {
-            matchedContent = true;
-            const start = Math.max(0, idx - 30);
-            snippet = content
-              .slice(start, idx + q.length + 30)
-              .replace(/\s+/g, ' ')
-              .trim();
-          }
-        } catch {
-          // ignore unreadable files
-        }
-      }
-      if (matchedName || matchedContent) {
+      // Content is opaque ciphertext on the server; only names are searchable.
+      if (entry.name.toLowerCase().includes(q)) {
         hits.push({
           path: rel,
           name: entry.name,
-          matchedName,
-          matchedContent,
-          snippet,
+          matchedName: true,
+          matchedContent: false,
         });
       }
     }

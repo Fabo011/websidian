@@ -43,13 +43,48 @@ function setupTwoFactor(formId, errorId) {
     clearError(error);
     const code = form.elements.code.value.trim();
     try {
-      await postJSON('/auth/2fa', { code });
+      const res = await postJSON('/auth/2fa', { code });
+      await unlockAfter2fa(res);
       window.location.href = '/';
     } catch (err) {
       showError(error, err.message);
     }
   });
 }
+
+/**
+ * After a successful second-factor verification the server returns the
+ * (server-opaque) wrapped vault key and its KDF salt. We derive the wrapping
+ * key from the password the user just entered and unlock the vault key into
+ * this browser session. The key never leaves the browser.
+ */
+async function unlockAfter2fa(res) {
+  if (!res || !res.wrappedVaultKey || !res.kdfSalt) return;
+  const password = pendingPassword;
+  pendingPassword = '';
+  if (!password) {
+    // No password in memory (shouldn't happen in the normal flow); the app will
+    // prompt for unlock on load instead.
+    return;
+  }
+  try {
+    await window.WOCrypto.unlockVaultKey(
+      password,
+      res.kdfSalt,
+      res.wrappedVaultKey,
+    );
+  } catch (e) {
+    // A failed unlock here means the encrypted vault can't be read; surface it
+    // rather than silently logging the user into an unusable session.
+    throw new Error(
+      translate('unlock_failed', 'Could not unlock your encrypted vault.'),
+    );
+  }
+}
+
+// Held only in memory between entering the password and completing 2FA, so the
+// vault key can be unlocked once the second factor succeeds.
+let pendingPassword = '';
 
 function initLogin() {
   const loginForm = document.getElementById('login-form');
@@ -64,6 +99,7 @@ function initLogin() {
     const password = loginForm.elements.password.value;
     try {
       await postJSON('/auth/login', { username, password });
+      pendingPassword = password;
       loginForm.hidden = true;
       totpForm.hidden = false;
       totpForm.elements.code.focus();
@@ -79,7 +115,11 @@ function initRegister() {
   const regForm = document.getElementById('register-form');
   if (!regForm) return;
   const regError = document.getElementById('register-error');
+  const recoveryStep = document.getElementById('recovery-step');
   const enrollStep = document.getElementById('enroll-step');
+
+  let pendingUsername = '';
+  let pendingEnroll = null; // { qrDataUrl, secret } from /auth/register
 
   regForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -87,16 +127,98 @@ function initRegister() {
     const username = regForm.elements.username.value.trim();
     const password = regForm.elements.password.value;
     try {
-      const data = await postJSON('/auth/register', { username, password });
-      document.getElementById('totp-qr').src = data.qrDataUrl;
-      document.getElementById('totp-secret').textContent = data.secret;
+      // Generate the end-to-end encryption keys in the browser. The server only
+      // ever receives the wrapped (encrypted) vault key + salts, never the
+      // vault key itself nor the recovery key.
+      const { recoveryKey, material } =
+        await window.WOCrypto.createVaultKeyMaterial(password);
+
+      const data = await postJSON('/auth/register', {
+        username,
+        password,
+        kdfSalt: material.kdfSalt,
+        recoverySalt: material.recoverySalt,
+        wrappedVaultKey: material.wrappedVaultKey,
+        recoveryWrappedVaultKey: material.recoveryWrappedVaultKey,
+      });
+
+      pendingUsername = username;
+      pendingPassword = password;
+      pendingEnroll = { qrDataUrl: data.qrDataUrl, secret: data.secret };
+      showRecoveryKey(recoveryKey, pendingUsername);
       regForm.hidden = true;
-      enrollStep.hidden = false;
-      document.querySelector('#confirm-form input[name="code"]').focus();
+      recoveryStep.hidden = false;
     } catch (err) {
       showError(regError, err.message);
     }
   });
+
+  // Recovery-key step: the user must explicitly confirm they saved it before
+  // continuing to two-factor setup.
+  const recoveryConfirm = document.getElementById('recovery-confirm');
+  const recoveryContinue = document.getElementById('recovery-continue');
+  if (recoveryConfirm && recoveryContinue) {
+    recoveryConfirm.addEventListener('change', () => {
+      recoveryContinue.disabled = !recoveryConfirm.checked;
+    });
+    recoveryContinue.addEventListener('click', () => {
+      if (!recoveryConfirm.checked) return;
+      if (pendingEnroll) {
+        document.getElementById('totp-qr').src = pendingEnroll.qrDataUrl;
+        document.getElementById('totp-secret').textContent = pendingEnroll.secret;
+      }
+      recoveryStep.hidden = true;
+      enrollStep.hidden = false;
+      const codeInput = document.querySelector('#confirm-form input[name="code"]');
+      if (codeInput) codeInput.focus();
+    });
+  }
+
+  const copyRecovery = document.getElementById('copy-recovery');
+  if (copyRecovery) {
+    copyRecovery.addEventListener('click', async () => {
+      const key = document.getElementById('recovery-key').textContent;
+      try {
+        await navigator.clipboard.writeText(key);
+        copyRecovery.textContent = translate('copied', 'Copied');
+        setTimeout(
+          () => (copyRecovery.textContent = translate('copy', 'Copy')),
+          1500,
+        );
+      } catch (e) {
+        /* clipboard unavailable */
+      }
+    });
+  }
+
+  const downloadRecovery = document.getElementById('download-recovery');
+  if (downloadRecovery) {
+    downloadRecovery.addEventListener('click', () => {
+      const key = document.getElementById('recovery-key').textContent;
+      const who = pendingUsername || 'account';
+      const body =
+        'web-obsidian recovery key\n' +
+        '==========================\n\n' +
+        'Account: ' +
+        who +
+        '\n' +
+        'Recovery key: ' +
+        key +
+        '\n\n' +
+        'This key is the ONLY way to recover your encrypted notes if you\n' +
+        'forget your password. Keep it private and offline. web-obsidian\n' +
+        'cannot see it or reset it.\n';
+      const blob = new Blob([body], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'web-obsidian-recovery-key.txt';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
 
   const copyBtn = document.getElementById('copy-secret');
   if (copyBtn) {
@@ -124,7 +246,8 @@ function initRegister() {
       clearError(confirmError);
       const code = confirmForm.elements.code.value.trim();
       try {
-        await postJSON('/auth/2fa', { code });
+        const res = await postJSON('/auth/2fa', { code });
+        await unlockAfter2fa(res);
         const billingOn = planStep && (await isBillingEnabled());
         if (billingOn) {
           enrollStepEl.hidden = true;
@@ -139,6 +262,12 @@ function initRegister() {
   }
 
   initPlanStep();
+}
+
+/** Render the one-time recovery key into the recovery step. */
+function showRecoveryKey(recoveryKey) {
+  const el = document.getElementById('recovery-key');
+  if (el) el.textContent = recoveryKey;
 }
 
 async function isBillingEnabled() {

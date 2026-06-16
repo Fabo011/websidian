@@ -52,6 +52,7 @@ function makeGuard(required: TokenPurpose, verifyUserExists: boolean) {
       (req as Request & { user?: unknown }).user = {
         id: payload.sub,
         username: payload.username,
+        storageId: payload.storageId,
       };
       return true;
     }

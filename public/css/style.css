@@ -102,6 +102,42 @@ a { color: var(--accent); }
   font-size: 13px;
 }
 .form-error { color: var(--danger); font-size: 13px; margin: 0 0 12px; }
+.recovery-key-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 14px 0;
+}
+.recovery-key {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 18px;
+  letter-spacing: 1px;
+  font-weight: 600;
+  word-break: break-all;
+  user-select: all;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.6;
+}
+.recovery-key-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.recovery-key-actions .btn-ghost { width: auto; }
+.recovery-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 4px 0 14px;
+  cursor: pointer;
+}
+.recovery-confirm input[type='checkbox'] { margin-top: 2px; flex: none; }
 .btn-primary {
   width: 100%;
   padding: 10px 14px;

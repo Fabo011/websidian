@@ -32,8 +32,8 @@
         <a href="#backup">Backing up your vault</a>
         <a href="#trash">Deleting files (trash)</a>
         <a href="#twofa">Two-factor authentication</a>
-        <a href="#encryption">At-rest encryption</a>
-        <a href="#password">No password reset</a>
+        <a href="#encryption">End-to-end encryption</a>
+        <a href="#password">Recovery key &amp; no reset</a>
         <a href="#weblinks">Web links</a>
         <a href="#files">Supported files</a>
         <a href="#architecture">Architecture</a>
@@ -61,7 +61,7 @@
         <ul>
           <li>Nothing to install &mdash; no app, no sync client.</li>
           <li>No local storage used on your phone or PC.</li>
-          <li>No encrypted backups for you to manage &mdash; the server handles encryption.</li>
+          <li>End-to-end encrypted &mdash; your browser encrypts everything, so only you can read it.</li>
           <li>Deliberately simple: just what you need day to day, not a feature maze.</li>
         </ul>
         <p class="docs-quote">
@@ -77,9 +77,9 @@
           on device B</strong> to see the change. Updates are not pushed live.
         </p>
         <p>
-          This is a direct consequence of at-rest encryption: content is stored encrypted and
-          only decrypted when you request it, so each device sees the latest version the next
-          time it loads a note &mdash; not the instant it changes elsewhere.
+          This is a direct consequence of end-to-end encryption: content is stored as ciphertext
+          and only decrypted in your browser when you request it, so each device sees the latest
+          version the next time it loads a note &mdash; not the instant it changes elsewhere.
         </p>
       </section>
 
@@ -90,8 +90,8 @@
           single <code>.zip</code> file with the original folder structure.
         </p>
         <p>
-          The export is <strong>decrypted</strong> on the way out, so the zip is a portable,
-          platform-independent backup you can open anywhere or re-import later.
+          The export is <strong>decrypted in your browser</strong> on the way out, so the zip is
+          a portable, platform-independent backup you can open anywhere or re-import later.
         </p>
       </section>
 
@@ -140,37 +140,53 @@
       </section>
 
       <section class="legal-section" id="encryption">
-        <h2>At-rest encryption (and why not end-to-end)</h2>
+        <h2>End-to-end encryption (zero-knowledge)</h2>
         <p>
-          Every file &mdash; notes, drawings, attachments, documents &mdash; is encrypted with
-          AES-256-GCM on the server before it is written to disk or object storage. The stored
-          data is unreadable on its own.
+          Every file &mdash; notes, drawings, attachments, documents &mdash; is encrypted
+          <strong>in your browser</strong> with AES-256-GCM before it is uploaded. The server
+          only ever stores ciphertext it cannot read, so nobody &mdash; not even the operator
+          &mdash; can see your content.
         </p>
         <p>
-          We chose <strong>at-rest</strong> encryption over end-to-end (E2E) on purpose. True E2E
-          would require the decryption key to live only in your browser. That makes server-side
-          rendering, full-text search and the password-change flow impossible without shipping
-          all your data to the client, and &mdash; critically &mdash; if you lost that key,
-          every note would be permanently unrecoverable. At-rest encryption protects the stored
-          data while keeping the product simple and usable.
+          When you sign up, your browser generates a random vault key and locks it with a key
+          derived from your password (PBKDF2, 600,000 iterations). Your password and the vault
+          key <strong>never leave your device</strong>. Because the server is blind to your
+          content, things that would normally happen server-side &mdash; markdown rendering,
+          full-text content search and the <a href="#backup">export</a> &mdash; all run locally
+          in your browser instead.
+        </p>
+        <p>
+          Filenames and folder names stay readable on the server so your file tree keeps working;
+          only the <em>contents</em> of files are encrypted.
         </p>
       </section>
 
       <section class="legal-section" id="password">
-        <h2>There is a password change &mdash; but no password reset</h2>
+        <h2>Recovery key &mdash; and why there is no password reset</h2>
         <p>
-          You can change your password any time from the dashboard (current password + a 2FA
-          code are required). You can likewise <strong>change your authenticator</strong> while
-          you still have access (see <a href="#twofa">Two-factor authentication</a> above).
-          There is, however, <strong>no &ldquo;forgot password&rdquo; reset</strong>
-          and no recovery for a lost TOTP secret once you can no longer sign in.
+          Because only you can decrypt your vault, we <strong>cannot reset your password</strong>
+          for you &mdash; there is no &ldquo;forgot password&rdquo; e-mail that could ever give
+          someone access. Instead, when you register you are shown a one-time
+          <strong>recovery key</strong>. It unlocks your vault independently of your password, so
+          it is your way back in if you ever forget it.
         </p>
         <p>
-          So: <strong>never lose your password or your TOTP secret.</strong> We strongly
-          recommend a password manager &mdash; for example
+          You must confirm you have saved the recovery key before you can finish signing up, and
+          you can download it as a text file. <strong>Store it somewhere safe and separate from
+          your password</strong> (a password manager is ideal).
+        </p>
+        <p>
+          You can change your password any time from the dashboard (current password + a 2FA code
+          are required); this simply re-locks the same vault key under your new password. But if
+          you lose <strong>both</strong> your password and your recovery key, your data is
+          <strong>permanently unrecoverable</strong> &mdash; by design, no one can decrypt it for
+          you.
+        </p>
+        <p>
+          We strongly recommend a password manager &mdash; for example
           <a href="https://bitwarden.com" target="_blank" rel="noopener noreferrer">Bitwarden</a>
-          &mdash; to store your password and to hold your 2FA (Bitwarden can generate the TOTP
-          codes for you).
+          &mdash; to store your password, your recovery key, and your 2FA secret (Bitwarden can
+          generate the TOTP codes for you).
         </p>
       </section>
 
@@ -194,7 +210,7 @@
           claims. Vet a link once, store the exact address, and from then on you always open
           <em>that</em> verified URL. You are no longer re-reading a link someone pasted into an
           email or chat, where the visible text can hide a different, manipulated destination.
-          The stored URL is encrypted at rest like the rest of your vault.
+          The stored URL is end-to-end encrypted like the rest of your vault.
         </p>
         <p>
           <strong>Independent of the browser.</strong> Because the links are kept server-side in
@@ -213,7 +229,7 @@
           <code>.css</code>, <code>.conf</code> and many more &mdash; with syntax highlighting.
           Word (<code>.docx</code>), Excel (<code>.xlsx</code>/<code>.xls</code>) and
           OpenDocument (<code>.odt</code>/<code>.ods</code>) files render read-only in the
-          browser. All of them are encrypted at rest just like your notes.
+          browser. All of them are end-to-end encrypted in your browser just like your notes.
         </p>
       </section>
 
@@ -226,9 +242,9 @@
           <li><strong>NestJS backend</strong> with server-side rendered EJS views.</li>
           <li><strong>Cloudflare Zero Trust tunnel</strong> into the <code>fabo011-cloud.de</code> private network.</li>
           <li><strong>Docker Swarm</strong> for container orchestration.</li>
-          <li><strong>PostgreSQL</strong> database for user data - encrypted.</li>
-          <li><strong>Node.js crypto</strong> for at-rest encryption &mdash; all files are encrypted (AES-256-GCM).</li>
-          <li><strong>S3-compatible storage</strong> for the encrypted vault contents.</li>
+          <li><strong>PostgreSQL</strong> database for user data; sensitive columns (TOTP, billing) encrypted at rest.</li>
+          <li><strong>Browser WebCrypto</strong> for end-to-end encryption &mdash; all file contents are encrypted client-side (AES-256-GCM) before upload.</li>
+          <li><strong>S3-compatible storage</strong> as a blind blob store for the encrypted vault contents (keyed by a random per-account ID).</li>
           <li><strong>Encrypted backups</strong> to MEGA object storage.</li>
         </ul>
       </section>

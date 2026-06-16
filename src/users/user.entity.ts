@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    Index,
     PrimaryGeneratedColumn,
 } from 'typeorm';
 import type { PlanTier } from '../config/configuration';
@@ -27,8 +28,45 @@ export class User {
   @Column({ type: 'varchar', unique: true })
   username: string;
 
+  /**
+   * Stable, random, opaque identifier that owns the user's storage namespace
+   * (S3 prefix / on-disk folder) and the client-side key derivation salt.
+   *
+   * This is the anchor that fixes account-recycling: it is generated once at
+   * registration and never reused, so a new account that happens to pick a
+   * freed username gets a *different* storage folder and can never derive a
+   * key that matches the previous owner's data. Stored in plaintext because it
+   * is a non-secret handle (it must appear in storage keys).
+   */
+  @Index({ unique: true })
+  @Column({ type: 'varchar' })
+  storageId: string;
+
   @Column({ type: 'varchar', transformer: encryptedColumn })
   passwordHash: string;
+
+  // --- End-to-end encryption (zero-knowledge) key material ------------------
+  // The vault key (VK) never reaches the server. The client derives a wrapping
+  // key from the password (Argon2id + kdfSalt) and stores only the *wrapped*
+  // VK here. A second copy is wrapped with a recovery key so the user can
+  // recover if they forget the password. All values are opaque base64 strings;
+  // the server cannot unwrap any of them.
+
+  /** Base64 salt for the Argon2id password-derived wrapping key. */
+  @Column({ type: 'varchar', nullable: true })
+  kdfSalt: string | null;
+
+  /** Base64 salt for the Argon2id recovery-key-derived wrapping key. */
+  @Column({ type: 'varchar', nullable: true })
+  recoverySalt: string | null;
+
+  /** Vault key wrapped (AES-GCM) with the password-derived key. */
+  @Column({ type: 'varchar', nullable: true })
+  wrappedVaultKey: string | null;
+
+  /** Vault key wrapped (AES-GCM) with the recovery-key-derived key. */
+  @Column({ type: 'varchar', nullable: true })
+  recoveryWrappedVaultKey: string | null;
 
   /** Base32 TOTP secret, encrypted at rest. */
   @Column({ type: 'varchar', transformer: encryptedColumn })

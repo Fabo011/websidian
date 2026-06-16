@@ -17,6 +17,22 @@ import { JwtPayload } from './auth.types';
 
 const TOTP_ISSUER = 'web-obsidian';
 
+// TOTP codes are time-based. Allow ±1 step (±30s) of drift between the server
+// clock and the user's authenticator app so slightly out-of-sync devices
+// (very common on phones) still validate instead of failing every code.
+authenticator.options = { window: 1 };
+
+/**
+ * Client-computed, server-opaque key material for zero-knowledge encryption.
+ * Every field is a base64 string the server stores but cannot interpret.
+ */
+export interface VaultKeyMaterial {
+  kdfSalt: string;
+  recoverySalt: string;
+  wrappedVaultKey: string;
+  recoveryWrappedVaultKey: string;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -32,10 +48,16 @@ export class AuthService {
   /**
    * Create a new account (TOTP not yet confirmed) and return the enrolment
    * details so the UI can show a QR code and the plaintext secret.
+   *
+   * The end-to-end encryption key material ({@link VaultKeyMaterial}) is
+   * computed entirely on the client (Argon2id + AES key wrapping) and handed to
+   * us already wrapped — the server stores it verbatim and can never unwrap it,
+   * so the vault key is never exposed here.
    */
   async register(
     username: string,
     password: string,
+    keys: VaultKeyMaterial,
   ): Promise<{ user: User; secret: string; otpauthUrl: string; qrDataUrl: string }> {
     if (!this.app.allowRegistration) {
       throw new ForbiddenException('Registration is disabled.');
@@ -53,6 +75,10 @@ export class AuthService {
       username: normalized,
       passwordHash,
       totpSecret: secret,
+      kdfSalt: keys.kdfSalt,
+      recoverySalt: keys.recoverySalt,
+      wrappedVaultKey: keys.wrappedVaultKey,
+      recoveryWrappedVaultKey: keys.recoveryWrappedVaultKey,
     });
 
     const otpauthUrl = authenticator.keyuri(normalized, TOTP_ISSUER, secret);
@@ -88,6 +114,7 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
     code: string,
+    rewrap: { kdfSalt: string; wrappedVaultKey: string },
   ): Promise<void> {
     const user = await this.users.findById(userId);
     if (!user) {
@@ -110,7 +137,12 @@ export class AuthService {
       );
     }
 
+    // Re-wrap the vault key under the new password (computed on the client) so
+    // the encrypted vault never has to be re-encrypted. The vault key itself is
+    // unchanged; only its password-wrapped copy and salt are replaced.
     user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.kdfSalt = rewrap.kdfSalt;
+    user.wrappedVaultKey = rewrap.wrappedVaultKey;
     await this.users.save(user);
   }
 
@@ -189,10 +221,14 @@ export class AuthService {
     return user;
   }
 
-  signToken(user: Pick<User, 'id' | 'username'>, purpose: 'auth' | 'pending'): string {
+  signToken(
+    user: Pick<User, 'id' | 'username' | 'storageId'>,
+    purpose: 'auth' | 'pending',
+  ): string {
     const payload: JwtPayload = {
       sub: user.id,
       username: user.username,
+      storageId: user.storageId,
       purpose,
     };
     const expiresIn = purpose === 'auth' ? this.app.jwtExpiresIn : '10m';
