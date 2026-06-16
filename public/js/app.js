@@ -1890,6 +1890,139 @@ async function submitChangePassword(e) {
   showChangePasswordError(msg);
 }
 
+/* ---------- reset authenticator (2FA / TOTP) ---------- */
+
+function openResetTotp() {
+  const overlay = $('#reset-totp-overlay');
+  $('#rt-current').value = '';
+  $('#rt-current-code').value = '';
+  $('#rt-new-code').value = '';
+  $('#rt-secret').textContent = '';
+  $('#rt-qr').src = '';
+  $('#rt-verify-error').hidden = true;
+  $('#rt-confirm-error').hidden = true;
+  $('#reset-totp-verify-form').hidden = false;
+  $('#reset-totp-confirm-form').hidden = true;
+  overlay.hidden = false;
+  $('#rt-current').focus();
+}
+
+function closeResetTotp() {
+  $('#reset-totp-overlay').hidden = true;
+}
+
+function showResetTotpError(sel, msg) {
+  const err = $(sel);
+  err.textContent = msg;
+  err.hidden = false;
+}
+
+async function submitResetTotpVerify(e) {
+  if (e) e.preventDefault();
+  const currentPassword = $('#rt-current').value;
+  const code = $('#rt-current-code').value.trim();
+  $('#rt-verify-error').hidden = true;
+
+  if (!currentPassword || !code) {
+    showResetTotpError('#rt-verify-error', t('cp_fill_all'));
+    return;
+  }
+  if (!/^\d{6}$/.test(code)) {
+    showResetTotpError('#rt-verify-error', t('cp_bad_code'));
+    return;
+  }
+
+  const btn = $('#rt-verify-submit');
+  btn.disabled = true;
+  // Direct fetch so a 400/401 does not trigger the global auth redirect.
+  let res;
+  try {
+    res = await fetch('/api/account/totp/init', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, code }),
+    });
+  } catch {
+    btn.disabled = false;
+    showResetTotpError('#rt-verify-error', t('network_error'));
+    return;
+  }
+  btn.disabled = false;
+
+  if (res.ok) {
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      showResetTotpError('#rt-verify-error', t('rt_failed'));
+      return;
+    }
+    $('#rt-qr').src = data.qrDataUrl;
+    $('#rt-secret').textContent = data.secret;
+    $('#reset-totp-verify-form').hidden = true;
+    $('#reset-totp-confirm-form').hidden = false;
+    $('#rt-new-code').focus();
+    return;
+  }
+
+  let msg = t('rt_failed');
+  try {
+    const data = await res.json();
+    if (data && data.message) {
+      msg = Array.isArray(data.message) ? data.message.join(' ') : data.message;
+    }
+  } catch {
+    /* ignore */
+  }
+  showResetTotpError('#rt-verify-error', msg);
+}
+
+async function submitResetTotpConfirm(e) {
+  if (e) e.preventDefault();
+  const code = $('#rt-new-code').value.trim();
+  $('#rt-confirm-error').hidden = true;
+
+  if (!/^\d{6}$/.test(code)) {
+    showResetTotpError('#rt-confirm-error', t('cp_bad_code'));
+    return;
+  }
+
+  const btn = $('#rt-confirm-submit');
+  btn.disabled = true;
+  let res;
+  try {
+    res = await fetch('/api/account/totp', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+  } catch {
+    btn.disabled = false;
+    showResetTotpError('#rt-confirm-error', t('network_error'));
+    return;
+  }
+  btn.disabled = false;
+
+  if (res.ok) {
+    closeResetTotp();
+    flash(t('rt_success'));
+    return;
+  }
+
+  let msg = t('rt_failed');
+  try {
+    const data = await res.json();
+    if (data && data.message) {
+      msg = Array.isArray(data.message) ? data.message.join(' ') : data.message;
+    }
+  } catch {
+    /* ignore */
+  }
+  showResetTotpError('#rt-confirm-error', msg);
+}
+
 $('#account-btn').addEventListener('click', openDashboard);
 $('#dashboard-close').addEventListener('click', closeDashboard);
 $('#dashboard-overlay').addEventListener('click', (e) => {
@@ -1903,6 +2036,28 @@ $('#change-password-form').addEventListener('submit', submitChangePassword);
 $('#change-password-overlay').addEventListener('click', (e) => {
   if (e.target === $('#change-password-overlay')) closeChangePassword();
 });
+$('#reset-totp-btn').addEventListener('click', openResetTotp);
+$('#reset-totp-close').addEventListener('click', closeResetTotp);
+$('#rt-verify-cancel').addEventListener('click', closeResetTotp);
+$('#rt-confirm-cancel').addEventListener('click', closeResetTotp);
+$('#reset-totp-verify-form').addEventListener('submit', submitResetTotpVerify);
+$('#reset-totp-confirm-form').addEventListener('submit', submitResetTotpConfirm);
+$('#reset-totp-overlay').addEventListener('click', (e) => {
+  if (e.target === $('#reset-totp-overlay')) closeResetTotp();
+});
+$('#rt-copy-secret').addEventListener('click', async () => {
+  const secret = $('#rt-secret').textContent;
+  if (!secret) return;
+  try {
+    await navigator.clipboard.writeText(secret);
+    const btn = $('#rt-copy-secret');
+    const original = btn.textContent;
+    btn.textContent = t('copied');
+    setTimeout(() => (btn.textContent = original), 1500);
+  } catch {
+    /* clipboard unavailable */
+  }
+});
 $('#plan-upgrade').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-plan]');
   if (btn) startCheckout(btn.getAttribute('data-plan'));
@@ -1911,6 +2066,10 @@ $('#manage-billing-btn').addEventListener('click', openBillingPortal);
 document.addEventListener('keydown', (e) => {
   if (!$('#change-password-overlay').hidden && e.key === 'Escape') {
     closeChangePassword();
+    return;
+  }
+  if (!$('#reset-totp-overlay').hidden && e.key === 'Escape') {
+    closeResetTotp();
     return;
   }
   if (!$('#dashboard-overlay').hidden && e.key === 'Escape') {

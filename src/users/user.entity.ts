@@ -34,6 +34,14 @@ export class User {
   @Column({ type: 'varchar', transformer: encryptedColumn })
   totpSecret: string;
 
+  /**
+   * A newly generated TOTP secret awaiting confirmation while the user resets
+   * their authenticator from the dashboard. Encrypted at rest, cleared once the
+   * new secret is confirmed and promoted to `totpSecret`.
+   */
+  @Column({ type: 'varchar', nullable: true, transformer: encryptedColumn })
+  pendingTotpSecret: string | null;
+
   /** Becomes true once the user has confirmed a TOTP code during registration. */
   @Column({ type: 'boolean', default: false })
   totpEnabled: boolean;

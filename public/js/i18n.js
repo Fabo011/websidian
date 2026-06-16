@@ -124,6 +124,18 @@
       cp_bad_code: 'Enter the 6-digit code from your authenticator.',
       cp_success: 'Password changed.',
       cp_failed: 'Could not change password.',
+      reset_totp: 'Reset authenticator (2FA)',
+      reset_totp_hint:
+        'Switching to a new phone or authenticator app? Reset your two-factor authentication to pair a new device.',
+      reset_totp_verify_hint:
+        "Confirm it's you with your current password and a code from your current authenticator.",
+      reset_totp_scan_hint:
+        'Scan this QR code with your new authenticator app (or enter the secret manually), then enter a code from it to finish.',
+      rt_current_code: 'Current authenticator code',
+      rt_new_code: 'New authenticator code',
+      rt_success: 'Authenticator updated.',
+      rt_failed: 'Could not reset authenticator.',
+      copied: 'Copied',
       delete_account_hint:
         'Deleting your account permanently removes all your notes, files and account data. This cannot be undone.',
       delete_account: 'Delete account',
@@ -239,6 +251,9 @@
         'Scan the QR code with your authenticator app, or enter the secret manually.',
       secret: 'Secret',
       copy: 'Copy',
+      reg_pwmanager_before: 'Tip: use a password manager such as',
+      reg_pwmanager_after:
+        'to store your password and TOTP secret. You can change your password and authenticator later, but they cannot be reset if lost — so keep them safe.',
       verification_code: 'Verification code',
       confirm_finish: 'Confirm & finish',
       have_account: 'Already have an account?',
@@ -429,6 +444,18 @@
       cp_bad_code: 'Gib den 6-stelligen Code aus deiner Authenticator-App ein.',
       cp_success: 'Passwort geändert.',
       cp_failed: 'Passwort konnte nicht geändert werden.',
+      reset_totp: 'Authenticator zurücksetzen (2FA)',
+      reset_totp_hint:
+        'Neues Smartphone oder eine neue Authenticator-App? Setze deine Zwei-Faktor-Authentifizierung zurück, um ein neues Gerät zu koppeln.',
+      reset_totp_verify_hint:
+        'Bestätige mit deinem aktuellen Passwort und einem Code aus deiner aktuellen Authenticator-App, dass du es bist.',
+      reset_totp_scan_hint:
+        'Scanne diesen QR-Code mit deiner neuen Authenticator-App (oder gib den Schlüssel manuell ein) und gib anschließend einen Code daraus ein, um abzuschließen.',
+      rt_current_code: 'Aktueller Authenticator-Code',
+      rt_new_code: 'Neuer Authenticator-Code',
+      rt_success: 'Authenticator aktualisiert.',
+      rt_failed: 'Authenticator konnte nicht zurückgesetzt werden.',
+      copied: 'Kopiert',
       delete_account_hint:
         'Beim Löschen deines Kontos werden alle Notizen, Dateien und Kontodaten dauerhaft entfernt. Dies kann nicht rückgängig gemacht werden.',
       delete_account: 'Konto löschen',
@@ -544,6 +571,9 @@
         'Scanne den QR-Code mit deiner Authenticator-App oder gib den Schlüssel manuell ein.',
       secret: 'Schlüssel',
       copy: 'Kopieren',
+      reg_pwmanager_before: 'Tipp: Nutze einen Passwort-Manager wie',
+      reg_pwmanager_after:
+        'um dein Passwort und deinen TOTP-Schlüssel zu speichern. Du kannst Passwort und Authenticator später ändern, aber sie können bei Verlust nicht zurückgesetzt werden — bewahre sie daher sicher auf.',
       verification_code: 'Bestätigungscode',
       confirm_finish: 'Bestätigen & abschließen',
       have_account: 'Hast du bereits ein Konto?',

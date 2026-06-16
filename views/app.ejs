@@ -195,6 +195,45 @@
     </div>
   </div>
 
+  <div id="reset-totp-overlay" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="reset-totp-title">
+      <div class="dashboard-head">
+        <h3 id="reset-totp-title" class="modal-title"><i class="bi bi-shield-lock"></i> <span data-i18n="reset_totp">Reset authenticator (2FA)</span></h3>
+        <button id="reset-totp-close" class="icon-btn" title="Close" aria-label="Close" data-i18n-attr="title:close;aria-label:close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <form id="reset-totp-verify-form" autocomplete="off">
+        <p class="modal-message" data-i18n="reset_totp_verify_hint">Confirm it's you with your current password and a code from your <strong>current</strong> authenticator.</p>
+        <label class="modal-label" for="rt-current" data-i18n="current_password">Current password</label>
+        <input id="rt-current" class="modal-input" type="password" autocomplete="current-password" required />
+        <label class="modal-label" for="rt-current-code" data-i18n="rt_current_code">Current authenticator code</label>
+        <input id="rt-current-code" class="modal-input" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code" required />
+        <p id="rt-verify-error" class="modal-error" hidden></p>
+        <div class="modal-actions">
+          <button id="rt-verify-cancel" class="btn-ghost" type="button" data-i18n="cancel">Cancel</button>
+          <button id="rt-verify-submit" class="btn-primary" type="submit" data-i18n="continue">Continue</button>
+        </div>
+      </form>
+
+      <form id="reset-totp-confirm-form" autocomplete="off" hidden>
+        <p class="modal-message" data-i18n="reset_totp_scan_hint">Scan this QR code with your new authenticator app (or enter the secret manually), then enter a code from it to finish.</p>
+        <img id="rt-qr" class="totp-qr" alt="TOTP QR code" />
+        <div class="totp-secret">
+          <span class="muted" data-i18n="secret">Secret</span>
+          <code id="rt-secret"></code>
+          <button type="button" id="rt-copy-secret" class="btn-ghost" data-i18n="copy">Copy</button>
+        </div>
+        <label class="modal-label" for="rt-new-code" data-i18n="rt_new_code">New authenticator code</label>
+        <input id="rt-new-code" class="modal-input" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code" required />
+        <p id="rt-confirm-error" class="modal-error" hidden></p>
+        <div class="modal-actions">
+          <button id="rt-confirm-cancel" class="btn-ghost" type="button" data-i18n="cancel">Cancel</button>
+          <button id="rt-confirm-submit" class="btn-primary" type="submit" data-i18n="confirm_finish">Confirm &amp; finish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="dashboard-overlay" class="modal-overlay" hidden>
     <div class="modal dashboard" role="dialog" aria-modal="true" aria-labelledby="dashboard-title">
       <div class="dashboard-head">
@@ -256,6 +295,8 @@
         <h4 class="dashboard-subtitle"><i class="bi bi-shield-lock"></i> <span data-i18n="security">Security</span></h4>
         <p class="dashboard-hint" data-i18n="change_password_hint">Changing your password requires your current password and a code from your authenticator app.</p>
         <button id="change-password-btn" class="btn-ghost" type="button"><i class="bi bi-key"></i> <span data-i18n="change_password">Change password</span></button>
+        <p class="dashboard-hint" data-i18n="reset_totp_hint">Switching to a new phone or authenticator app? Reset your two-factor authentication to pair a new device.</p>
+        <button id="reset-totp-btn" class="btn-ghost" type="button"><i class="bi bi-shield-lock"></i> <span data-i18n="reset_totp">Reset authenticator (2FA)</span></button>
       </div>
 
       <div class="dashboard-section danger-zone">

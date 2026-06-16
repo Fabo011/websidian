@@ -114,6 +114,65 @@ export class AuthService {
     await this.users.save(user);
   }
 
+  /**
+   * Begin resetting the user's authenticator (TOTP). Requires the current
+   * password and a valid code from the *existing* authenticator, then generates
+   * a fresh secret that is stored as pending until confirmed. Returns the
+   * enrolment details so the UI can show a QR code and the plaintext secret.
+   */
+  async beginTotpReset(
+    userId: number,
+    currentPassword: string,
+    code: string,
+  ): Promise<{ secret: string; otpauthUrl: string; qrDataUrl: string }> {
+    const user = await this.users.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Account no longer exists.');
+    }
+
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) {
+      throw new UnauthorizedException('Current password is incorrect.');
+    }
+
+    if (!this.verifyTotp(user, code)) {
+      throw new BadRequestException('Incorrect code. Please try again.');
+    }
+
+    const secret = authenticator.generateSecret();
+    user.pendingTotpSecret = secret;
+    await this.users.save(user);
+
+    const otpauthUrl = authenticator.keyuri(user.username, TOTP_ISSUER, secret);
+    const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
+
+    return { secret, otpauthUrl, qrDataUrl };
+  }
+
+  /**
+   * Confirm a pending authenticator reset: verify a code from the *new* secret
+   * and promote it to the active TOTP secret, clearing the pending value.
+   */
+  async confirmTotpReset(userId: number, code: string): Promise<void> {
+    const user = await this.users.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Account no longer exists.');
+    }
+    if (!user.pendingTotpSecret) {
+      throw new BadRequestException(
+        'No authenticator reset in progress. Please start again.',
+      );
+    }
+    if (!authenticator.verify({ token: code, secret: user.pendingTotpSecret })) {
+      throw new BadRequestException('Incorrect code. Please try again.');
+    }
+
+    user.totpSecret = user.pendingTotpSecret;
+    user.pendingTotpSecret = null;
+    user.totpEnabled = true;
+    await this.users.save(user);
+  }
+
   /** Confirm the second factor and mark TOTP as enabled (idempotent). */
   async confirmTotp(userId: number, code: string): Promise<User> {
     const user = await this.users.findById(userId);

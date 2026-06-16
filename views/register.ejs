@@ -15,6 +15,11 @@
 
     <form id="register-form" class="auth-form" autocomplete="on">
       <h2 data-i18n="create_account">Create account</h2>
+      <p class="auth-note muted">
+        <span data-i18n="reg_pwmanager_before">Tip: use a password manager such as</span>
+        <a href="https://bitwarden.com" target="_blank" rel="noopener noreferrer">Bitwarden</a>
+        <span data-i18n="reg_pwmanager_after">to store your password and TOTP secret. You can change your password and authenticator later, but they cannot be reset if lost — so keep them safe.</span>
+      </p>
       <label>
         <span data-i18n="username">Username</span>
         <input name="username" type="text" autocomplete="username"

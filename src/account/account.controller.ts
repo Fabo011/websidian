@@ -23,6 +23,7 @@ import { UsersService } from '../users/users.service';
 import { VaultService } from '../vault/vault.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
+import { BeginResetTotpDto, ConfirmResetTotpDto } from './dto/reset-totp.dto';
 
 @Controller('api/account')
 @UseGuards(JwtAuthGuard)
@@ -83,6 +84,34 @@ export class AccountController {
       dto.newPassword,
       dto.code,
     );
+    return { ok: true };
+  }
+
+  /**
+   * Begin resetting the authenticator (2FA). Requires the current password and
+   * a code from the existing authenticator, then returns a fresh QR code and
+   * secret to enrol the new device. The change only takes effect once confirmed.
+   */
+  @Post('totp/init')
+  @HttpCode(200)
+  async beginTotpReset(
+    @CurrentUser() current: AuthenticatedUser,
+    @Body() dto: BeginResetTotpDto,
+  ) {
+    return this.auth.beginTotpReset(current.id, dto.currentPassword, dto.code);
+  }
+
+  /**
+   * Confirm the authenticator reset with a code from the newly added device,
+   * promoting the pending secret to the active one.
+   */
+  @Post('totp')
+  @HttpCode(200)
+  async confirmTotpReset(
+    @CurrentUser() current: AuthenticatedUser,
+    @Body() dto: ConfirmResetTotpDto,
+  ) {
+    await this.auth.confirmTotpReset(current.id, dto.code);
     return { ok: true };
   }
 

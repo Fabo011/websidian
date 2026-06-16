@@ -835,7 +835,8 @@ a { color: var(--accent); }
 }
 .modal-overlay[hidden] { display: none; }
 /* Opens on top of the account dashboard overlay, which shares z-index 100. */
-#change-password-overlay { z-index: 110; }
+#change-password-overlay,
+#reset-totp-overlay { z-index: 110; }
 .modal {
   width: 100%;
   max-width: 420px;

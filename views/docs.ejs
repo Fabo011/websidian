@@ -129,6 +129,14 @@
           single secret is too weak to protect them. Set it up once during registration by
           scanning the QR code.
         </p>
+        <p>
+          Got a new phone or switched authenticator app? You can <strong>change (reset) your
+          authenticator</strong> any time from the dashboard under
+          <em>Account &rarr; Security &rarr; Reset authenticator (2FA)</em>. For your safety the
+          reset requires your current password <em>and</em> a code from your existing
+          authenticator; you then scan a fresh QR code and confirm a code from the new device to
+          switch over. The old code stops working as soon as the new one is confirmed.
+        </p>
       </section>
 
       <section class="legal-section" id="encryption">
@@ -152,8 +160,10 @@
         <h2>There is a password change &mdash; but no password reset</h2>
         <p>
           You can change your password any time from the dashboard (current password + a 2FA
-          code are required). There is <strong>no &ldquo;forgot password&rdquo; reset</strong>
-          and no recovery for a lost TOTP secret.
+          code are required). You can likewise <strong>change your authenticator</strong> while
+          you still have access (see <a href="#twofa">Two-factor authentication</a> above).
+          There is, however, <strong>no &ldquo;forgot password&rdquo; reset</strong>
+          and no recovery for a lost TOTP secret once you can no longer sign in.
         </p>
         <p>
           So: <strong>never lose your password or your TOTP secret.</strong> We strongly
