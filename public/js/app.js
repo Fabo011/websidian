@@ -1928,6 +1928,424 @@ openFile = async function (path) {
   maybeCloseSidebar();
 };
 
+/* ---------- web link manager ---------- */
+
+const WEBLINKS_DIR = 'weblinks';
+const WEBLINKS_CSV = 'weblinks/weblinks.csv';
+// Native CSV header. It is a column-name prefix of Linky's export format
+// (linkname,linkdescription,link,category,…), so files written here can be
+// imported by Linky and Linky exports can be imported here.
+const WEBLINKS_HEADER = ['linkname', 'linkdescription', 'link', 'category'];
+
+const weblinksState = {
+  links: [], // { name, description, url, category }
+  version: null, // last loaded file version, for concurrent-edit detection
+  editIndex: null, // index being edited, or null when adding
+  filter: '',
+};
+
+/** Parse RFC 4180-style CSV text into an array of string-cell rows. */
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let inQuotes = false;
+  const src = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (src[i + 1] === '"') {
+          cell += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cell += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      row.push(cell);
+      cell = '';
+    } else if (ch === '\n') {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = '';
+    } else {
+      cell += ch;
+    }
+  }
+  // Flush the trailing cell/row unless the file ended on a clean newline.
+  if (cell !== '' || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** Quote a single CSV cell when it contains a comma, quote or newline. */
+function csvCell(value) {
+  const s = value == null ? '' : String(value);
+  if (/[",\n]/.test(s)) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+/** Serialize the current links into Linky-compatible CSV text. */
+function serializeWeblinks(links) {
+  const lines = [WEBLINKS_HEADER.join(',')];
+  for (const l of links) {
+    lines.push(
+      [l.name, l.description, l.url, l.category].map(csvCell).join(','),
+    );
+  }
+  return lines.join('\n') + '\n';
+}
+
+/**
+ * Turn CSV text into link records. Maps by header name so both the native
+ * format and a full Linky export (extra columns) are understood. Rows without
+ * a usable http(s) URL are skipped.
+ */
+function csvToLinks(text) {
+  const rows = parseCsv(text);
+  if (!rows.length) return [];
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const idx = (name) => header.indexOf(name);
+  const iName = idx('linkname');
+  const iDesc = idx('linkdescription');
+  const iUrl = idx('link');
+  const iCat = idx('category');
+  // If the first row is not a recognizable header, treat every row as data
+  // with a simple name,url[,description[,category]] layout.
+  const hasHeader = iUrl !== -1 || iName !== -1;
+  const out = [];
+  const start = hasHeader ? 1 : 0;
+  for (let r = start; r < rows.length; r++) {
+    const cells = rows[r];
+    if (!cells.length || cells.every((c) => c.trim() === '')) continue;
+    const get = (i, fallback) =>
+      (i !== -1 && i < cells.length ? cells[i] : cells[fallback] || '').trim();
+    const url = sanitizeLinkUrl(get(iUrl, 1));
+    if (!url) continue;
+    out.push({
+      name: get(iName, 0) || url,
+      description: get(iDesc, 2),
+      url,
+      category: get(iCat, 3),
+    });
+  }
+  return out;
+}
+
+/** Accept only http(s) URLs; reject javascript:, data:, etc. */
+function sanitizeLinkUrl(value) {
+  const s = (value || '').trim();
+  if (!s) return '';
+  try {
+    const u = new URL(s);
+    if (u.protocol === 'http:' || u.protocol === 'https:') {
+      return u.href;
+    }
+  } catch {
+    // Allow a bare host like "example.com" by retrying with https://.
+    if (/^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(s)) {
+      return sanitizeLinkUrl('https://' + s);
+    }
+  }
+  return '';
+}
+
+/** Persist the current links to the vault CSV (create folder/file as needed). */
+async function saveWeblinks() {
+  const csv = serializeWeblinks(weblinksState.links);
+  const res = await api('PUT', '/api/file', {
+    path: WEBLINKS_CSV,
+    content: csv,
+    baseVersion: weblinksState.version || undefined,
+  });
+  weblinksState.version = res.version;
+}
+
+/**
+ * Open the web link manager. On first use this creates the `weblinks` folder
+ * and an empty `weblinks.csv` inside it, then loads and renders the links.
+ */
+async function openWebLinks() {
+  showLoading(t('loading'));
+  try {
+    let data;
+    try {
+      data = await api(
+        'GET',
+        '/api/file?path=' + encodeURIComponent(WEBLINKS_CSV),
+      );
+    } catch (err) {
+      if (err.status === 400 || err.status === 404) {
+        // First run: create the folder and an empty CSV with just the header.
+        await api('POST', '/api/folder', { path: WEBLINKS_DIR }).catch(() => {});
+        data = await api('PUT', '/api/file', {
+          path: WEBLINKS_CSV,
+          content: serializeWeblinks([]),
+        });
+        await loadTree();
+      } else {
+        throw err;
+      }
+    }
+    weblinksState.links = csvToLinks(data.content || '');
+    weblinksState.version = data.version || null;
+    weblinksState.filter = '';
+    const search = $('#weblinks-search');
+    if (search) search.value = '';
+    hideAllViews();
+    state.current = null;
+    $('#weblinks-view').hidden = false;
+    maybeCloseSidebar();
+    renderWeblinks();
+  } catch (err) {
+    await uiAlert(t('open_failed_title'), {
+      message: err.message || t('weblinks_load_failed'),
+    });
+  } finally {
+    hideLoading();
+  }
+}
+
+function renderWeblinks() {
+  const list = $('#weblinks-list');
+  const empty = $('#weblinks-empty');
+  const count = $('#weblinks-count');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const q = weblinksState.filter.trim().toLowerCase();
+  const visible = weblinksState.links
+    .map((link, index) => ({ link, index }))
+    .filter(({ link }) => {
+      if (!q) return true;
+      return [link.name, link.url, link.description, link.category]
+        .join(' ')
+        .toLowerCase()
+        .includes(q);
+    });
+
+  count.textContent = t('weblinks_count_n', { n: weblinksState.links.length });
+
+  if (!weblinksState.links.length) {
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+
+  for (const { link, index } of visible) {
+    list.appendChild(buildWeblinkCard(link, index));
+  }
+}
+
+function buildWeblinkCard(link, index) {
+  const card = document.createElement('div');
+  card.className = 'weblink-card';
+
+  const main = document.createElement('div');
+  main.className = 'weblink-main';
+
+  const a = document.createElement('a');
+  a.className = 'weblink-name';
+  a.href = link.url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  const icon = document.createElement('i');
+  icon.className = 'bi bi-box-arrow-up-right';
+  const nameText = document.createElement('span');
+  nameText.textContent = link.name || link.url;
+  a.appendChild(nameText);
+  a.appendChild(icon);
+  main.appendChild(a);
+
+  const url = document.createElement('span');
+  url.className = 'weblink-url';
+  url.textContent = link.url;
+  main.appendChild(url);
+
+  if (link.description) {
+    const desc = document.createElement('p');
+    desc.className = 'weblink-desc';
+    desc.textContent = link.description;
+    main.appendChild(desc);
+  }
+  if (link.category) {
+    const tag = document.createElement('span');
+    tag.className = 'weblink-tag';
+    tag.textContent = link.category;
+    main.appendChild(tag);
+  }
+  card.appendChild(main);
+
+  const actions = document.createElement('div');
+  actions.className = 'weblink-actions';
+
+  const editBtn = document.createElement('button');
+  editBtn.className = 'icon-btn';
+  editBtn.title = t('weblinks_edit');
+  editBtn.setAttribute('aria-label', t('weblinks_edit'));
+  editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+  editBtn.addEventListener('click', () => openWeblinkModal(index));
+  actions.appendChild(editBtn);
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'icon-btn';
+  delBtn.title = t('delete');
+  delBtn.setAttribute('aria-label', t('delete'));
+  delBtn.innerHTML = '<i class="bi bi-trash"></i>';
+  delBtn.addEventListener('click', () => deleteWeblink(index));
+  actions.appendChild(delBtn);
+
+  card.appendChild(actions);
+  return card;
+}
+
+function openWeblinkModal(index) {
+  weblinksState.editIndex = typeof index === 'number' ? index : null;
+  const editing = weblinksState.editIndex !== null;
+  const link = editing ? weblinksState.links[weblinksState.editIndex] : null;
+  $('#weblink-modal-title').querySelector('span').textContent = editing
+    ? t('weblinks_edit')
+    : t('weblinks_add');
+  $('#weblink-url').value = link ? link.url : '';
+  $('#weblink-name').value = link ? link.name : '';
+  $('#weblink-category').value = link ? link.category : '';
+  $('#weblink-description').value = link ? link.description : '';
+  $('#weblink-error').hidden = true;
+  $('#weblink-overlay').hidden = false;
+  setTimeout(() => $('#weblink-url').focus(), 0);
+}
+
+function closeWeblinkModal() {
+  $('#weblink-overlay').hidden = true;
+  weblinksState.editIndex = null;
+}
+
+async function submitWeblink(e) {
+  e.preventDefault();
+  const url = sanitizeLinkUrl($('#weblink-url').value);
+  const errEl = $('#weblink-error');
+  if (!url) {
+    errEl.textContent = t('weblinks_invalid_url');
+    errEl.hidden = false;
+    return;
+  }
+  const record = {
+    name: $('#weblink-name').value.trim() || url,
+    description: $('#weblink-description').value.trim(),
+    url,
+    category: $('#weblink-category').value.trim(),
+  };
+  showLoading(t('loading'));
+  try {
+    if (weblinksState.editIndex !== null) {
+      weblinksState.links[weblinksState.editIndex] = record;
+    } else {
+      weblinksState.links.push(record);
+    }
+    await saveWeblinks();
+    closeWeblinkModal();
+    renderWeblinks();
+  } catch (err) {
+    errEl.textContent = err.message || t('weblinks_load_failed');
+    errEl.hidden = false;
+  } finally {
+    hideLoading();
+  }
+}
+
+async function deleteWeblink(index) {
+  const ok = await uiConfirm(t('weblinks_delete_title'), {
+    message: t('weblinks_delete_msg'),
+    okText: t('delete'),
+    danger: true,
+  });
+  if (!ok) return;
+  showLoading(t('loading'));
+  try {
+    weblinksState.links.splice(index, 1);
+    await saveWeblinks();
+    renderWeblinks();
+  } catch (err) {
+    await uiAlert(t('open_failed_title'), {
+      message: err.message || t('weblinks_load_failed'),
+    });
+  } finally {
+    hideLoading();
+  }
+}
+
+async function importWeblinksCsv(file) {
+  showLoading(t('importing'));
+  try {
+    const text = await file.text();
+    const incoming = csvToLinks(text);
+    if (!incoming.length) {
+      await uiAlert(t('import_failed_title'), {
+        message: t('weblinks_import_failed'),
+      });
+      return;
+    }
+    // Merge, de-duplicating by URL (existing entries win).
+    const seen = new Set(weblinksState.links.map((l) => l.url));
+    let added = 0;
+    for (const link of incoming) {
+      if (seen.has(link.url)) continue;
+      seen.add(link.url);
+      weblinksState.links.push(link);
+      added++;
+    }
+    await saveWeblinks();
+    renderWeblinks();
+    flash(t('weblinks_imported_n', { n: added }));
+  } catch (err) {
+    await uiAlert(t('import_failed_title'), {
+      message: err.message || t('weblinks_import_failed'),
+    });
+  } finally {
+    hideLoading();
+  }
+}
+
+(function setupWeblinks() {
+  $('#weblinks-btn').addEventListener('click', openWebLinks);
+  $('#weblink-add').addEventListener('click', () => openWeblinkModal(null));
+  $('#weblink-form').addEventListener('submit', submitWeblink);
+  $('#weblink-cancel').addEventListener('click', closeWeblinkModal);
+  $('#weblink-modal-close').addEventListener('click', closeWeblinkModal);
+  $('#weblink-overlay').addEventListener('click', (e) => {
+    if (e.target === $('#weblink-overlay')) closeWeblinkModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('#weblink-overlay').hidden) closeWeblinkModal();
+  });
+
+  const importInput = $('#weblinks-import-input');
+  $('#weblink-import').addEventListener('click', () => importInput.click());
+  importInput.addEventListener('change', async (e) => {
+    const file = (e.target.files || [])[0];
+    e.target.value = '';
+    if (file) await importWeblinksCsv(file);
+  });
+
+  $('#weblinks-search').addEventListener(
+    'input',
+    debounce((e) => {
+      weblinksState.filter = e.target.value;
+      renderWeblinks();
+    }, 120),
+  );
+})();
+
 /* ---------- flash ---------- */
 
 let flashTimer;

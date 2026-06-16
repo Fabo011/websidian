@@ -26,6 +26,7 @@
         <button id="new-note" title="Create a new markdown note" data-i18n-attr="title:title_new_note"><i class="bi bi-file-earmark-plus"></i> <span data-i18n="tool_note">Note</span></button>
         <button id="new-file" title="Create a new Excalidraw drawing" data-i18n-attr="title:title_new_file"><i class="bi bi-pencil-square"></i> <span data-i18n="tool_file">Drawing</span></button>
         <button id="new-folder" title="Create a new folder" data-i18n-attr="title:title_new_folder"><i class="bi bi-folder-plus"></i> <span data-i18n="tool_folder">Folder</span></button>
+        <button id="weblinks-btn" title="Open the web link manager" data-i18n-attr="title:title_weblinks"><i class="bi bi-link-45deg"></i> <span data-i18n="tool_weblinks">Web links</span></button>
         <button id="upload-btn" title="Upload files from your computer" data-i18n-attr="title:title_upload"><i class="bi bi-file-earmark-arrow-up"></i> <span data-i18n="tool_upload">Upload files</span></button>
         <button id="import-btn" title="Import folders or a whole vault (.zip)" data-i18n-attr="title:title_import"><i class="bi bi-folder-symlink"></i> <span data-i18n="tool_import">Import folder</span></button>
         <button id="export-btn" title="Download the whole vault as a .zip" data-i18n-attr="title:title_export"><i class="bi bi-download"></i> <span data-i18n="tool_export">Export</span></button>
@@ -111,6 +112,36 @@
           </div>
         </div>
         <div id="excalidraw-root" class="excalidraw-root"></div>
+      </section>
+
+      <section id="weblinks-view" class="view" hidden>
+        <div class="view-header">
+          <button class="icon-btn mobile-back" data-mobile-back title="Show files" aria-label="Show files" data-i18n-attr="title:open_files_title;aria-label:open_files"><i class="bi bi-list"></i></button>
+          <span class="current-path breadcrumb"><i class="bi bi-link-45deg"></i> <span data-i18n="weblinks_title">Web links</span> <span class="weblinks-path">weblinks/weblinks.csv</span></span>
+          <div class="view-actions">
+            <span id="weblinks-count" class="weblinks-count"></span>
+          </div>
+        </div>
+        <div class="weblinks-toolbar" role="toolbar" aria-label="Web links actions">
+          <button type="button" id="weblink-add" class="md-btn" title="Add a new web link" data-i18n-attr="title:weblinks_add_tip">
+            <i class="bi bi-plus-lg"></i> <span data-i18n="weblinks_add">Add link</span>
+          </button>
+          <button type="button" id="weblink-import" class="md-btn" title="Import links from a CSV file (Linky format supported)" data-i18n-attr="title:weblinks_import_tip">
+            <i class="bi bi-filetype-csv"></i> <span data-i18n="weblinks_import">Import CSV</span>
+          </button>
+          <div class="weblinks-search-wrap">
+            <i class="bi bi-search"></i>
+            <input id="weblinks-search" type="search" autocomplete="off" placeholder="Search links…" data-i18n-attr="placeholder:weblinks_search" />
+          </div>
+        </div>
+        <div class="weblinks-body">
+          <p class="weblinks-intro" data-i18n="weblinks_intro">Save links once, then always reach them from your vault. Useful so you never forget a link again — and safer too: evaluate a link a single time, store it, and you always open exactly that link instead of a manipulated one.</p>
+          <div id="weblinks-list" class="weblinks-list"></div>
+          <div id="weblinks-empty" class="weblinks-empty" hidden>
+            <i class="bi bi-link-45deg"></i>
+            <p data-i18n="weblinks_none">No web links yet. Add one or import a CSV.</p>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -260,6 +291,31 @@
   <input id="upload-input" type="file" hidden multiple />
   <input id="import-input" type="file" hidden multiple />
   <input id="import-zip-input" type="file" hidden accept=".zip,application/zip" />
+  <input id="weblinks-import-input" type="file" hidden accept=".csv,text/csv" />
+
+  <div id="weblink-overlay" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="weblink-modal-title">
+      <div class="dashboard-head">
+        <h3 id="weblink-modal-title" class="modal-title"><i class="bi bi-link-45deg"></i> <span data-i18n="weblinks_add">Add link</span></h3>
+        <button id="weblink-modal-close" class="icon-btn" title="Close" aria-label="Close" data-i18n-attr="title:close;aria-label:close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <form id="weblink-form" autocomplete="off">
+        <label class="modal-label" for="weblink-url" data-i18n="weblinks_field_url">URL</label>
+        <input id="weblink-url" class="modal-input" type="url" inputmode="url" placeholder="https://example.com" required />
+        <label class="modal-label" for="weblink-name" data-i18n="weblinks_field_name">Name</label>
+        <input id="weblink-name" class="modal-input" type="text" required />
+        <label class="modal-label" for="weblink-category" data-i18n="weblinks_field_category">Category</label>
+        <input id="weblink-category" class="modal-input" type="text" />
+        <label class="modal-label" for="weblink-description" data-i18n="weblinks_field_description">Description</label>
+        <input id="weblink-description" class="modal-input" type="text" />
+        <p id="weblink-error" class="modal-error" hidden></p>
+        <div class="modal-actions">
+          <button id="weblink-cancel" class="btn-ghost" type="button" data-i18n="cancel">Cancel</button>
+          <button id="weblink-submit" class="btn-primary" type="submit" data-i18n="save">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script src="/public/js/app.js"></script>
 </body>
