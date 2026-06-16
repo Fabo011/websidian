@@ -1157,4 +1157,41 @@ pre.hljs code { background: transparent; padding: 0; }
 .pricing-desc { margin: 0; color: var(--text-muted); font-size: 14px; }
 .pricing-contact { margin-top: 20px; }
 
+/* ===== Copy button on highlighted code blocks ===== */
+pre.hljs.has-copy { position: relative; }
+.code-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+pre.hljs.has-copy:hover .code-copy,
+.code-copy:focus-visible { opacity: 1; }
+.code-copy:hover { color: var(--text); border-color: var(--accent); }
+.code-copy.copied { color: #2ecc71; border-color: #2ecc71; opacity: 1; }
+@media (hover: none) {
+  .code-copy { opacity: 1; }
+}
+
+/* ===== Drop target highlight on the markdown editor ===== */
+.editor-body.drop-target-editor {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+
 

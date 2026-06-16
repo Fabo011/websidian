@@ -242,6 +242,12 @@ async function loadTree() {
   if (!tree) return;
   tree.addEventListener('dragover', (e) => {
     if (e.target.closest('.tree-row')) return; // handled by folder rows
+    if (isExternalFileDrag(e)) {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      tree.classList.add('drop-target-root');
+      return;
+    }
     if (isInvalidMove(state.dragPath, state.dragType, '')) return;
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
@@ -253,6 +259,11 @@ async function loadTree() {
   tree.addEventListener('drop', async (e) => {
     tree.classList.remove('drop-target-root');
     if (e.target.closest('.tree-row')) return;
+    if (isExternalFileDrag(e)) {
+      e.preventDefault();
+      await uploadDataTransfer(e.dataTransfer, '');
+      return;
+    }
     if (isInvalidMove(state.dragPath, state.dragType, '')) return;
     e.preventDefault();
     await moveEntry(state.dragPath, '');
@@ -393,6 +404,12 @@ function isInvalidMove(fromPath, fromType, targetDir) {
 
 function attachDropTarget(el, targetDir) {
   el.addEventListener('dragover', (e) => {
+    if (isExternalFileDrag(e)) {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      el.classList.add('drop-target');
+      return;
+    }
     if (isInvalidMove(state.dragPath, state.dragType, targetDir)) return;
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
@@ -401,6 +418,12 @@ function attachDropTarget(el, targetDir) {
   el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
   el.addEventListener('drop', async (e) => {
     el.classList.remove('drop-target');
+    if (isExternalFileDrag(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      await uploadDataTransfer(e.dataTransfer, targetDir);
+      return;
+    }
     if (isInvalidMove(state.dragPath, state.dragType, targetDir)) return;
     e.preventDefault();
     e.stopPropagation();
@@ -429,6 +452,115 @@ async function moveEntry(fromPath, targetDir) {
   expandAncestors(targetDir);
   await loadTree();
   flash(t('moved_to', { target: targetDir || t('vault_root') }));
+}
+
+/* ---------- drag & drop (upload files from the computer) ---------- */
+
+/** True when the drag carries files from the user's computer (not a tree row). */
+function isExternalFileDrag(e) {
+  const dt = e.dataTransfer;
+  if (!dt) return false;
+  // Internal tree-row drags set dragPath; everything else with a Files type is
+  // an external file/folder coming from the desktop.
+  if (state.dragPath != null) return false;
+  return Array.from(dt.types || []).includes('Files');
+}
+
+/** Recursively collect { file, path } entries from a dropped file/folder. */
+function walkEntry(entry, prefix, out) {
+  return new Promise((resolve) => {
+    if (entry.isFile) {
+      entry.file(
+        (file) => {
+          out.push({ file, path: prefix + entry.name });
+          resolve();
+        },
+        () => resolve(),
+      );
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const collected = [];
+      const readBatch = () => {
+        reader.readEntries(
+          async (batch) => {
+            if (!batch.length) {
+              for (const child of collected) {
+                await walkEntry(child, prefix + entry.name + '/', out);
+              }
+              resolve();
+              return;
+            }
+            collected.push(...batch);
+            readBatch();
+          },
+          () => resolve(),
+        );
+      };
+      readBatch();
+    } else {
+      resolve();
+    }
+  });
+}
+
+/** Read all files (with relative paths) from a drop's DataTransfer. */
+async function readDataTransferEntries(dt) {
+  const out = [];
+  const items = dt.items ? Array.from(dt.items) : [];
+  let usedEntries = false;
+  for (const it of items) {
+    if (it.kind !== 'file') continue;
+    const entry = it.webkitGetAsEntry && it.webkitGetAsEntry();
+    if (entry) {
+      usedEntries = true;
+      await walkEntry(entry, '', out);
+    }
+  }
+  if (!usedEntries) {
+    for (const file of Array.from(dt.files || [])) {
+      out.push({ file, path: file.name });
+    }
+  }
+  return out;
+}
+
+/** Upload dropped files/folders into `targetDir`, preserving any structure. */
+async function uploadDataTransfer(dt, targetDir) {
+  const entries = await readDataTransferEntries(dt);
+  if (!entries.length) return;
+  const hasFolders = entries.some((en) => en.path.includes('/'));
+  showLoading(t('uploading'));
+  try {
+    if (hasFolders) {
+      // Preserve the folder structure via the import endpoint.
+      const fd = new FormData();
+      const paths = [];
+      for (const en of entries) {
+        paths.push(en.path);
+        fd.append('files', en.file, en.path.split('/').pop());
+      }
+      fd.append('paths', JSON.stringify(paths));
+      fd.append('base', targetDir);
+      const res = await api('POST', '/api/import', fd, true);
+      flash(t('imported_n', { n: (res && res.written) || 0 }));
+    } else {
+      for (const en of entries) {
+        const fd = new FormData();
+        fd.append('file', en.file, en.file.name);
+        fd.append('folder', targetDir);
+        await api('POST', '/api/upload', fd, true);
+      }
+      flash(t('uploaded_n', { n: entries.length }));
+    }
+    expandAncestors(targetDir);
+    await loadTree();
+  } catch (err) {
+    await uiAlert(t('upload_failed_title'), {
+      message: err.message || t('upload_failed_msg'),
+    });
+  } finally {
+    hideLoading();
+  }
 }
 
 function fileIcon(ext) {
@@ -508,6 +640,17 @@ function selectDir(path, row) {
   setSelectedDir(path);
 }
 
+/** Select a folder by its path, highlighting its tree row if it is visible. */
+function selectDirByPath(path) {
+  let row = null;
+  if (path) {
+    row = document.querySelector(
+      '.tree-row[data-path="' + (window.CSS && CSS.escape ? CSS.escape(path) : path) + '"]',
+    );
+  }
+  selectDir(path, row);
+}
+
 /* ---------- context menu ---------- */
 
 function openContextMenu(x, y, node) {
@@ -555,6 +698,13 @@ $('#context-menu').addEventListener('click', async (e) => {
     await createFileIn(node.path);
   } else if (action === 'new-folder') {
     await createFolderIn(node.path);
+  } else if (action === 'upload') {
+    // Target this folder, then open the file picker (same flow as the toolbar).
+    selectDirByPath(node.path);
+    $('#upload-input').click();
+  } else if (action === 'import') {
+    selectDirByPath(node.path);
+    openImportModal();
   } else if (action === 'delete') {
     const ok = await uiConfirm(t('delete'), {
       message: t('confirm_delete_msg', { name: node.name }),
@@ -618,9 +768,10 @@ async function openEditor(path, ext) {
   // Markdown and code/config files offer a reading view (rendered preview or
   // syntax-highlighted code); plain .txt has no preview.
   $('#toggle-preview').style.display = isMarkdown || isCode ? '' : 'none';
-  // Markdown files open in reading (view) mode by default; other text files
-  // (txt, json, code, …) open in edit mode.
-  if (isMarkdown) {
+  // Every file that has a reading view (markdown or code/config) opens in view
+  // mode by default — the user browses the vault read-only and clicks "Edit" to
+  // make changes. Plain text without a preview opens straight in edit mode.
+  if (isMarkdown || isCode) {
     setViewMode(true);
   } else {
     setViewMode(false);
@@ -676,13 +827,159 @@ async function renderPreviewNow() {
       });
       $('#preview').innerHTML = data.html;
     }
+    enhanceCodeBlocks($('#preview'));
   } catch (e) {
     /* ignore preview errors */
   }
 }
 
+/** Add a "copy" button to every highlighted code block in `container`. */
+function enhanceCodeBlocks(container) {
+  container.querySelectorAll('pre.hljs').forEach((pre) => {
+    if (pre.querySelector('.code-copy')) return;
+    pre.classList.add('has-copy');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'code-copy';
+    btn.title = t('copy');
+    btn.setAttribute('aria-label', t('copy'));
+    btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+    btn.addEventListener('click', async () => {
+      const code = pre.querySelector('code');
+      const text = code ? code.innerText : pre.innerText;
+      const ok = await copyText(text);
+      btn.innerHTML = ok
+        ? '<i class="bi bi-check2"></i>'
+        : '<i class="bi bi-clipboard-x"></i>';
+      btn.classList.toggle('copied', ok);
+      setTimeout(() => {
+        btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+        btn.classList.remove('copied');
+      }, 1200);
+    });
+    pre.appendChild(btn);
+  });
+}
+
+/** Copy text to the clipboard, falling back to execCommand on older browsers. */
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through to legacy path */
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 $('#toggle-preview').addEventListener('click', () => {
   setViewMode(!state.viewing);
+});
+
+/* ---------- drag & drop attachments into the markdown editor ---------- */
+
+/** Insert text at the editor caret, switching out of reading mode if needed. */
+function insertIntoEditor(text) {
+  const editor = $('#editor');
+  if (state.viewing) setViewMode(false);
+  const start = editor.selectionStart != null ? editor.selectionStart : editor.value.length;
+  const end = editor.selectionEnd != null ? editor.selectionEnd : editor.value.length;
+  const before = editor.value.slice(0, start);
+  const after = editor.value.slice(end);
+  const needNlBefore = before.length > 0 && !before.endsWith('\n');
+  const needNlAfter = after.length > 0 && !after.startsWith('\n');
+  const insert = (needNlBefore ? '\n' : '') + text + (needNlAfter ? '\n' : '');
+  editor.value = before + insert + after;
+  const pos = before.length + insert.length;
+  editor.selectionStart = editor.selectionEnd = pos;
+  editor.focus();
+  fireEditorInput();
+}
+
+function currentIsMarkdown() {
+  return (
+    state.current &&
+    (state.current.ext === 'md' || state.current.ext === 'markdown')
+  );
+}
+
+/**
+ * Upload files dropped onto the markdown editor into the note's own folder and
+ * embed each one at the caret — images as `![[name]]`, other files as `[[name]]`.
+ */
+async function embedDroppedFiles(files) {
+  if (!currentIsMarkdown()) return;
+  const folder = dirname(state.current.path);
+  showLoading(t('uploading'));
+  const refs = [];
+  try {
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append('file', file, file.name);
+      fd.append('folder', folder);
+      const res = await api('POST', '/api/upload', fd, true);
+      const name = basename((res && res.path) || file.name);
+      const isImage = IMAGE_EXTS.includes(extOf(name));
+      refs.push((isImage ? '![[' : '[[') + name + ']]');
+    }
+  } catch (err) {
+    hideLoading();
+    await uiAlert(t('upload_failed_title'), {
+      message: err.message || t('upload_failed_msg'),
+    });
+    return;
+  }
+  hideLoading();
+  insertIntoEditor(refs.join('\n'));
+  expandAncestors(folder);
+  await loadTree();
+  flash(t('uploaded_n', { n: files.length }));
+}
+
+(function setupEditorDrop() {
+  const body = $('#editor-body');
+  if (!body) return;
+  body.addEventListener('dragover', (e) => {
+    if (!isExternalFileDrag(e) || !currentIsMarkdown()) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    body.classList.add('drop-target-editor');
+  });
+  body.addEventListener('dragleave', (e) => {
+    if (!body.contains(e.relatedTarget)) {
+      body.classList.remove('drop-target-editor');
+    }
+  });
+  body.addEventListener('drop', async (e) => {
+    body.classList.remove('drop-target-editor');
+    if (!isExternalFileDrag(e) || !currentIsMarkdown()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length) await embedDroppedFiles(files);
+  });
+})();
+
+// Prevent the browser from navigating away when a file is dropped outside a
+// recognised drop zone (which would otherwise open the file and lose the app).
+['dragover', 'drop'].forEach((evt) => {
+  window.addEventListener(evt, (e) => {
+    if (isExternalFileDrag(e)) e.preventDefault();
+  });
 });
 
 /* ---------- markdown formatting toolbar ---------- */
@@ -1039,16 +1336,14 @@ async function createNoteIn(targetDir) {
 }
 
 async function createFileIn(targetDir) {
-  const name = await uiPrompt(t('prompt_new_file_title'), 'Untitled.excalidraw', {
+  let name = await uiPrompt(t('prompt_new_file_title'), 'Untitled.excalidraw', {
     title: t('prompt_new_file_title'),
     message: t('prompt_new_file_msg'),
     placeholder: t('prompt_new_file_ph'),
   });
   if (!name) return;
-  if (!/\.[a-z0-9]+$/i.test(name)) {
-    flash(t('need_extension'));
-    return;
-  }
+  // "New drawing" defaults to an Excalidraw canvas when no extension is typed.
+  if (!/\.[a-z0-9]+$/i.test(name)) name += '.excalidraw';
   const path = targetDir ? targetDir + '/' + name : name;
   try {
     await api('PUT', '/api/file', { path, content: '' });

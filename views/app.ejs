@@ -23,11 +23,11 @@
   <div class="layout">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-tools">
-        <button id="new-note" title="New note" data-i18n-attr="title:title_new_note"><i class="bi bi-file-earmark-plus"></i> <span data-i18n="tool_note">Note</span></button>
-        <button id="new-file" title="New file (any type, e.g. .excalidraw)" data-i18n-attr="title:title_new_file"><i class="bi bi-file-earmark-plus-fill"></i> <span data-i18n="tool_file">File</span></button>
-        <button id="new-folder" title="New folder" data-i18n-attr="title:title_new_folder"><i class="bi bi-folder-plus"></i> <span data-i18n="tool_folder">Folder</span></button>
-        <button id="upload-btn" title="Upload a file" data-i18n-attr="title:title_upload"><i class="bi bi-upload"></i> <span data-i18n="tool_upload">Upload</span></button>
-        <button id="import-btn" title="Import a folder or .zip" data-i18n-attr="title:title_import"><i class="bi bi-folder-symlink"></i> <span data-i18n="tool_import">Import</span></button>
+        <button id="new-note" title="Create a new markdown note" data-i18n-attr="title:title_new_note"><i class="bi bi-file-earmark-plus"></i> <span data-i18n="tool_note">Note</span></button>
+        <button id="new-file" title="Create a new Excalidraw drawing" data-i18n-attr="title:title_new_file"><i class="bi bi-pencil-square"></i> <span data-i18n="tool_file">Drawing</span></button>
+        <button id="new-folder" title="Create a new folder" data-i18n-attr="title:title_new_folder"><i class="bi bi-folder-plus"></i> <span data-i18n="tool_folder">Folder</span></button>
+        <button id="upload-btn" title="Upload files from your computer" data-i18n-attr="title:title_upload"><i class="bi bi-file-earmark-arrow-up"></i> <span data-i18n="tool_upload">Upload files</span></button>
+        <button id="import-btn" title="Import folders or a whole vault (.zip)" data-i18n-attr="title:title_import"><i class="bi bi-folder-symlink"></i> <span data-i18n="tool_import">Import folder</span></button>
         <button id="export-btn" title="Download the whole vault as a .zip" data-i18n-attr="title:title_export"><i class="bi bi-download"></i> <span data-i18n="tool_export">Export</span></button>
       </div>
       <div id="selected-folder" class="selected-folder breadcrumb" aria-label="Selected folder" data-i18n-attr="aria-label:selected_folder"></div>
@@ -118,8 +118,10 @@
   <div id="context-menu" class="context-menu" hidden>
     <button data-action="rename"><i class="bi bi-pencil"></i> <span data-i18n="rename">Rename</span></button>
     <button data-action="new-note" data-folder-only><i class="bi bi-file-earmark-plus"></i> <span data-i18n="ctx_new_note">New note</span></button>
-    <button data-action="new-file" data-folder-only><i class="bi bi-file-earmark-plus-fill"></i> <span data-i18n="ctx_new_file">New file</span></button>
+    <button data-action="new-file" data-folder-only><i class="bi bi-pencil-square"></i> <span data-i18n="ctx_new_file">New drawing</span></button>
     <button data-action="new-folder" data-folder-only><i class="bi bi-folder-plus"></i> <span data-i18n="ctx_new_folder">New folder</span></button>
+    <button data-action="upload" data-folder-only><i class="bi bi-file-earmark-arrow-up"></i> <span data-i18n="ctx_upload">Upload files here</span></button>
+    <button data-action="import" data-folder-only><i class="bi bi-folder-symlink"></i> <span data-i18n="ctx_import">Import folder here</span></button>
     <div class="context-menu-sep" data-folder-only></div>
     <button data-action="delete"><i class="bi bi-trash"></i> <span data-i18n="delete">Delete</span></button>
   </div>
@@ -235,10 +237,10 @@
   <div id="import-overlay" class="modal-overlay" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
       <div class="dashboard-head">
-        <h3 id="import-modal-title" class="modal-title"><i class="bi bi-folder-symlink"></i> <span data-i18n="import_title">Import notes</span></h3>
+        <h3 id="import-modal-title" class="modal-title"><i class="bi bi-folder-symlink"></i> <span data-i18n="import_title">Import folders</span></h3>
         <button id="import-modal-close" class="icon-btn" title="Close" aria-label="Close" data-i18n-attr="title:close;aria-label:close"><i class="bi bi-x-lg"></i></button>
       </div>
-      <p class="modal-message" data-i18n="import_choose_hint">Choose how you want to import your notes.</p>
+      <p class="modal-message" data-i18n="import_choose_hint">Import a whole vault to get started, or add more folders to an existing vault. The folder structure is preserved.</p>
       <div class="import-options">
         <button id="import-zip-choice" class="import-option" type="button">
           <i class="bi bi-file-earmark-zip"></i>
