@@ -656,16 +656,36 @@ function selectDirByPath(path) {
 function openContextMenu(x, y, node) {
   state.contextTarget = node;
   const menu = $('#context-menu');
+  const backdrop = $('#context-menu-backdrop');
   const isDir = node.type === 'dir';
   menu.querySelectorAll('[data-folder-only]').forEach((el) => {
     el.hidden = !isDir;
   });
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
   menu.hidden = false;
+  const isMobile = window.matchMedia('(max-width: 800px)').matches;
+  if (isMobile) {
+    // On phones, show the menu centered with a backdrop so it is always
+    // reachable instead of opening off-screen near the tapped row.
+    menu.classList.add('context-menu-centered');
+    menu.style.left = '';
+    menu.style.top = '';
+    if (backdrop) backdrop.hidden = false;
+  } else {
+    menu.classList.remove('context-menu-centered');
+    if (backdrop) backdrop.hidden = true;
+    // Clamp within the viewport so the menu never opens off-screen.
+    const rect = menu.getBoundingClientRect();
+    const left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8));
+    const top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8));
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+  }
 }
 function closeContextMenu() {
   $('#context-menu').hidden = true;
+  const backdrop = $('#context-menu-backdrop');
+  if (backdrop) backdrop.hidden = true;
+  $('#context-menu').classList.remove('context-menu-centered');
   state.contextTarget = null;
 }
 

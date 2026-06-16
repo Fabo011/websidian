@@ -408,6 +408,15 @@ a { color: var(--accent); }
 }
 .context-menu button i { margin-right: 8px; color: var(--text-muted); }
 
+/* Backdrop shown behind the centered context menu on small screens. */
+.context-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 59;
+}
+.context-menu-backdrop[hidden] { display: none; }
+
 /* ===== Content area ===== */
 .content { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .welcome { margin: auto; text-align: center; color: var(--text-muted); }
@@ -601,6 +610,35 @@ a { color: var(--accent); }
   .btn-label { display: none; }
   /* Give the drawing canvas a guaranteed height so it stays editable on mobile. */
   .excalidraw-root { min-height: 70vh; min-height: 70dvh; }
+
+  /* Centered, finger-friendly context menu on phones. */
+  .context-menu.context-menu-centered {
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%);
+    width: min(320px, calc(100vw - 48px));
+    max-height: 80vh;
+    max-height: 80dvh;
+    overflow-y: auto;
+    border-radius: 12px;
+    box-shadow: 0 16px 48px var(--shadow);
+  }
+  .context-menu.context-menu-centered button { padding: 14px 18px; font-size: 15px; }
+
+  /* Let the landing top navbar scroll horizontally instead of cramming the
+     actions together on narrow screens. */
+  .landing-nav { gap: 8px; }
+  .landing-brand { flex-shrink: 0; }
+  .landing-nav-actions {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .landing-nav-actions::-webkit-scrollbar { display: none; }
+  .landing-nav-actions > * { flex-shrink: 0; white-space: nowrap; }
 }
 
 /* ===== Flash toast ===== */
@@ -708,6 +746,10 @@ a { color: var(--accent); }
   border-radius: 12px;
   box-shadow: 0 16px 48px var(--shadow);
   padding: 20px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   animation: modal-pop 0.12s ease-out;
 }
 @keyframes modal-pop {
