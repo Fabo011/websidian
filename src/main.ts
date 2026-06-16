@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import * as express from 'express';
+import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { AppConfig } from './config/configuration';
@@ -37,17 +38,23 @@ async function bootstrap() {
   app.setViewEngine('ejs');
   app.useStaticAssets(join(process.cwd(), 'public'), { prefix: '/public' });
 
+  // Restrict cross-origin browser access to the configured origin(s). Same-origin
+  // requests are unaffected; other domains cannot make credentialed calls.
+  app.enableCors({
+    origin: appConfig.corsOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  });
+
+  // Security headers. CSP and COEP are disabled because the server-rendered
+  // pages rely on inline scripts/styles and the editors load worker/blob
+  // resources; the remaining helmet protections (nosniff, frameguard, HSTS,
+  // referrer policy, etc.) are kept.
   app.use(
-    (
-      _req: express.Request,
-      res: express.Response,
-      next: express.NextFunction,
-    ) => {
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-      res.setHeader('Referrer-Policy', 'same-origin');
-      next();
-    },
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+    }),
   );
 
   await app.listen(appConfig.port);

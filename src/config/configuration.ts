@@ -57,6 +57,11 @@ export interface AppConfig {
   dataRoot: string;
   allowRegistration: boolean;
   cookieSecure: boolean;
+  /**
+   * Allowed CORS origins. Cross-origin browser requests are only accepted from
+   * these origins. Empty means "same-origin only" (CORS is left disabled).
+   */
+  corsOrigins: string[];
   /** Per-user storage quota in bytes. 0 means unlimited. */
   storageQuotaBytes: number;
   /**
@@ -102,6 +107,17 @@ function parseNumber(value: string | undefined, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** Parse a comma-separated list into trimmed, non-empty entries. */
+function parseList(value: string | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(',')
+    .map((v) => v.trim().replace(/\/+$/, ''))
+    .filter((v) => v.length > 0);
+}
+
 function parseDatabaseType(value: string | undefined): DatabaseType {
   const v = (value ?? 'sqlite').trim().toLowerCase();
   if (v === 'postgres' || v === 'postgresql' || v === 'pg') {
@@ -131,7 +147,21 @@ export default (): { app: AppConfig } => {
   // on only when a Stripe secret key is present. When billing is off,
   // STORAGE_QUOTA_GB is the allowance every account gets (free == max vault).
   const hasStripeSecret = Boolean(process.env.STRIPE_SECRET_KEY?.trim());
-  const billingEnabled = parseBool(process.env.BILLING_ENABLED, hasStripeSecret);
+  const billingEnabled = parseBool(
+    process.env.BILLING_ENABLED,
+    hasStripeSecret,
+  );
+
+  // Public base URL of this app, used for redirects and as the default CORS
+  // origin when CORS_ORIGINS is not explicitly set.
+  const appUrl = (
+    process.env.APP_URL?.trim() || 'http://localhost:3065'
+  ).replace(/\/+$/, '');
+
+  // Allowed cross-origin browser origins. Defaults to the app's own URL so
+  // only this domain can call the backend from a browser.
+  const corsOrigins = parseList(process.env.CORS_ORIGINS);
+  const resolvedCorsOrigins = corsOrigins.length > 0 ? corsOrigins : [appUrl];
 
   return {
     app: {
@@ -142,6 +172,7 @@ export default (): { app: AppConfig } => {
       dataRoot,
       allowRegistration: parseBool(process.env.ALLOW_REGISTRATION, true),
       cookieSecure: parseBool(process.env.COOKIE_SECURE, false),
+      corsOrigins: resolvedCorsOrigins,
       storageQuotaBytes,
       trashRetentionDays: parseNumber(process.env.TRASH_RETENTION_DAYS, 7),
       tiers: {
@@ -158,10 +189,7 @@ export default (): { app: AppConfig } => {
         secretKey: process.env.STRIPE_SECRET_KEY?.trim() || '',
         priceId5gb: process.env.STRIPE_PRICE_5GB?.trim() || '',
         priceId20gb: process.env.STRIPE_PRICE_20GB?.trim() || '',
-        appUrl: (process.env.APP_URL?.trim() || 'http://localhost:3065').replace(
-          /\/+$/,
-          '',
-        ),
+        appUrl,
       },
       database: {
         type: parseDatabaseType(process.env.DB_TYPE),
