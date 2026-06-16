@@ -190,7 +190,7 @@ export class VaultController {
   @Get('files')
   async listFiles(@CurrentUser() user: AuthenticatedUser) {
     const files = await this.vault.listAllFiles(user.username);
-    return files.map((f) => ({ path: f.relPath }));
+    return files.map((f) => ({ path: f.relPath, version: f.version }));
   }
 
   @Get('attachment')

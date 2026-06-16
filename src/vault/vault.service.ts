@@ -493,7 +493,9 @@ export class VaultService {
   }
 
   /** Collect every file in the vault as relative paths for export. */
-  async listAllFiles(username: string): Promise<Array<{ relPath: string }>> {
+  async listAllFiles(
+    username: string,
+  ): Promise<Array<{ relPath: string; version: string }>> {
     await this.ensureUserRoot(username);
     const storageId = await this.sid(username);
     // Fast path: enumerate the whole vault in one request when supported,
@@ -502,9 +504,12 @@ export class VaultService {
     if (flat) {
       return flat
         .filter((f) => !f.relPath.split('/').some((seg) => seg.startsWith('.')))
-        .map((f) => ({ relPath: f.relPath }));
+        .map((f) => ({
+          relPath: f.relPath,
+          version: this.versionOf({ size: f.size, mtimeMs: f.mtimeMs }),
+        }));
     }
-    const out: Array<{ relPath: string }> = [];
+    const out: Array<{ relPath: string; version: string }> = [];
     const walk = async (relDir: string): Promise<void> => {
       const entries = await this.storage.list(storageId, relDir);
       for (const entry of entries) {
@@ -512,7 +517,8 @@ export class VaultService {
         if (entry.type === 'dir') {
           await walk(rel);
         } else {
-          out.push({ relPath: rel });
+          const stat = await this.storage.statFile(storageId, rel);
+          out.push({ relPath: rel, version: this.versionOf(stat) });
         }
       }
     };

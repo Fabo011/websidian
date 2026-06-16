@@ -1748,8 +1748,14 @@ $('#export-btn').addEventListener('click', async () => {
 
 // Client-side content index. The server can only match file *names* now (it
 // holds ciphertext), so full-text search runs in the browser over decrypted
-// notes. The index is built lazily on first search and reused thereafter.
+// notes. To avoid re-downloading the whole vault on every reload, decrypted
+// note text is cached in IndexedDB — sealed again under the vault key — and
+// keyed by a server-supplied version token (mtime+size). Each sync fetches
+// only the notes whose version changed and drops ones that were deleted.
 const searchIndex = { built: false, building: null, docs: [] };
+
+const SEARCH_DB_NAME = 'wo-search';
+const SEARCH_DB_STORE = 'notes';
 
 // Extensions worth indexing for full-text search (text-like notes/config).
 const SEARCH_EXTS = new Set([
@@ -1758,15 +1764,115 @@ const SEARCH_EXTS = new Set([
   'rb', 'php', 'java', 'go', 'rs', 'c', 'h', 'cpp', 'sh', 'sql', 'log',
 ]);
 
+/** Open (and lazily create) the IndexedDB holding the cached content index. */
+function openSearchDb() {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      reject(new Error('IndexedDB unavailable'));
+      return;
+    }
+    let req;
+    try {
+      req = indexedDB.open(SEARCH_DB_NAME, 1);
+    } catch (e) {
+      reject(e);
+      return;
+    }
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(SEARCH_DB_STORE)) {
+        db.createObjectStore(SEARCH_DB_STORE, { keyPath: 'path' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Promisify a single IDBRequest. */
+function idbRequest(req) {
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Apply a batch of puts/deletes to the cache store in one transaction. */
+function persistCachedNotes(db, puts, deletes) {
+  if (!puts.length && !deletes.length) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SEARCH_DB_STORE, 'readwrite');
+    const store = tx.objectStore(SEARCH_DB_STORE);
+    for (const rec of puts) store.put(rec);
+    for (const path of deletes) store.delete(path);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+/** Wipe the cached content index (e.g. on logout). Best effort. */
+async function clearSearchCache() {
+  invalidateSearchIndex();
+  try {
+    const db = await openSearchDb();
+    await new Promise((resolve) => {
+      const tx = db.transaction(SEARCH_DB_STORE, 'readwrite');
+      tx.objectStore(SEARCH_DB_STORE).clear();
+      tx.oncomplete = resolve;
+      tx.onerror = resolve;
+      tx.onabort = resolve;
+    });
+    db.close();
+  } catch (e) {
+    /* nothing cached / IndexedDB unavailable */
+  }
+}
+
 async function buildSearchIndex() {
   if (searchIndex.built) return;
   if (searchIndex.building) return searchIndex.building;
   searchIndex.building = (async () => {
     const key = await ensureVaultKey();
-    const list = await api('GET', '/api/files');
+    const list = (await api('GET', '/api/files')) || [];
+
+    // Only text-like notes are worth indexing; map each to its version token.
+    const wanted = list.filter((e) => SEARCH_EXTS.has(extOf(e.path)));
+    const wantedVersions = new Map(wanted.map((e) => [e.path, e.version]));
+
+    // Load whatever we cached last time (may be empty / unavailable).
+    let db = null;
+    let cached = [];
+    try {
+      db = await openSearchDb();
+      const tx = db.transaction(SEARCH_DB_STORE, 'readonly');
+      cached = (await idbRequest(tx.objectStore(SEARCH_DB_STORE).getAll())) || [];
+    } catch (e) {
+      db = null; // Private mode etc.: fall back to memory-only (no persistence).
+    }
+
+    // Reuse cache entries whose version still matches the server; decrypt them
+    // straight into the in-memory index (no network).
     const docs = [];
-    for (const entry of list || []) {
-      if (!SEARCH_EXTS.has(extOf(entry.path))) continue;
+    const fresh = new Set();
+    for (const rec of cached) {
+      if (rec.version == null || rec.version !== wantedVersions.get(rec.path)) {
+        continue; // changed, deleted, or no longer a text file
+      }
+      try {
+        const bytes = await window.WOCrypto.decryptBytes(key, rec.cipher);
+        const text = new TextDecoder().decode(bytes);
+        docs.push({ path: rec.path, name: basename(rec.path), text });
+        fresh.add(rec.path);
+      } catch (e) {
+        /* unreadable cache entry: treat as a miss and refetch below */
+      }
+    }
+
+    // Download + decrypt only the notes that are new or changed since last sync.
+    const puts = [];
+    for (const entry of wanted) {
+      if (fresh.has(entry.path)) continue;
       try {
         const res = await fetch(attachmentUrl(entry.path), {
           credentials: 'same-origin',
@@ -1776,10 +1882,28 @@ async function buildSearchIndex() {
         const bytes = await window.WOCrypto.decryptBytes(key, cipher);
         const text = new TextDecoder().decode(bytes);
         docs.push({ path: entry.path, name: basename(entry.path), text });
+        // Re-seal under the vault key so nothing readable sits in IndexedDB.
+        const sealed = await window.WOCrypto.encryptBytes(key, bytes);
+        puts.push({ path: entry.path, version: entry.version, cipher: sealed });
       } catch (e) {
         /* skip unreadable files */
       }
     }
+
+    // Evict cache entries for files that vanished or are no longer indexable.
+    const deletes = cached
+      .map((r) => r.path)
+      .filter((p) => !wantedVersions.has(p));
+
+    if (db) {
+      try {
+        await persistCachedNotes(db, puts, deletes);
+      } catch (e) {
+        /* persistence is best effort; the in-memory index is still valid */
+      }
+      db.close();
+    }
+
     searchIndex.docs = docs;
     searchIndex.built = true;
     searchIndex.building = null;
@@ -1787,7 +1911,11 @@ async function buildSearchIndex() {
   return searchIndex.building;
 }
 
-/** Invalidate the content index after the vault changes. */
+/**
+ * Invalidate the in-memory content index after the vault changes. The persisted
+ * IndexedDB cache is kept: the next build re-syncs it incrementally (by version
+ * token) instead of re-downloading every note.
+ */
 function invalidateSearchIndex() {
   searchIndex.built = false;
   searchIndex.building = null;
@@ -1917,6 +2045,8 @@ $('#logout-btn').addEventListener('click', async () => {
   await api('POST', '/auth/logout');
   // Forget the vault key so it can't be reused by a later session in this tab.
   window.WOCrypto.clearVaultKey();
+  // Drop the cached content index so the next user can't read it.
+  await clearSearchCache();
   window.location.href = '/login';
 });
 
