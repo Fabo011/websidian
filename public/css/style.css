@@ -790,6 +790,8 @@ a { color: var(--accent); }
 }
 .loading-text { font-size: 13px; color: var(--text-muted); }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* Inline spinning icon (e.g. on a button while an action is in progress). */
+.spin { display: inline-block; animation: spin 0.7s linear infinite; }
 
 /* ===== Import options ===== */
 .import-options {
@@ -917,6 +919,14 @@ a { color: var(--accent); }
   font-weight: 600;
 }
 .btn-danger:hover { background: var(--danger); filter: brightness(1.1); }
+/* Keep the delete-account button small to avoid accidental clicks. */
+#delete-account-btn {
+  width: auto;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 5px;
+}
 
 /* ---------- account dashboard ---------- */
 .modal.dashboard { max-width: 460px; }

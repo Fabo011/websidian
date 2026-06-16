@@ -1490,10 +1490,45 @@ async function runImport(files) {
   });
 })();
 
-$('#export-btn').addEventListener('click', () => {
-  // Stream the zip via a direct navigation so the browser handles the download.
+$('#export-btn').addEventListener('click', async () => {
+  const btn = $('#export-btn');
+  if (btn.disabled) return;
+  const icon = btn.querySelector('i');
+  const originalIconClass = icon ? icon.className : '';
+  btn.disabled = true;
+  if (icon) icon.className = 'bi bi-arrow-repeat spin';
   flash(t('preparing_download'));
-  window.location.href = '/api/export';
+  try {
+    const res = await fetch('/api/export', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('export failed');
+
+    // Derive the filename the server suggested, falling back to a sane default.
+    let filename = 'vault.zip';
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const match = /filename="?([^"]+)"?/i.exec(disposition);
+    if (match && match[1]) {
+      try {
+        filename = decodeURIComponent(match[1]);
+      } catch {
+        filename = match[1];
+      }
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch {
+    flash(t('export_failed'));
+  } finally {
+    btn.disabled = false;
+    if (icon) icon.className = originalIconClass;
+  }
 });
 
 /* ---------- search ---------- */
