@@ -4,12 +4,14 @@ import { Request, Response } from 'express';
 import { AUTH_COOKIE } from '../auth/auth.constants';
 import { AuthService } from '../auth/auth.service';
 import { AppConfig } from '../config/configuration';
+import { UsersService } from '../users/users.service';
 
 @Controller()
 export class PagesController {
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService,
+    private readonly users: UsersService,
   ) {}
 
   private get app(): AppConfig {
@@ -30,12 +32,26 @@ export class PagesController {
     }
   }
 
+  /**
+   * Returns the number of registration spots still available, or null when
+   * there is no cap (MAX_REGISTRATIONS is unset / 0).
+   */
+  private async registrationsLeft(): Promise<number | null> {
+    const max = this.app.maxRegistrations;
+    if (!max || max <= 0) return null;
+    const count = await this.users.count();
+    return Math.max(0, max - count);
+  }
+
   @Get('/')
-  index(@Req() req: Request, @Res() res: Response) {
+  async index(@Req() req: Request, @Res() res: Response) {
     const username = this.currentUsername(req);
     if (!username) {
+      const left = await this.registrationsLeft();
+      const canRegister = this.app.allowRegistration && (left === null || left > 0);
       return res.render('landing', {
-        allowRegistration: this.app.allowRegistration,
+        allowRegistration: canRegister,
+        registrationsLeft: left,
         pricing: this.app.pricing,
       });
     }
@@ -70,7 +86,7 @@ export class PagesController {
   }
 
   @Get('/register')
-  register(@Req() req: Request, @Res() res: Response) {
+  async register(@Req() req: Request, @Res() res: Response) {
     if (this.currentUsername(req)) {
       return res.redirect('/');
     }
@@ -80,6 +96,13 @@ export class PagesController {
         notice: 'Registration is currently disabled.',
       });
     }
-    return res.render('register', {});
+    const left = await this.registrationsLeft();
+    if (left !== null && left === 0) {
+      return res.render('login', {
+        allowRegistration: false,
+        notice: 'Registration is currently full. No spots are available right now.',
+      });
+    }
+    return res.render('register', { registrationsLeft: left });
   }
 }

@@ -15,6 +15,12 @@
 
     <form id="register-form" class="auth-form" autocomplete="on">
       <h2 data-i18n="create_account">Create account</h2>
+      <% if (typeof registrationsLeft !== 'undefined' && registrationsLeft !== null) { %>
+        <p class="capacity-notice">
+          <i class="bi bi-people"></i>
+          <span><span data-i18n="capacity_left_before"></span> <strong><%= registrationsLeft %></strong> <span data-i18n="capacity_left_after">registration spots remaining &mdash; capacity is limited while we scale.</span></span>
+        </p>
+      <% } %>
       <p class="auth-note muted">
         <span data-i18n="reg_pwmanager_before">Tip: use a password manager such as</span>
         <a href="https://bitwarden.com" target="_blank" rel="noopener noreferrer">Bitwarden</a>

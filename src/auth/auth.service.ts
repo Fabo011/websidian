@@ -1,9 +1,9 @@
 import {
-    BadRequestException,
-    ConflictException,
-    ForbiddenException,
-    Injectable,
-    UnauthorizedException,
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -61,6 +61,13 @@ export class AuthService {
   ): Promise<{ user: User; secret: string; otpauthUrl: string; qrDataUrl: string }> {
     if (!this.app.allowRegistration) {
       throw new ForbiddenException('Registration is disabled.');
+    }
+
+    if (this.app.maxRegistrations > 0) {
+      const count = await this.users.count();
+      if (count >= this.app.maxRegistrations) {
+        throw new ForbiddenException('Registration is currently full.');
+      }
     }
 
     const normalized = username.toLowerCase();

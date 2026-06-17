@@ -56,6 +56,12 @@ export interface AppConfig {
   jwtExpiresIn: string;
   dataRoot: string;
   allowRegistration: boolean;
+  /**
+   * Maximum number of registered users. 0 means unlimited.
+   * Set MAX_REGISTRATIONS to cap sign-ups while the server is still small;
+   * raise it or leave it unset as capacity grows.
+   */
+  maxRegistrations: number;
   cookieSecure: boolean;
   /**
    * Allowed CORS origins. Cross-origin browser requests are only accepted from
@@ -187,6 +193,7 @@ export default (): { app: AppConfig } => {
       jwtExpiresIn: process.env.JWT_EXPIRES_IN?.trim() || '7d',
       dataRoot,
       allowRegistration: parseBool(process.env.ALLOW_REGISTRATION, true),
+      maxRegistrations: parseNumber(process.env.MAX_REGISTRATIONS, 0),
       cookieSecure: parseBool(process.env.COOKIE_SECURE, false),
       corsOrigins: resolvedCorsOrigins,
       storageQuotaBytes,

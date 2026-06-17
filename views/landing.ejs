@@ -34,6 +34,12 @@
           <a class="btn-ghost" href="/register" data-i18n="hero_create_free">Create a free account</a>
         <% } %>
       </div>
+      <% if (typeof registrationsLeft !== 'undefined' && registrationsLeft !== null) { %>
+        <p class="capacity-notice">
+          <i class="bi bi-people"></i>
+          <span><span data-i18n="capacity_left_before"></span> <strong><%= registrationsLeft %></strong> <span data-i18n="capacity_left_after">registration spots remaining &mdash; capacity is limited while we scale.</span></span>
+        </p>
+      <% } %>
     </section>
 
     <section class="landing-section notice-section">
@@ -200,6 +206,12 @@
           <a class="btn-ghost" href="/register" data-i18n="nav_create">Create account</a>
         <% } %>
       </div>
+      <% if (typeof registrationsLeft !== 'undefined' && registrationsLeft !== null) { %>
+        <p class="capacity-notice">
+          <i class="bi bi-people"></i>
+          <span><span data-i18n="capacity_left_before"></span> <strong><%= registrationsLeft %></strong> <span data-i18n="capacity_left_after">registration spots remaining &mdash; capacity is limited while we scale.</span></span>
+        </p>
+      <% } %>
     </section>
   </main>
 

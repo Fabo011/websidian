@@ -18,7 +18,7 @@ name: build-and-release
 on:
   push:
     branches:
-      - none # Change to main if ready
+      - main
 
 env:
   REGISTRY: codeberg.org
@@ -98,7 +98,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/arm64
+          platforms: linux/amd64 #linux/arm64
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

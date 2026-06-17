@@ -1111,6 +1111,19 @@ a { color: var(--accent); }
   font-size: 15px;
 }
 .feature-list li i { color: var(--accent); font-size: 18px; flex-shrink: 0; }
+.capacity-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin-top: 14px;
+}
 .landing-cta {
   text-align: center;
   padding: 44px 0 8px;

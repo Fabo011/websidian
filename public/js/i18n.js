@@ -357,6 +357,9 @@
       e2e_point_lost_p:
         'Because nobody but you can decrypt your vault, we cannot reset your password for you. If you lose both your password and your recovery key, the data is gone for good.',
       cta_title: 'Ready to start?',
+      capacity_left_before: '',
+      capacity_left_after:
+        'registration spots remaining — capacity is limited while we scale.',
 
       /* footer */
       footer_love_pre: 'Developed with',
@@ -709,6 +712,9 @@
       e2e_point_lost_p:
         'Da niemand außer dir deinen Tresor entschlüsseln kann, können wir dein Passwort nicht für dich zurücksetzen. Wenn du sowohl dein Passwort als auch deinen Wiederherstellungsschlüssel verlierst, sind die Daten unwiederbringlich verloren.',
       cta_title: 'Bereit loszulegen?',
+      capacity_left_before: 'Noch',
+      capacity_left_after:
+        'Registrierungsplätze frei — die Kapazität ist begrenzt, während wir skalieren.',
 
       footer_love_pre: 'Entwickelt mit',
       footer_love_post: 'von',
