@@ -27,7 +27,7 @@ env:
 
 jobs:
   build-test:
-    runs-on: codeberg-tiny
+    runs-on: codeberg-medium
     container:
       image: node:24-bookworm
     steps:
@@ -45,7 +45,7 @@ jobs:
 
   release:
     needs: build-test
-    runs-on: codeberg-tiny
+    runs-on: codeberg-medium
     container:
       image: node:24-bookworm
     permissions:
