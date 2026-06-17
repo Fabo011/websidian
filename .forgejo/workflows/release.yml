@@ -27,7 +27,7 @@ env:
 
 jobs:
   build-test:
-    runs-on: dc893e34-8ad5-4728-8336-9700ae5240ca
+    runs-on: codeberg-tiny
     container:
       image: node:24-bookworm
     steps:
@@ -45,7 +45,7 @@ jobs:
 
   release:
     needs: build-test
-    runs-on: dc893e34-8ad5-4728-8336-9700ae5240ca
+    runs-on: codeberg-tiny
     container:
       image: node:24-bookworm
     permissions:
