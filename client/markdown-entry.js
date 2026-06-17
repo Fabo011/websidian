@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Client-side markdown renderer for web-obsidian.
+ * Client-side markdown renderer for websidian.
  *
  * This replaces the former server-side `/api/render` and `/api/highlight`
  * endpoints. With end-to-end encryption the server can no longer read note

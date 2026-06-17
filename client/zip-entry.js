@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Tiny client-side zip helper for web-obsidian, backed by fflate.
+ * Tiny client-side zip helper for websidian, backed by fflate.
  *
  * With end-to-end encryption the server only ever holds ciphertext, so it can
  * neither unpack an imported .zip nor build a meaningful export archive. Those

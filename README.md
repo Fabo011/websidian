@@ -1,4 +1,4 @@
-# web-obsidian
+# websidian
 
 A small, self-hosted Obsidian-like markdown knowledge app.
 
@@ -166,7 +166,7 @@ with package read/write scopes) in the repository's Actions settings.
 
 ## License
 
-web-obsidian is **source-available** under the
+websidian is **source-available** under the
 [PolyForm Noncommercial License 1.0.0](./LICENSE).
 
 You may self-host it for your own personal, noncommercial use, study it, and

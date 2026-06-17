@@ -1,5 +1,5 @@
-@startuml web-obsidian-scaling
-title Web-Obsidian — Horizontal Scaling across Raspberry Pi Nodes
+@startuml websidian-scaling
+title Websidian — Horizontal Scaling across Raspberry Pi Nodes
 
 skinparam componentStyle rectangle
 skinparam shadowing false
@@ -9,18 +9,18 @@ actor User
 cloud "DNS\nfabo011-cloud.de" as DNS
 
 node "CoreBrain (rasp-a)\ncorebrain.fabo011-cloud.de" as RaspA {
-  component "Web-Obsidian App\nNestJS + EJS SSR\nHTTP-only JWT" as AppA
+  component "Websidian App\nNestJS + EJS SSR\nHTTP-only JWT" as AppA
   component "Assignment Controller\n(registration + login entry)" as Assign
   database "SSD\nuser vaults" as SsdA
 }
 
 node "SecondBrain (rasp-b)\nsecondbrain.fabo011-cloud.de" as RaspB {
-  component "Web-Obsidian App\nNestJS + EJS SSR\nHTTP-only JWT" as AppB
+  component "Websidian App\nNestJS + EJS SSR\nHTTP-only JWT" as AppB
   database "SSD\nuser vaults" as SsdB
 }
 
 node "Future Node (rasp-c, ...)" as RaspC #line.dashed {
-  component "Web-Obsidian App" as AppC
+  component "Websidian App" as AppC
   database "SSD" as SsdC
 }
 

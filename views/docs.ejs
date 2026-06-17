@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <%- include('partials/head', { title: 'Documentation · web-obsidian' }) %>
+  <%- include('partials/head', { title: 'Documentation · websidian' }) %>
 </head>
 <body class="landing-page">
   <header class="landing-nav">
-    <a class="landing-brand" href="/">web-obsidian</a>
+    <a class="landing-brand" href="/">websidian</a>
     <nav class="landing-nav-actions">
       <select class="lang-select" data-lang-switch aria-label="Language" data-i18n-attr="aria-label:lang_switch">
         <option value="en">EN</option>
@@ -23,11 +23,11 @@
     <article class="legal docs">
       <h1><i class="bi bi-journal-text"></i> Documentation</h1>
       <p class="section-lead">
-        Short and to the point: what you need to know to use web-obsidian effectively.
+        Short and to the point: what you need to know to use websidian effectively.
       </p>
 
       <nav class="docs-toc" aria-label="Contents">
-        <a href="#what">What web-obsidian is</a>
+        <a href="#what">What websidian is</a>
         <a href="#sync">Changes are not real-time</a>
         <a href="#backup">Backing up your vault</a>
         <a href="#trash">Deleting files (trash)</a>
@@ -40,16 +40,16 @@
       </nav>
 
       <section class="legal-section" id="what">
-        <h2>What web-obsidian is (and is not)</h2>
+        <h2>What websidian is (and is not)</h2>
         <p>
-          web-obsidian is an independent open-source project. It is <strong>not</strong> the
+          websidian is an independent open-source project. It is <strong>not</strong> the
           original Obsidian (obsidian.md), not affiliated with it, and not a competing product.
           The name only describes the idea: an Obsidian-style markdown vault you reach from a
           web browser.
         </p>
         <p>
           The original Obsidian is a desktop/mobile app that stores notes locally on each
-          device and uses a separate sync service to keep devices in step. web-obsidian works
+          device and uses a separate sync service to keep devices in step. websidian works
           the other way around: your vault lives on the server and you simply log in.
         </p>
         <p>
@@ -65,7 +65,7 @@
           <li>Deliberately simple: just what you need day to day, not a feature maze.</li>
         </ul>
         <p class="docs-quote">
-          The human brain is made for having ideas, not for holding them. web-obsidian is your
+          The human brain is made for having ideas, not for holding them. websidian is your
           second brain.
         </p>
       </section>
@@ -202,7 +202,7 @@
           <strong>The idea.</strong> Your bookmarks normally live inside one browser on one
           device. Reinstall the browser, switch machines, or log in from a locked-down work
           computer and they are gone. Web links live in your encrypted vault, so they travel with
-          your account: save a link once and reach it from anywhere you can open web-obsidian.
+          your account: save a link once and reach it from anywhere you can open websidian.
         </p>
         <p>
           <strong>Why it is safer.</strong> The risky moment with any link is the
@@ -235,8 +235,8 @@
 
       <section class="legal-section" id="architecture">
         <h2>Architecture (for technical users)</h2>
-        <img class="docs-architecture" src="/public/web-obsidian-architecture.png"
-             alt="web-obsidian architecture diagram" loading="lazy" />
+        <img class="docs-architecture" src="/public/websidian-architecture.png"
+             alt="websidian architecture diagram" loading="lazy" />
         <ul>
           <li><strong>HTTP-only auth token</strong> &mdash; the session cookie is HTTP-only, so it cannot be read or manipulated by XSS JavaScript attacks.</li>
           <li><strong>NestJS backend</strong> with server-side rendered EJS views.</li>

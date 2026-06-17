@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Zero-knowledge client-side crypto for web-obsidian.
+ * Zero-knowledge client-side crypto for websidian.
  *
  * Nothing in here ever leaves the browser in plaintext. The vault key (VK) is a
  * random 256-bit AES-GCM key generated once at registration. It is wrapped
@@ -147,7 +147,7 @@
   }
 
   /**
-   * True when `blob` carries the web-obsidian ciphertext header. Used to tell
+   * True when `blob` carries the websidian ciphertext header. Used to tell
    * encrypted blobs apart from legacy plaintext written before E2E encryption
    * was enabled, without throwing.
    */
@@ -164,7 +164,7 @@
 
   function assertMagic(blob) {
     if (!hasMagic(blob)) {
-      throw new Error('Not a web-obsidian encrypted blob.');
+      throw new Error('Not a websidian encrypted blob.');
     }
   }
 

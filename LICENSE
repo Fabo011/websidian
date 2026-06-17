@@ -132,14 +132,14 @@ of your licenses.
 
 ---
 
-Required Notice: Copyright (c) 2026 web-obsidian contributors
+Required Notice: Copyright (c) 2026 websidian contributors
 
 ## Project distribution policy (summary, non-binding)
 
-web-obsidian is **source-available** under the PolyForm Noncommercial
+websidian is **source-available** under the PolyForm Noncommercial
 License 1.0.0. In plain terms:
 
-- You **may** self-host web-obsidian for your own personal, noncommercial
+- You **may** self-host websidian for your own personal, noncommercial
   use, study it, and modify it.
 - You **may** use the official hosted ("cloud") version, or deploy the
   official Docker image from Codeberg or Docker Hub on your own server for

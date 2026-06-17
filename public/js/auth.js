@@ -197,7 +197,7 @@ function initRegister() {
       const key = document.getElementById('recovery-key').textContent;
       const who = pendingUsername || 'account';
       const body =
-        'web-obsidian recovery key\n' +
+        'websidian recovery key\n' +
         '==========================\n\n' +
         'Account: ' +
         who +
@@ -206,13 +206,13 @@ function initRegister() {
         key +
         '\n\n' +
         'This key is the ONLY way to recover your encrypted notes if you\n' +
-        'forget your password. Keep it private and offline. web-obsidian\n' +
+        'forget your password. Keep it private and offline. websidian\n' +
         'cannot see it or reset it.\n';
       const blob = new Blob([body], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'web-obsidian-recovery-key.txt';
+      a.download = 'websidian-recovery-key.txt';
       document.body.appendChild(a);
       a.click();
       a.remove();

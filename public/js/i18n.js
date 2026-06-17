@@ -285,9 +285,9 @@
       home: 'Home',
       back_home: 'Back to home',
       back_to_vault: 'Back to vault',
-      why_title: 'Why web-obsidian — and what it is not',
+      why_title: 'Why websidian — and what it is not',
       why_not:
-        'web-obsidian is an independent open-source project. It is not the original Obsidian (obsidian.md), not affiliated with it, and not a competitor. The name only describes the idea: an Obsidian-style markdown vault you open in any browser.',
+        'websidian is an independent open-source project. It is not the original Obsidian (obsidian.md), not affiliated with it, and not a competitor. The name only describes the idea: an Obsidian-style markdown vault you open in any browser.',
       why_reason:
         'The original Obsidian keeps notes locally on each device and relies on a sync service to keep them aligned. In many companies you simply cannot install private sync clients or extra apps on enterprise laptops — so that setup is impossible. A browser is almost always available, so your vault stays reachable. Nothing to install, no local storage used on your phone or PC, and no encrypted backups for you to manage. Everything is end-to-end encrypted in your browser, so the server only ever stores unreadable ciphertext.',
       why_brain:
@@ -307,12 +307,12 @@
       pricing_contact_us: 'Contact us.',
       hero_title: 'Your knowledge vault, in the browser.',
       hero_lead:
-        'web-obsidian is an open-source, privacy-first knowledge vault you reach from any browser. Take notes, organize nested folders, sketch with Excalidraw and read PDFs — all online, with nothing to install. Everything is end-to-end encrypted in your browser, so only you can read your vault — not even the server can.',
+        'websidian is an open-source, privacy-first knowledge vault you reach from any browser. Take notes, organize nested folders, sketch with Excalidraw and read PDFs — all online, with nothing to install. Everything is end-to-end encrypted in your browser, so only you can read your vault — not even the server can.',
       hero_open: 'Open your vault',
       hero_create_free: 'Create a free account',
       diff_title: 'How it differs from Obsidian',
       diff_lead:
-        'The original Obsidian is a desktop app that keeps your notes offline on each device and relies on a separate sync service to keep them in step. web-obsidian flips that around: your vault lives online, end-to-end encrypted, and you simply log in.',
+        'The original Obsidian is a desktop app that keeps your notes offline on each device and relies on a separate sync service to keep them in step. websidian flips that around: your vault lives online, end-to-end encrypted, and you simply log in.',
       card_nosync_h: 'Nothing to sync',
       card_nosync_p:
         'There is no sync to set up or pay for. Your notes are always in one place — log in from a laptop, PC or phone and pick up exactly where you left off.',
@@ -367,7 +367,7 @@
       footer_imprint: 'Imprint',
       footer_privacy: 'Privacy',
       footer_disclaimer:
-        'web-obsidian is an independent, separate open-source project. It has no connection, affiliation, or partnership with Obsidian (obsidian.md). “Obsidian” is a trademark of its respective owner and is referenced here only for comparison.',
+        'websidian is an independent, separate open-source project. It has no connection, affiliation, or partnership with Obsidian (obsidian.md). “Obsidian” is a trademark of its respective owner and is referenced here only for comparison.',
     },
 
     de: {
@@ -637,9 +637,9 @@
       home: 'Startseite',
       back_home: 'Zurück zur Startseite',
       back_to_vault: 'Zurück zum Tresor',
-      why_title: 'Warum web-obsidian – und was es nicht ist',
+      why_title: 'Warum websidian – und was es nicht ist',
       why_not:
-        'web-obsidian ist ein unabhängiges Open-Source-Projekt. Es ist nicht das originale Obsidian (obsidian.md), steht in keiner Verbindung dazu und ist kein Konkurrenzprodukt. Der Name beschreibt nur die Idee: ein Obsidian-artiger Markdown-Tresor, den du in jedem Browser öffnest.',
+        'websidian ist ein unabhängiges Open-Source-Projekt. Es ist nicht das originale Obsidian (obsidian.md), steht in keiner Verbindung dazu und ist kein Konkurrenzprodukt. Der Name beschreibt nur die Idee: ein Obsidian-artiger Markdown-Tresor, den du in jedem Browser öffnest.',
       why_reason:
         'Das originale Obsidian speichert Notizen lokal auf jedem Gerät und benötigt einen Sync-Dienst, um sie abzugleichen. In vielen Unternehmen darfst du auf Firmen-Laptops keine privaten Sync-Clients oder zusätzliche Apps installieren – damit ist dieser Aufbau unmöglich. Ein Browser ist jedoch fast immer verfügbar, sodass dein Tresor erreichbar bleibt. Nichts zu installieren, kein lokaler Speicher auf Handy oder PC und keine verschlüsselten Backups, um die du dich kümmern musst. Alles wird Ende-zu-Ende in deinem Browser verschlüsselt, sodass der Server nur unlesbaren Chiffretext speichert.',
       why_brain:
@@ -659,12 +659,12 @@
       pricing_contact_us: 'Kontaktiere uns.',
       hero_title: 'Dein Wissens-Tresor – im Browser.',
       hero_lead:
-        'web-obsidian ist ein quelloffener, datenschutzorientierter Wissens-Tresor, den du aus jedem Browser erreichst. Notizen schreiben, verschachtelte Ordner organisieren, mit Excalidraw skizzieren und PDFs lesen – alles online, ohne Installation. Alles wird Ende-zu-Ende in deinem Browser verschlüsselt, sodass nur du deinen Tresor lesen kannst – nicht einmal der Server.',
+        'websidian ist ein quelloffener, datenschutzorientierter Wissens-Tresor, den du aus jedem Browser erreichst. Notizen schreiben, verschachtelte Ordner organisieren, mit Excalidraw skizzieren und PDFs lesen – alles online, ohne Installation. Alles wird Ende-zu-Ende in deinem Browser verschlüsselt, sodass nur du deinen Tresor lesen kannst – nicht einmal der Server.',
       hero_open: 'Tresor öffnen',
       hero_create_free: 'Kostenloses Konto erstellen',
       diff_title: 'Worin es sich von Obsidian unterscheidet',
       diff_lead:
-        'Das originale Obsidian ist eine Desktop-App, die deine Notizen auf jedem Gerät offline speichert und einen separaten Sync-Dienst benötigt, um sie abzugleichen. web-obsidian dreht das um: Dein Tresor liegt online, Ende-zu-Ende verschlüsselt, und du meldest dich einfach an.',
+        'Das originale Obsidian ist eine Desktop-App, die deine Notizen auf jedem Gerät offline speichert und einen separaten Sync-Dienst benötigt, um sie abzugleichen. websidian dreht das um: Dein Tresor liegt online, Ende-zu-Ende verschlüsselt, und du meldest dich einfach an.',
       card_nosync_h: 'Kein Sync nötig',
       card_nosync_p:
         'Es gibt keinen Sync einzurichten oder zu bezahlen. Deine Notizen sind immer an einem Ort – melde dich von Laptop, PC oder Handy an und mach genau dort weiter, wo du aufgehört hast.',
@@ -718,7 +718,7 @@
       footer_imprint: 'Impressum',
       footer_privacy: 'Datenschutz',
       footer_disclaimer:
-        'web-obsidian ist ein unabhängiges, eigenständiges Open-Source-Projekt. Es besteht keine Verbindung, Zugehörigkeit oder Partnerschaft mit Obsidian (obsidian.md). „Obsidian“ ist eine Marke des jeweiligen Inhabers und wird hier nur zum Vergleich genannt.',
+        'websidian ist ein unabhängiges, eigenständiges Open-Source-Projekt. Es besteht keine Verbindung, Zugehörigkeit oder Partnerschaft mit Obsidian (obsidian.md). „Obsidian“ ist eine Marke des jeweiligen Inhabers und wird hier nur zum Vergleich genannt.',
     },
   };
 

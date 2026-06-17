@@ -3,7 +3,8 @@
 # On every push to `main` this will:
 #   1. Build the project and run the test suite.
 #   2. Derive a version, create and push a git tag.
-#   3. Build a linux/arm64 Docker image (for Raspberry Pi / ARM Linux servers)
+#   3. Build a multi-arch Docker image (linux/amd64 + linux/arm64) so it runs on
+#      x86_64 servers (e.g. Ubuntu 26.04 x86_64) as well as ARM (Raspberry Pi)
 #      and push it to the Codeberg container registry.
 #
 # Requirements (configure in: Repo > Settings > Actions > Secrets):
@@ -93,7 +94,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.PACKAGE_TOKEN }}
 
-      - name: Build and push ARM image
+      - name: Build and push multi-arch image
         uses: docker/build-push-action@v6
         with:
           context: .

@@ -1,8 +1,8 @@
 services:
-  web-obsidian:
+  websidian:
     build: .
-    image: web-obsidian:latest
-    container_name: web-obsidian
+    image: websidian:latest
+    container_name: websidian
     restart: unless-stopped
     ports:
       - "3065:3065"
@@ -49,7 +49,7 @@ services:
 
   postgres:
     image: postgres:18-alpine
-    container_name: web-obsidian-postgres
+    container_name: websidian-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: "${DB_USERNAME:-postgres}"
