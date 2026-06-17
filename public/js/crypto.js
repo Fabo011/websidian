@@ -146,14 +146,24 @@
     );
   }
 
+  /**
+   * True when `blob` carries the web-obsidian ciphertext header. Used to tell
+   * encrypted blobs apart from legacy plaintext written before E2E encryption
+   * was enabled, without throwing.
+   */
+  function hasMagic(blob) {
+    const arr = blob instanceof Uint8Array ? blob : new Uint8Array(blob);
+    return (
+      arr.length >= MAGIC.length + IV_LEN &&
+      arr[0] === MAGIC[0] &&
+      arr[1] === MAGIC[1] &&
+      arr[2] === MAGIC[2] &&
+      arr[3] === MAGIC[3]
+    );
+  }
+
   function assertMagic(blob) {
-    if (
-      blob.length < MAGIC.length + IV_LEN ||
-      blob[0] !== MAGIC[0] ||
-      blob[1] !== MAGIC[1] ||
-      blob[2] !== MAGIC[2] ||
-      blob[3] !== MAGIC[3]
-    ) {
+    if (!hasMagic(blob)) {
       throw new Error('Not a web-obsidian encrypted blob.');
     }
   }
@@ -191,6 +201,34 @@
 
   async function decryptB64ToBytes(vaultCryptoKey, b64) {
     return decryptBytes(vaultCryptoKey, b64ToBytes(b64));
+  }
+
+  /**
+   * Decrypt bytes that may or may not be encrypted. Files written before E2E
+   * encryption was enabled are stored as plaintext (no MAGIC header) and are
+   * returned untouched. A few legacy files were accidentally encrypted more
+   * than once, so we peel every authenticated WOE1 layer: each `decryptBytes`
+   * verifies the AES-GCM tag, so we only recurse when the inner bytes really
+   * are another valid ciphertext for this key (a coincidental WOE1 prefix in
+   * genuine plaintext fails authentication and stops the loop).
+   */
+  async function decryptBytesMaybe(vaultCryptoKey, blob) {
+    let arr = blob instanceof Uint8Array ? blob : new Uint8Array(blob);
+    while (hasMagic(arr)) {
+      let next;
+      try {
+        next = await decryptBytes(vaultCryptoKey, arr);
+      } catch {
+        break; // not actually a layer for this key: keep what we have
+      }
+      arr = next;
+    }
+    return arr;
+  }
+
+  /** Like {@link decryptB64ToText} but tolerant of legacy plaintext content. */
+  async function decryptB64ToTextMaybe(vaultCryptoKey, b64) {
+    return dec.decode(await decryptBytesMaybe(vaultCryptoKey, b64ToBytes(b64)));
   }
 
   // --- recovery key formatting ----------------------------------------------
@@ -390,6 +428,9 @@
     decryptB64ToBytes,
     encryptBytes,
     decryptBytes,
+    decryptBytesMaybe,
+    decryptB64ToTextMaybe,
+    hasMagic,
     // recovery
     generateRecoveryKey,
     normalizeRecoveryKey,

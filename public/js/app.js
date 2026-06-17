@@ -268,7 +268,9 @@ async function encryptContent(text) {
 async function decryptContent(b64) {
   if (b64 == null || b64 === '') return '';
   const key = await ensureVaultKey();
-  return window.WOCrypto.decryptB64ToText(key, b64);
+  // Tolerant: files written before E2E encryption was enabled are stored as
+  // plaintext and are returned untouched so old content stays readable.
+  return window.WOCrypto.decryptB64ToTextMaybe(key, b64);
 }
 
 /** Encrypt raw file bytes into a Blob of ciphertext for upload. */
@@ -289,7 +291,7 @@ async function attachmentBlobUrl(path, mime) {
   const res = await fetch(attachmentUrl(path), { credentials: 'same-origin' });
   if (!res.ok) throw new Error('attachment fetch failed');
   const cipher = new Uint8Array(await res.arrayBuffer());
-  const plain = await window.WOCrypto.decryptBytes(key, cipher);
+  const plain = await window.WOCrypto.decryptBytesMaybe(key, cipher);
   const blob = new Blob([plain], { type: mime || mimeForPath(path) });
   const url = URL.createObjectURL(blob);
   attachmentBlobCache.set(path, url);
@@ -1424,7 +1426,7 @@ async function renderOffice(path, ext, body) {
     const res = await fetch(attachmentUrl(path), { credentials: 'same-origin' });
     if (!res.ok) throw new Error('fetch failed');
     const cipher = new Uint8Array(await res.arrayBuffer());
-    const plain = await window.WOCrypto.decryptBytes(key, cipher);
+    const plain = await window.WOCrypto.decryptBytesMaybe(key, cipher);
     // OfficeViewer expects an ArrayBuffer; hand it the decrypted bytes' buffer.
     const buf = plain.buffer.slice(
       plain.byteOffset,
@@ -1719,7 +1721,7 @@ $('#export-btn').addEventListener('click', async () => {
       if (!res.ok) continue;
       const cipher = new Uint8Array(await res.arrayBuffer());
       try {
-        files[entry.path] = await window.WOCrypto.decryptBytes(key, cipher);
+        files[entry.path] = await window.WOCrypto.decryptBytesMaybe(key, cipher);
       } catch (e) {
         /* skip files that fail to decrypt */
       }
@@ -1879,7 +1881,7 @@ async function buildSearchIndex() {
         });
         if (!res.ok) continue;
         const cipher = new Uint8Array(await res.arrayBuffer());
-        const bytes = await window.WOCrypto.decryptBytes(key, cipher);
+        const bytes = await window.WOCrypto.decryptBytesMaybe(key, cipher);
         const text = new TextDecoder().decode(bytes);
         docs.push({ path: entry.path, name: basename(entry.path), text });
         // Re-seal under the vault key so nothing readable sits in IndexedDB.
@@ -2724,7 +2726,7 @@ async function saveWeblinks() {
   const csv = serializeWeblinks(weblinksState.links);
   const res = await api('PUT', '/api/file', {
     path: WEBLINKS_CSV,
-    content: csv,
+    content: await encryptContent(csv),
     baseVersion: weblinksState.version || undefined,
   });
   weblinksState.version = res.version;
@@ -2749,14 +2751,14 @@ async function openWebLinks() {
         await api('POST', '/api/folder', { path: WEBLINKS_DIR }).catch(() => {});
         data = await api('PUT', '/api/file', {
           path: WEBLINKS_CSV,
-          content: serializeWeblinks([]),
+          content: await encryptContent(serializeWeblinks([])),
         });
         await loadTree();
       } else {
         throw err;
       }
     }
-    weblinksState.links = csvToLinks(data.content || '');
+    weblinksState.links = csvToLinks(await decryptContent(data.content || ''));
     weblinksState.version = data.version || null;
     weblinksState.filter = '';
     const search = $('#weblinks-search');
