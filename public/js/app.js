@@ -22,6 +22,22 @@ async function api(method, url, body, isForm) {
   if (ct.includes('application/json')) {
     data = await res.json();
   }
+  if (res.status === 429) {
+    // Rate limit reached: show a clear centered modal the user must confirm so
+    // they understand what happened. Retry-After (seconds) is sent by the
+    // server when available so we can tell the user how long to wait.
+    const retry = parseInt(res.headers.get('retry-after') || '', 10);
+    uiAlert(t('rate_limited_title'), {
+      message:
+        Number.isFinite(retry) && retry > 0
+          ? t('rate_limited_retry', { seconds: retry })
+          : t('rate_limited'),
+    });
+    const err = new Error('Rate limited');
+    err.status = 429;
+    err.data = data;
+    throw err;
+  }
   if (!res.ok) {
     const msg =
       data && (Array.isArray(data.message) ? data.message.join(' ') : data.message);

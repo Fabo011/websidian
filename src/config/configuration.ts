@@ -78,8 +78,24 @@ export interface AppConfig {
   storage: { driver: StorageDriver; s3: S3Config };
   /** At-rest encryption of vault contents (AES-256-GCM in Node.js). */
   encryption: { enabled: boolean; key: string };
+  /** API request rate limiting (protects storage/S3 from abuse + reload storms). */
+  rateLimit: RateLimitConfig;
   /** Marketing/pricing copy surfaced on the public landing page. */
   pricing: PricingConfig;
+}
+
+/**
+ * Per-user (or per-IP for anonymous callers) rate limit applied to the `/api`
+ * routes. Keeps a single account from hammering the storage backend (e.g.
+ * constant page reloads), which directly caps S3 request costs and blunts DDoS.
+ */
+export interface RateLimitConfig {
+  /** Whether the limiter is active. */
+  enabled: boolean;
+  /** Length of the rolling window in milliseconds. */
+  windowMs: number;
+  /** Maximum allowed requests per window, per user/IP. */
+  max: number;
 }
 
 /** Display-only pricing shown on the landing page (set via environment). */
@@ -220,6 +236,15 @@ export default (): { app: AppConfig } => {
             '',
           ),
         },
+      },
+      rateLimit: {
+        enabled: parseBool(process.env.RATE_LIMIT_ENABLED, true),
+        // Window length in seconds (default 60s = "per minute").
+        windowMs:
+          Math.max(1, parseNumber(process.env.RATE_LIMIT_WINDOW_SECONDS, 60)) *
+          1000,
+        // Max requests per window, per user (default 60/min ≈ 1 req/sec).
+        max: Math.max(1, parseNumber(process.env.RATE_LIMIT_MAX, 60)),
       },
       pricing: {
         price5gb: process.env.PRICE_5GB?.trim() || '',

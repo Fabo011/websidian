@@ -32,6 +32,9 @@ Copy `.env.example` to `.env` and adjust:
 | `ALLOW_REGISTRATION` | `true`               | Set `false` to disable self-service registration |
 | `COOKIE_SECURE`      | `false`              | Set `true` when served over HTTPS                |
 | `STORAGE_QUOTA_GB`   | `8`                  | Per-user storage limit in GB (`0` = unlimited)   |
+| `RATE_LIMIT_ENABLED` | `true`               | Throttle the `/api` data routes per user (`false` to disable) |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60`          | Length of the rate-limit window in seconds       |
+| `RATE_LIMIT_MAX`     | `60`                 | Max API requests per window, per user/IP         |
 | `ENCRYPTION_ENABLED` | `true`               | Encrypt sensitive DB columns at rest (TOTP/Stripe) |
 | `ENCRYPTION_KEY`     | _(from JWT_SECRET)_  | Master key for the DB-column encryption — keep stable |
 
@@ -60,6 +63,20 @@ Each account is limited to `STORAGE_QUOTA_GB` (default **8 GB**). Writes,
 uploads and imports that would exceed the quota are rejected. Set
 `STORAGE_QUOTA_GB=0` for unlimited storage. (Paid upgrades for more storage are
 planned.)
+
+### API rate limiting
+
+The data API (`/api/*`) is rate limited **per user** (per IP for anonymous
+callers) so a single account cannot hammer the storage backend — for example by
+reloading the page in a loop. This directly caps S3/Mega S3 request costs and
+blunts trivial DDoS attempts. When the limit is exceeded the API responds with
+HTTP `429` and the UI shows a clear toast asking the user to slow down.
+
+Tune it with `RATE_LIMIT_WINDOW_SECONDS` (default **60s** = "per minute") and
+`RATE_LIMIT_MAX` (default **60** requests per window). Set
+`RATE_LIMIT_ENABLED=false` to turn it off. Note that one page load fires several
+API calls (file tree + the opened note, etc.), so keep `RATE_LIMIT_MAX`
+comfortably above the number of page reloads per minute you want to allow.
 
 ### Zero-knowledge end-to-end encryption
 
