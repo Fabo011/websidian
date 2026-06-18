@@ -25,8 +25,9 @@ async function bootstrap() {
   // database read/write occurs.
   registerColumnEncryptor(app.get(EncryptionService));
 
-  app.use(express.json({ limit: '25mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+  const bodyLimit = `${appConfig.maxUploadSizeMb}mb`;
+  app.use(express.json({ limit: bodyLimit }));
+  app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
   app.use(cookieParser());
 
   // Rate limit the data API so a single account cannot hammer the storage
@@ -78,6 +79,14 @@ async function bootstrap() {
 
   app.setBaseViewsDir(join(process.cwd(), 'views'));
   app.setViewEngine('ejs');
+  // Expose to every rendered view (incl. the footer partial) so the AGB link
+  // can be hidden when AGB=none.
+  const expressInstance = app.getHttpAdapter().getInstance();
+  expressInstance.locals.agbEnabled = appConfig.agbEnabled;
+  // Free-tier allowance in bytes, surfaced to the client (head partial) so the
+  // UI can render the actual free quota (driven by STORAGE_QUOTA_GB) instead of
+  // a hardcoded "1 GB".
+  expressInstance.locals.freeBytes = appConfig.tiers.free;
   app.useStaticAssets(join(process.cwd(), 'public'), { prefix: '/public' });
 
   // Restrict cross-origin browser access to the configured origin(s). Same-origin

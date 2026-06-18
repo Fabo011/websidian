@@ -36,4 +36,9 @@
     }
   })();
 </script>
+<script>
+  // Free-tier storage allowance (bytes), set by the server from STORAGE_QUOTA_GB.
+  // i18n.js reads this to render the real free quota instead of a hardcoded size.
+  window.__WO_FREE_BYTES__ = <%= typeof freeBytes !== 'undefined' ? freeBytes : 0 %>;
+</script>
 <script src="/public/js/i18n.js"></script>

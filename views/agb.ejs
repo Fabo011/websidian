@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'AGB · websidian' }) %>
+</head>
+<body class="landing-page">
+  <header class="landing-nav">
+    <a class="landing-brand" href="/">websidian</a>
+    <nav class="landing-nav-actions">
+      <select class="lang-select" data-lang-switch aria-label="Language" data-i18n-attr="aria-label:lang_switch">
+        <option value="en">EN</option>
+        <option value="de">DE</option>
+      </select>
+      <a class="btn-ghost" href="/" data-i18n="home">Home</a>
+    </nav>
+  </header>
+
+  <main class="landing-main">
+    <article class="legal">
+      <h1 data-i18n="agb_title">Allgemeine Geschäftsbedingungen (AGB)</h1>
+
+      <p class="section-lead" data-i18n="agb_intro">
+        Stand: Juni 2025. Diese AGB gelten für die Nutzung des Dienstes websidian und
+        unterliegen österreichischem Recht.
+      </p>
+
+      <section class="legal-section">
+        <h2 data-i18n="agb_s1_h">§ 1 Geltungsbereich und Betreiber</h2>
+        <p data-i18n-html="agb_s1_p1">
+          Diese Allgemeinen Geschäftsbedingungen regeln die Nutzung des Online-Dienstes
+          <strong>websidian</strong> (nachfolgend „Dienst"). Der Dienst wird betrieben von
+          <strong>Fabo011</strong> (nachfolgend „Betreiber") als gemeinschaftsgetriebenes,
+          gemeinnütziges Open-Source-Projekt ohne Gewinnerzielungsabsicht.
+        </p>
+        <p data-i18n="agb_s1_p2">
+          Durch die Registrierung oder Nutzung des Dienstes erklärt sich der Nutzer mit
+          diesen AGB einverstanden.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2 data-i18n="agb_s2_h">§ 2 Leistungsbeschreibung</h2>
+        <p data-i18n="agb_s2_p1">
+          websidian ist eine browserbasierte, quelloffene, datenschutzorientierte
+          Notizanwendung. Der Dienst stellt folgende Leistungen bereit:
+        </p>
+        <ul>
+          <li data-i18n="agb_s2_li1">Verschlüsselten Online-Speicher für Notizen, Zeichnungen und Dateien</li>
+          <li data-i18n="agb_s2_li2">Zugriff auf den persönlichen Vault aus jedem Browser, ohne Installation</li>
+          <li data-i18n="agb_s2_li3">Ende-zu-Ende-Verschlüsselung der Inhalte im Browser (AES-256-GCM)</li>
+          <li data-i18n="agb_s2_li4">Zwei-Faktor-Authentifizierung (2FA) zum Schutz des Kontos</li>
+        </ul>
+        <p data-i18n="agb_s2_p2">
+          Der Dienst wird „wie besehen" (as is) bereitgestellt. Der Betreiber strebt
+          eine hohe Verfügbarkeit an, übernimmt jedoch keine Garantie für ununterbrochene
+          Erreichbarkeit.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2 data-i18n="agb_s3_h">§ 3 Registrierung und Nutzerkonto</h2>
+        <p data-i18n="agb_s3_p1">
+          Zur Nutzung des Dienstes ist eine Registrierung erforderlich. Bei der
+          Registrierung werden ausschließlich ein frei gewählter Benutzername sowie ein
+          Passwort angegeben — keine personenbezogenen Daten wie Name, E-Mail-Adresse
+          oder Telefonnummer sind erforderlich oder werden erhoben.
+        </p>
+        <p data-i18n="agb_s3_p2">
+          Der Nutzer ist verpflichtet, seine Zugangsdaten vertraulich zu behandeln und
+          unbefugten Zugriff zu verhindern. Bei Verlust des Passworts und des
+          Wiederherstellungsschlüssels ist eine Wiederherstellung des Kontos aus
+          technischen Gründen nicht möglich.
+        </p>
+        <p data-i18n="agb_s3_p3">
+          Ein Anspruch auf Registrierung besteht nicht. Der Betreiber behält sich vor,
+          die Registrierung bei Kapazitätsengpässen zu beschränken.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2 data-i18n="agb_s4_h">§ 4 Entgelt und Zahlungsbedingungen</h2>
+        <p data-i18n="agb_s4_p1">
+          Das Basistarif (1 GB Speicher) ist kostenlos. Für erweiterten Speicher
+          (5 GB, 20 GB) werden Jahresentgelte erhoben. Diese Entgelte dienen
+          ausschließlich der Deckung von Infrastruktur-, Speicher- und
+          Entwicklungskosten. Der Dienst verfolgt keine Gewinnerzielungsabsicht.
+        </p>
+        <p data-i18n-html="agb_s4_p2">
+          Die Zahlungsabwicklung erfolgt über den externen Zahlungsdienstleister
+          <strong>Stripe</strong> (Stripe Payments Europe, Ltd.). Zahlungsdaten
+          (Kreditkarteninformationen, Bankverbindungen) werden ausschließlich bei
+          Stripe gespeichert und verarbeitet; der Betreiber hat keinen Zugriff auf
+          diese Daten. Für die Abwicklung wiederkehrender Zahlungen speichert Stripe
+          die Zahlungsinformationen gemäß seinen eigenen Datenschutzbestimmungen und
+          Nutzungsbedingungen, die unter
+          <a href="https://stripe.com/at/privacy" target="_blank" rel="noopener noreferrer">stripe.com/at/privacy</a>
+          einsehbar sind.
+        </p>
+        <p data-i18n="agb_s4_p3">
+          Zahlungen werden jährlich im Voraus fällig. Eine Rückerstattung anteiliger
+          Beträge bei vorzeitiger Kündigung ist ausgeschlossen, sofern gesetzliche
+          Gewährleistungsrechte nichts anderes vorschreiben.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2 data-i18n="agb_s5_h">§ 5 Datenschutz</h2>
+        <p data-i18n="agb_s5_p1">
+          Der Dienst erhebt keine personenbezogenen Daten. Es werden lediglich der
+          gewählte Benutzername sowie ein sicher gehashtes Passwort gespeichert, die
+          für sich allein keine Identifizierung natürlicher Personen ermöglichen. Es
+          werden weder Analyse-Tools noch Werbe- oder Tracking-Cookies eingesetzt.
+        </p>
+        <p data-i18n="agb_s5_p2">
+          Für zahlungspflichtige Konten speichert der Zahlungsdienstleister Stripe
+          die für die Abwicklung notwendigen Zahlungsinformationen. Diese Daten
+          unterliegen den Datenschutzbestimmungen von Stripe.
+        </p>
+        <p data-i18n-html="agb_s5_p3">
+          Weitere Informationen entnehmen Sie bitte der
+          <a href="/privacy">Datenschutzerklärung</a>.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2 data-i18n="agb_s6_h">§ 6 Pflichten des Nutzers</h2>
+        <p data-i18n="agb_s6_p1">
+          Der Nutzer verpflichtet sich, den Dienst ausschließlich für rechtmäßige
+          Zwecke zu nutzen. Insbesondere ist es untersagt:
+        </p>
+        <ul>
+          <li data-i18n="agb_s6_li1">Inhalte zu speichern oder zu verbreiten, die gegen geltendes Recht verstoßen</li>
+          <li data-i18n="agb_s6_li2">Rechte Dritter (insbesondere Urheberrechte, Persönlichkeitsrechte) zu verletzen</li>
+          <li data-i18n="agb_s6_li3">Den Dienst zu missbrauchen, zu beeinträchtigen oder unbefugt auf Systeme zuzugreifen</li>
+        </ul>
+        <p data-i18n="agb_s6_p2">
+          Bei Verstößen behält sich der Betreiber das Recht vor, das betreffende Konto
+          unverzüglich zu sperren oder zu löschen.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2 data-i18n="agb_s7_h">§ 7 Haftungsbeschränkung</h2>
+        <p data-i18n="agb_s7_p1">
+          Der Dienst wird von einem gemeinnützigen, gemeinschaftsgetriebenen Projekt
+          ohne kommerziellen Hintergrund bereitgestellt. Der Betreiber haftet nur für
+          Schäden, die durch grobe Fahrlässigkeit oder Vorsatz verursacht wurden. Eine
+          weitergehende Haftung, insbesondere für Datenverlust durch technische Fehler,
+          höhere Gewalt oder durch den Nutzer verursachte Umstände, ist ausgeschlossen.
+        </p>
+        <p data-i18n="agb_s7_p2">
+          Da Inhalte mit Zero-Knowledge-Verschlüsselung gespeichert werden und der
+          Betreiber keinen Zugriff auf die entschlüsselten Daten hat, ist eine
+          Wiederherstellung verlorener Inhalte durch den Betreiber grundsätzlich nicht
+          möglich.
+        </p>
+        <p data-i18n-html="agb_s7_p3">
+          Zwingende gesetzliche Haftungsregelungen, insbesondere das österreichische
+          Konsumentenschutzgesetz (<strong>KSchG</strong>), bleiben unberührt.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2 data-i18n="agb_s8_h">§ 8 Open Source und Urheberrecht</h2>
+        <p data-i18n-html="agb_s8_p1">
+          Der Quellcode von websidian ist öffentlich einsehbar und wird unter der
+          <strong>PolyForm Noncommercial License 1.0.0</strong> veröffentlicht. Eine
+          nichtkommerzielle Nutzung und das Selbsthosten sind gestattet; ein
+          kommerzieller Betrieb oder die Weitergabe als gehosteter Dienst sind ohne
+          ausdrückliche Genehmigung nicht erlaubt.
+        </p>
+        <p data-i18n-html="agb_s8_p2">
+          Quellcode:
+          <a href="https://codeberg.org/Fabo011/websidian" target="_blank" rel="noopener noreferrer">codeberg.org/Fabo011/websidian</a>
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2 data-i18n="agb_s9_h">§ 9 Vertragsdauer und Kündigung</h2>
+        <p data-i18n="agb_s9_p1">
+          Kostenlose Konten können jederzeit durch Löschen des Kontos im
+          Konto-Dashboard beendet werden. Mit der Kontolöschung werden alle
+          gespeicherten Vault-Daten und das Konto selbst unwiderruflich gelöscht.
+        </p>
+        <p data-i18n="agb_s9_p2">
+          Kostenpflichtige Abonnements laufen jeweils ein Jahr. Eine Kündigung ist
+          jederzeit möglich und wird zum Ende der laufenden Abrechnungsperiode wirksam.
+          Bereits bezahlte Entgelte werden nicht erstattet.
+        </p>
+        <p data-i18n="agb_s9_p3">
+          Der Betreiber behält sich vor, den Dienst bei wesentlichem Verstoß gegen
+          diese AGB fristlos zu kündigen.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2 data-i18n="agb_s10_h">§ 10 Änderungen dieser AGB</h2>
+        <p data-i18n="agb_s10_p1">
+          Der Betreiber behält sich vor, diese AGB jederzeit zu ändern. Änderungen
+          werden auf dieser Seite veröffentlicht. Die fortgesetzte Nutzung des Dienstes
+          nach Veröffentlichung geänderter AGB gilt als Zustimmung zu den geänderten
+          Bedingungen.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2 data-i18n="agb_s11_h">§ 11 Anwendbares Recht und Gerichtsstand</h2>
+        <p data-i18n="agb_s11_p1">
+          Diese AGB und alle sich daraus ergebenden Rechtsbeziehungen unterliegen
+          ausschließlich österreichischem Recht unter Ausschluss des
+          UN-Kaufrechts (CISG).
+        </p>
+        <p data-i18n="agb_s11_p2">
+          Für Verbraucher im Sinne des österreichischen KSchG gilt als Gerichtsstand
+          der allgemeine Gerichtsstand des Verbrauchers oder, nach Wahl des
+          Verbrauchers, der Gerichtsstand nach § 14 KSchG. Für Unternehmer gilt als
+          ausschließlicher Gerichtsstand Österreich.
+        </p>
+        <p data-i18n-html="agb_s11_p3">
+          Für Verbraucher in der EU besteht die Möglichkeit, die
+          Online-Streitbeilegungsplattform der EU-Kommission zu nutzen:
+          <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">ec.europa.eu/consumers/odr</a>.
+          Der Betreiber ist zur Teilnahme an einem Streitbeilegungsverfahren nicht
+          verpflichtet.
+        </p>
+      </section>
+    </article>
+  </main>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

@@ -75,6 +75,14 @@ export class PagesController {
     return res.render('privacy', {});
   }
 
+  @Get('/agb')
+  agb(@Res() res: Response) {
+    if (!this.app.agbEnabled) {
+      return res.redirect('/');
+    }
+    return res.render('agb', {});
+  }
+
   @Get('/login')
   login(@Req() req: Request, @Res() res: Response) {
     if (this.currentUsername(req)) {

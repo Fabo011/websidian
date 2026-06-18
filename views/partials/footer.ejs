@@ -11,6 +11,10 @@
     <a href="/imprint" data-i18n="footer_imprint">Imprint</a>
     <span class="footer-dot">&middot;</span>
     <a href="/privacy" data-i18n="footer_privacy">Privacy</a>
+    <% if (typeof agbEnabled === 'undefined' || agbEnabled) { %>
+    <span class="footer-dot">&middot;</span>
+    <a href="/agb" data-i18n="footer_agb">AGB</a>
+    <% } %>
   </nav>
   <p class="footer-disclaimer" data-i18n="footer_disclaimer">
     websidian is an independent, separate open-source project. It has no connection,

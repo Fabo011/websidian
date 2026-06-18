@@ -71,6 +71,12 @@ export interface AppConfig {
   /** Per-user storage quota in bytes. 0 means unlimited. */
   storageQuotaBytes: number;
   /**
+   * Maximum accepted request body size in megabytes (JSON + urlencoded). This
+   * caps the size of a single uploaded file/note since vault content is sent as
+   * a base64 JSON payload. Configurable via MAX_UPLOAD_SIZE_MB.
+   */
+  maxUploadSizeMb: number;
+  /**
    * Days a deleted item stays in the per-user trash before it is permanently
    * removed by the purge cron. 0 (or less) disables soft-delete so deletions
    * are immediate.
@@ -88,6 +94,8 @@ export interface AppConfig {
   rateLimit: RateLimitConfig;
   /** Marketing/pricing copy surfaced on the public landing page. */
   pricing: PricingConfig;
+  /** Whether the AGB (terms) page and its footer link are shown. */
+  agbEnabled: boolean;
 }
 
 /**
@@ -160,9 +168,17 @@ export default (): { app: AppConfig } => {
     : resolve(process.cwd(), rawDataRoot);
 
   // Quota: STORAGE_QUOTA_GB (default 8). 0 (or empty) means unlimited.
+  // Fractional values are allowed, e.g. 0.5 = 512 MB, 0.8 ≈ 819 MB.
   const quotaGb = parseNumber(process.env.STORAGE_QUOTA_GB, 8);
   const storageQuotaBytes =
     quotaGb <= 0 ? 0 : Math.round(quotaGb * 1024 * 1024 * 1024);
+  // Whether STORAGE_QUOTA_GB was explicitly provided. When set it also defines
+  // the free tier under billing (otherwise the free tier defaults to 1 GB).
+  const quotaEnvSet = (process.env.STORAGE_QUOTA_GB ?? '').trim() !== '';
+
+  // AGB (terms) page is shown unless AGB=none. When excluded, the /agb route
+  // redirects home and the footer link is hidden.
+  const agbEnabled = process.env.AGB?.trim().toLowerCase() !== 'none';
 
   // Billing can be switched off entirely (self-hosting). The feature flag
   // (BILLING_ENABLED) drives the tier structure and dashboard UI. Defaults to
@@ -197,12 +213,17 @@ export default (): { app: AppConfig } => {
       cookieSecure: parseBool(process.env.COOKIE_SECURE, false),
       corsOrigins: resolvedCorsOrigins,
       storageQuotaBytes,
+      maxUploadSizeMb: Math.max(
+        1,
+        parseNumber(process.env.MAX_UPLOAD_SIZE_MB, 25),
+      ),
       trashRetentionDays: parseNumber(process.env.TRASH_RETENTION_DAYS, 7),
       tiers: {
-        // With billing on, the free tier is a fixed 1 GB and STORAGE_QUOTA_GB
-        // is ignored for the free plan. With billing off, every account gets
-        // STORAGE_QUOTA_GB (0 == unlimited).
-        free: billingEnabled ? 1 * GIB : storageQuotaBytes,
+        // Free tier allowance. With billing off, every account gets
+        // STORAGE_QUOTA_GB (0 == unlimited). With billing on it defaults to a
+        // fixed 1 GB, but an explicit STORAGE_QUOTA_GB still overrides it so the
+        // operator can offer a smaller (or larger) free plan, e.g. 0.5 GB.
+        free: quotaEnvSet ? storageQuotaBytes : billingEnabled ? 1 * GIB : storageQuotaBytes,
         plus5: 5 * GIB,
         plus20: 20 * GIB,
       },
@@ -258,6 +279,7 @@ export default (): { app: AppConfig } => {
         price20gb: process.env.PRICE_20GB?.trim() || '',
         contactEmail: process.env.CONTACT_EMAIL?.trim() || '',
       },
+      agbEnabled,
     },
   };
 };

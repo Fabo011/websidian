@@ -162,7 +162,7 @@
       /* plans & billing */
       plan: 'Plan',
       current_plan: 'Current plan',
-      plan_free: 'Free — 1 GB',
+      plan_free: 'Free — {free}',
       plan_5gb_name: '5 GB',
       plan_20gb_name: '20 GB',
       plan_valid_until: 'Valid until',
@@ -175,19 +175,19 @@
       checkout_canceled: 'Checkout canceled. No changes were made.',
       plan_privileged_hint: 'You have complimentary 20 GB access — no payment required.',
       plan_warn_expiring:
-        'Your plan will not renew and ends in {days} day(s). Pay again to keep it, or reduce your vault to 1 GB — otherwise your account will be deleted.',
+        'Your plan will not renew and ends in {days} day(s). Pay again to keep it, or reduce your vault to {free} — otherwise your account will be deleted.',
       plan_blacklisted:
-        'Your vault is over the free 1 GB limit without an active payment. Upgrade or reduce your vault to 1 GB, or your account will be deleted.',
+        'Your vault is over the free {free} limit without an active payment. Upgrade or reduce your vault to {free}, or your account will be deleted.',
       choose_plan: 'Choose your plan',
       choose_plan_hint:
-        'Start free with 1 GB, or upgrade now for more storage. You can change this anytime in your dashboard.',
+        'Start free with {free}, or upgrade now for more storage. You can change this anytime in your dashboard.',
       plan_free_card: 'Free',
-      plan_free_desc: '1 GB of storage. No payment required.',
+      plan_free_desc: '{free} of storage. No payment required.',
       plan_5gb_card: '5 GB',
       plan_5gb_desc: '€42 / year (billed annually).',
       plan_20gb_card: '20 GB',
       plan_20gb_desc: '€72 / year (billed annually).',
-      continue_free: 'Continue with free 1 GB',
+      continue_free: 'Continue with free {free}',
       upgrade_pay: 'Upgrade & pay',
 
       /* modal defaults */
@@ -295,9 +295,9 @@
       why_learn_more: 'Read the documentation →',
       pricing_title: 'Simple, end-to-end encrypted storage',
       pricing_lead:
-        'Start free with 1 GB. Upgrade when you need more room — every plan is end-to-end encrypted, readable only by you.',
+        'Start free with {free}. Upgrade when you need more room — every plan is end-to-end encrypted, readable only by you.',
       pricing_free_name: 'Free',
-      pricing_free_amount: '1 GB',
+      pricing_free_amount: '{free}',
       pricing_free_desc: 'End-to-end encrypted storage. No payment required.',
       pricing_5gb_name: '5 GB',
       pricing_20gb_name: '20 GB',
@@ -369,8 +369,97 @@
       footer_deploy: 'Deployment',
       footer_imprint: 'Imprint',
       footer_privacy: 'Privacy',
+      footer_agb: 'AGB',
       footer_disclaimer:
-        'websidian is an independent, separate open-source project. It has no connection, affiliation, or partnership with Obsidian (obsidian.md). “Obsidian” is a trademark of its respective owner and is referenced here only for comparison.',
+        'websidian is an independent, separate open-source project. It has no connection, affiliation, or partnership with Obsidian (obsidian.md). “Obsidian" is a trademark of its respective owner and is referenced here only for comparison.',
+
+      /* AGB page */
+      agb_title: 'General Terms and Conditions (AGB)',
+      agb_intro:
+        'As of June 2025. These Terms and Conditions govern the use of the websidian service and are subject to Austrian law.',
+
+      agb_s1_h: '§ 1 Scope and Operator',
+      agb_s1_p1:
+        'These General Terms and Conditions govern the use of the online service <strong>websidian</strong> (hereinafter “Service"). The Service is operated by <strong>Fabo011</strong> (hereinafter “Operator") as a community-driven, non-profit open-source project with no intent to generate profit.',
+      agb_s1_p2:
+        'By registering or using the Service, the user agrees to these Terms and Conditions.',
+
+      agb_s2_h: '§ 2 Description of Services',
+      agb_s2_p1:
+        'websidian is a browser-based, open-source, privacy-first note-taking application. The Service provides the following features:',
+      agb_s2_li1: 'Encrypted online storage for notes, drawings and files',
+      agb_s2_li2: 'Access to your personal vault from any browser, without installation',
+      agb_s2_li3: 'End-to-end encryption of content in the browser (AES-256-GCM)',
+      agb_s2_li4: 'Two-factor authentication (2FA) to protect your account',
+      agb_s2_p2:
+        'The Service is provided “as is". The Operator strives for high availability but does not guarantee uninterrupted access.',
+
+      agb_s3_h: '§ 3 Registration and User Account',
+      agb_s3_p1:
+        'Registration is required to use the Service. During registration, only a freely chosen username and a password are provided — no personal data such as name, email address or phone number is required or collected.',
+      agb_s3_p2:
+        'The user is obliged to keep their credentials confidential and to prevent unauthorised access. If the password and recovery key are both lost, account recovery is not possible for technical reasons.',
+      agb_s3_p3:
+        'There is no entitlement to registration. The Operator reserves the right to restrict registration in case of capacity constraints.',
+
+      agb_s4_h: '§ 4 Fees and Payment Terms',
+      agb_s4_p1:
+        'The basic plan (1 GB storage) is free of charge. Extended storage (5 GB, 20 GB) is subject to annual fees. These fees serve exclusively to cover infrastructure, storage and development costs. The Service has no profit-generating intent.',
+      agb_s4_p2:
+        'Payment processing is handled by the external payment service provider <strong>Stripe</strong> (Stripe Payments Europe, Ltd.). Payment data (credit card details, bank account information) is stored and processed exclusively by Stripe; the Operator has no access to this data. For processing recurring payments, Stripe stores payment information in accordance with its own privacy policy and terms of service, available at <a href="https://stripe.com/at/privacy" target="_blank" rel="noopener noreferrer">stripe.com/at/privacy</a>.',
+      agb_s4_p3:
+        'Payments are due annually in advance. Refunds for partial periods upon early cancellation are excluded, unless mandatory statutory provisions provide otherwise.',
+
+      agb_s5_h: '§ 5 Data Protection',
+      agb_s5_p1:
+        'The Service does not collect personal data. Only the chosen username and a securely hashed password are stored, which alone do not enable the identification of natural persons. No analytics tools, advertising or tracking cookies are used.',
+      agb_s5_p2:
+        'For paid accounts, the payment service provider Stripe stores the payment information necessary for processing. This data is subject to Stripe’s privacy policy.',
+      agb_s5_p3:
+        'For further information, please refer to the <a href="/privacy">Privacy Policy</a>.',
+
+      agb_s6_h: '§ 6 User Obligations',
+      agb_s6_p1:
+        'The user undertakes to use the Service exclusively for lawful purposes. In particular, it is prohibited to:',
+      agb_s6_li1: 'Store or distribute content that violates applicable law',
+      agb_s6_li2: 'Infringe third-party rights (in particular copyright, personality rights)',
+      agb_s6_li3: 'Abuse or impair the Service, or gain unauthorised access to systems',
+      agb_s6_p2:
+        'In the event of violations, the Operator reserves the right to immediately block or delete the account in question.',
+
+      agb_s7_h: '§ 7 Limitation of Liability',
+      agb_s7_p1:
+        'The Service is provided by a non-profit, community-driven project without commercial background. The Operator is only liable for damage caused by gross negligence or intent. Any further liability, in particular for data loss due to technical failures, force majeure or circumstances caused by the user, is excluded.',
+      agb_s7_p2:
+        'Since content is stored with zero-knowledge encryption and the Operator has no access to decrypted data, recovery of lost content by the Operator is fundamentally not possible.',
+      agb_s7_p3:
+        'Mandatory statutory liability provisions, in particular the Austrian Consumer Protection Act (<strong>KSchG</strong>), remain unaffected.',
+
+      agb_s8_h: '§ 8 Open Source and Copyright',
+      agb_s8_p1:
+        'The source code of websidian is publicly available and published under the <strong>PolyForm Noncommercial License 1.0.0</strong>. Non-commercial use and self-hosting are permitted; commercial operation or redistribution as a hosted service is not permitted without express authorisation.',
+      agb_s8_p2:
+        'Source code: <a href="https://codeberg.org/Fabo011/websidian" target="_blank" rel="noopener noreferrer">codeberg.org/Fabo011/websidian</a>',
+
+      agb_s9_h: '§ 9 Term and Termination',
+      agb_s9_p1:
+        'Free accounts can be terminated at any time by deleting the account in the account dashboard. Upon deletion, all stored vault data and the account itself are permanently and irrecoverably deleted.',
+      agb_s9_p2:
+        'Paid subscriptions run for one year each. Cancellation is possible at any time and takes effect at the end of the current billing period. Fees already paid are not refunded.',
+      agb_s9_p3:
+        'The Operator reserves the right to terminate the account immediately in the event of a material breach of these Terms.',
+
+      agb_s10_h: '§ 10 Amendments to these Terms',
+      agb_s10_p1:
+        'The Operator reserves the right to amend these Terms at any time. Amendments will be published on this page. Continued use of the Service after publication of amended Terms constitutes acceptance of the amended terms.',
+
+      agb_s11_h: '§ 11 Applicable Law and Jurisdiction',
+      agb_s11_p1:
+        'These Terms and all legal relationships arising from them are governed exclusively by Austrian law, excluding the UN Convention on Contracts for the International Sale of Goods (CISG).',
+      agb_s11_p2:
+        'For consumers within the meaning of the Austrian KSchG, the place of jurisdiction is the consumer’s general place of jurisdiction or, at the consumer’s choice, the place of jurisdiction pursuant to § 14 KSchG. For businesses, Austria is the exclusive place of jurisdiction.',
+      agb_s11_p3:
+        'Consumers in the EU have the option to use the EU Commission’s online dispute resolution platform: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">ec.europa.eu/consumers/odr</a>. The Operator is not obliged to participate in dispute resolution proceedings.',
     },
 
     de: {
@@ -518,7 +607,7 @@
       /* Tarife & Abrechnung */
       plan: 'Tarif',
       current_plan: 'Aktueller Tarif',
-      plan_free: 'Kostenlos — 1 GB',
+      plan_free: 'Kostenlos — {free}',
       plan_5gb_name: '5 GB',
       plan_20gb_name: '20 GB',
       plan_valid_until: 'Gültig bis',
@@ -531,19 +620,19 @@
       checkout_canceled: 'Bezahlung abgebrochen. Es wurden keine Änderungen vorgenommen.',
       plan_privileged_hint: 'Du hast kostenlosen 20-GB-Zugang — keine Zahlung erforderlich.',
       plan_warn_expiring:
-        'Dein Tarif wird nicht verlängert und endet in {days} Tag(en). Zahle erneut, um ihn zu behalten, oder reduziere deinen Tresor auf 1 GB — andernfalls wird dein Konto gelöscht.',
+        'Dein Tarif wird nicht verlängert und endet in {days} Tag(en). Zahle erneut, um ihn zu behalten, oder reduziere deinen Tresor auf {free} — andernfalls wird dein Konto gelöscht.',
       plan_blacklisted:
-        'Dein Tresor überschreitet das kostenlose 1-GB-Limit ohne aktive Zahlung. Upgrade oder reduziere deinen Tresor auf 1 GB, sonst wird dein Konto gelöscht.',
+        'Dein Tresor überschreitet das kostenlose {free}-Limit ohne aktive Zahlung. Upgrade oder reduziere deinen Tresor auf {free}, sonst wird dein Konto gelöscht.',
       choose_plan: 'Wähle deinen Tarif',
       choose_plan_hint:
-        'Starte kostenlos mit 1 GB oder upgrade jetzt für mehr Speicher. Du kannst dies jederzeit im Dashboard ändern.',
+        'Starte kostenlos mit {free} oder upgrade jetzt für mehr Speicher. Du kannst dies jederzeit im Dashboard ändern.',
       plan_free_card: 'Kostenlos',
-      plan_free_desc: '1 GB Speicher. Keine Zahlung erforderlich.',
+      plan_free_desc: '{free} Speicher. Keine Zahlung erforderlich.',
       plan_5gb_card: '5 GB',
       plan_5gb_desc: '42 € / Jahr (jährliche Abrechnung).',
       plan_20gb_card: '20 GB',
       plan_20gb_desc: '72 € / Jahr (jährliche Abrechnung).',
-      continue_free: 'Kostenlos mit 1 GB fortfahren',
+      continue_free: 'Kostenlos mit {free} fortfahren',
       upgrade_pay: 'Upgraden & bezahlen',
 
       ok: 'OK',
@@ -650,9 +739,9 @@
       why_learn_more: 'Zur Dokumentation →',
       pricing_title: 'Einfacher, Ende-zu-Ende-verschlüsselter Speicher',
       pricing_lead:
-        'Starte kostenlos mit 1 GB. Upgrade, wenn du mehr Platz brauchst – jeder Tarif ist Ende-zu-Ende verschlüsselt und nur für dich lesbar.',
+        'Starte kostenlos mit {free}. Upgrade, wenn du mehr Platz brauchst – jeder Tarif ist Ende-zu-Ende verschlüsselt und nur für dich lesbar.',
       pricing_free_name: 'Kostenlos',
-      pricing_free_amount: '1 GB',
+      pricing_free_amount: '{free}',
       pricing_free_desc: 'Ende-zu-Ende-verschlüsselter Speicher. Keine Zahlung nötig.',
       pricing_5gb_name: '5 GB',
       pricing_20gb_name: '20 GB',
@@ -723,8 +812,96 @@
       footer_deploy: 'Bereitstellung',
       footer_imprint: 'Impressum',
       footer_privacy: 'Datenschutz',
+      footer_agb: 'AGB',
       footer_disclaimer:
-        'websidian ist ein unabhängiges, eigenständiges Open-Source-Projekt. Es besteht keine Verbindung, Zugehörigkeit oder Partnerschaft mit Obsidian (obsidian.md). „Obsidian“ ist eine Marke des jeweiligen Inhabers und wird hier nur zum Vergleich genannt.',
+        'websidian ist ein unabhängiges, eigenständiges Open-Source-Projekt. Es besteht keine Verbindung, Zugehörigkeit oder Partnerschaft mit Obsidian (obsidian.md). „Obsidian" ist eine Marke des jeweiligen Inhabers und wird hier nur zum Vergleich genannt.',
+
+      /* AGB-Seite */
+      agb_title: 'Allgemeine Geschäftsbedingungen (AGB)',
+      agb_intro:
+        'Stand: Juni 2025. Diese AGB gelten für die Nutzung des Dienstes websidian und unterliegen österreichischem Recht.',
+
+      agb_s1_h: '§ 1 Geltungsbereich und Betreiber',
+      agb_s1_p1:
+        'Diese Allgemeinen Geschäftsbedingungen regeln die Nutzung des Online-Dienstes <strong>websidian</strong> (nachfolgend „Dienst"). Der Dienst wird betrieben von <strong>Fabo011</strong> (nachfolgend „Betreiber") als gemeinschaftsgetriebenes, gemeinnütziges Open-Source-Projekt ohne Gewinnerzielungsabsicht.',
+      agb_s1_p2:
+        'Durch die Registrierung oder Nutzung des Dienstes erklärt sich der Nutzer mit diesen AGB einverstanden.',
+
+      agb_s2_h: '§ 2 Leistungsbeschreibung',
+      agb_s2_p1:
+        'websidian ist eine browserbasierte, quelloffene, datenschutzorientierte Notizanwendung. Der Dienst stellt folgende Leistungen bereit:',
+      agb_s2_li1: 'Verschlüsselten Online-Speicher für Notizen, Zeichnungen und Dateien',
+      agb_s2_li2: 'Zugriff auf den persönlichen Vault aus jedem Browser, ohne Installation',
+      agb_s2_li3: 'Ende-zu-Ende-Verschlüsselung der Inhalte im Browser (AES-256-GCM)',
+      agb_s2_li4: 'Zwei-Faktor-Authentifizierung (2FA) zum Schutz des Kontos',
+      agb_s2_p2:
+        'Der Dienst wird „wie besehen" (as is) bereitgestellt. Der Betreiber strebt eine hohe Verfügbarkeit an, übernimmt jedoch keine Garantie für ununterbrochene Erreichbarkeit.',
+
+      agb_s3_h: '§ 3 Registrierung und Nutzerkonto',
+      agb_s3_p1:
+        'Zur Nutzung des Dienstes ist eine Registrierung erforderlich. Bei der Registrierung werden ausschließlich ein frei gewählter Benutzername sowie ein Passwort angegeben — keine personenbezogenen Daten wie Name, E-Mail-Adresse oder Telefonnummer sind erforderlich oder werden erhoben.',
+      agb_s3_p2:
+        'Der Nutzer ist verpflichtet, seine Zugangsdaten vertraulich zu behandeln und unbefugten Zugriff zu verhindern. Bei Verlust des Passworts und des Wiederherstellungsschlüssels ist eine Wiederherstellung des Kontos aus technischen Gründen nicht möglich.',
+      agb_s3_p3:
+        'Ein Anspruch auf Registrierung besteht nicht. Der Betreiber behält sich vor, die Registrierung bei Kapazitätsengpässen zu beschränken.',
+
+      agb_s4_h: '§ 4 Entgelt und Zahlungsbedingungen',
+      agb_s4_p1:
+        'Das Basistarif (1 GB Speicher) ist kostenlos. Für erweiterten Speicher (5 GB, 20 GB) werden Jahresentgelte erhoben. Diese Entgelte dienen ausschließlich der Deckung von Infrastruktur-, Speicher- und Entwicklungskosten. Der Dienst verfolgt keine Gewinnerzielungsabsicht.',
+      agb_s4_p2:
+        'Die Zahlungsabwicklung erfolgt über den externen Zahlungsdienstleister <strong>Stripe</strong> (Stripe Payments Europe, Ltd.). Zahlungsdaten (Kreditkarteninformationen, Bankverbindungen) werden ausschließlich bei Stripe gespeichert und verarbeitet; der Betreiber hat keinen Zugriff auf diese Daten. Für die Abwicklung wiederkehrender Zahlungen speichert Stripe die Zahlungsinformationen gemäß seinen eigenen Datenschutzbestimmungen und Nutzungsbedingungen, die unter <a href="https://stripe.com/at/privacy" target="_blank" rel="noopener noreferrer">stripe.com/at/privacy</a> einsehbar sind.',
+      agb_s4_p3:
+        'Zahlungen werden jährlich im Voraus fällig. Eine Rückerstattung anteiliger Beträge bei vorzeitiger Kündigung ist ausgeschlossen, sofern gesetzliche Gewährleistungsrechte nichts anderes vorschreiben.',
+
+      agb_s5_h: '§ 5 Datenschutz',
+      agb_s5_p1:
+        'Der Dienst erhebt keine personenbezogenen Daten. Es werden lediglich der gewählte Benutzername sowie ein sicher gehashtes Passwort gespeichert, die für sich allein keine Identifizierung natürlicher Personen ermöglichen. Es werden weder Analyse-Tools noch Werbe- oder Tracking-Cookies eingesetzt.',
+      agb_s5_p2:
+        'Für zahlungspflichtige Konten speichert der Zahlungsdienstleister Stripe die für die Abwicklung notwendigen Zahlungsinformationen. Diese Daten unterliegen den Datenschutzbestimmungen von Stripe.',
+      agb_s5_p3:
+        'Weitere Informationen entnehmen Sie bitte der <a href="/privacy">Datenschutzerklärung</a>.',
+
+      agb_s6_h: '§ 6 Pflichten des Nutzers',
+      agb_s6_p1:
+        'Der Nutzer verpflichtet sich, den Dienst ausschließlich für rechtmäßige Zwecke zu nutzen. Insbesondere ist es untersagt:',
+      agb_s6_li1: 'Inhalte zu speichern oder zu verbreiten, die gegen geltendes Recht verstoßen',
+      agb_s6_li2: 'Rechte Dritter (insbesondere Urheberrechte, Persönlichkeitsrechte) zu verletzen',
+      agb_s6_li3:
+        'Den Dienst zu missbrauchen, zu beeinträchtigen oder unbefugt auf Systeme zuzugreifen',
+      agb_s6_p2:
+        'Bei Verstößen behält sich der Betreiber das Recht vor, das betreffende Konto unverzüglich zu sperren oder zu löschen.',
+
+      agb_s7_h: '§ 7 Haftungsbeschränkung',
+      agb_s7_p1:
+        'Der Dienst wird von einem gemeinnützigen, gemeinschaftsgetriebenen Projekt ohne kommerziellen Hintergrund bereitgestellt. Der Betreiber haftet nur für Schäden, die durch grobe Fahrlässigkeit oder Vorsatz verursacht wurden. Eine weitergehende Haftung, insbesondere für Datenverlust durch technische Fehler, höhere Gewalt oder durch den Nutzer verursachte Umstände, ist ausgeschlossen.',
+      agb_s7_p2:
+        'Da Inhalte mit Zero-Knowledge-Verschlüsselung gespeichert werden und der Betreiber keinen Zugriff auf die entschlüsselten Daten hat, ist eine Wiederherstellung verlorener Inhalte durch den Betreiber grundsätzlich nicht möglich.',
+      agb_s7_p3:
+        'Zwingende gesetzliche Haftungsregelungen, insbesondere das österreichische Konsumentenschutzgesetz (<strong>KSchG</strong>), bleiben unberührt.',
+
+      agb_s8_h: '§ 8 Open Source und Urheberrecht',
+      agb_s8_p1:
+        'Der Quellcode von websidian ist öffentlich einsehbar und wird unter der <strong>PolyForm Noncommercial License 1.0.0</strong> veröffentlicht. Eine nichtkommerzielle Nutzung und das Selbsthosten sind gestattet; ein kommerzieller Betrieb oder die Weitergabe als gehosteter Dienst sind ohne ausdrückliche Genehmigung nicht erlaubt.',
+      agb_s8_p2:
+        'Quellcode: <a href="https://codeberg.org/Fabo011/websidian" target="_blank" rel="noopener noreferrer">codeberg.org/Fabo011/websidian</a>',
+
+      agb_s9_h: '§ 9 Vertragsdauer und Kündigung',
+      agb_s9_p1:
+        'Kostenlose Konten können jederzeit durch Löschen des Kontos im Konto-Dashboard beendet werden. Mit der Kontolöschung werden alle gespeicherten Vault-Daten und das Konto selbst unwiderruflich gelöscht.',
+      agb_s9_p2:
+        'Kostenpflichtige Abonnements laufen jeweils ein Jahr. Eine Kündigung ist jederzeit möglich und wird zum Ende der laufenden Abrechnungsperiode wirksam. Bereits bezahlte Entgelte werden nicht erstattet.',
+      agb_s9_p3:
+        'Der Betreiber behält sich vor, den Dienst bei wesentlichem Verstoß gegen diese AGB fristlos zu kündigen.',
+
+      agb_s10_h: '§ 10 Änderungen dieser AGB',
+      agb_s10_p1:
+        'Der Betreiber behält sich vor, diese AGB jederzeit zu ändern. Änderungen werden auf dieser Seite veröffentlicht. Die fortgesetzte Nutzung des Dienstes nach Veröffentlichung geänderter AGB gilt als Zustimmung zu den geänderten Bedingungen.',
+
+      agb_s11_h: '§ 11 Anwendbares Recht und Gerichtsstand',
+      agb_s11_p1:
+        'Diese AGB und alle sich daraus ergebenden Rechtsbeziehungen unterliegen ausschließlich österreichischem Recht unter Ausschluss des UN-Kaufrechts (CISG).',
+      agb_s11_p2:
+        'Für Verbraucher im Sinne des österreichischen KSchG gilt als Gerichtsstand der allgemeine Gerichtsstand des Verbrauchers oder, nach Wahl des Verbrauchers, der Gerichtsstand nach § 14 KSchG. Für Unternehmer gilt als ausschließlicher Gerichtsstand Österreich.',
     },
   };
 
@@ -741,14 +918,40 @@
 
   let lang = detect();
 
+  // Free-tier allowance in bytes. Provided by the server (head partial sets
+  // window.__WO_FREE_BYTES__ from STORAGE_QUOTA_GB); falls back to 1 GB.
+  let freeBytes =
+    Number(
+      (typeof window !== 'undefined' && window.__WO_FREE_BYTES__) || 0,
+    ) || 1073741824;
+
+  function fmtBytes(bytes) {
+    if (!bytes || bytes <= 0) return '';
+    if (bytes < 1024) return bytes + ' B';
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let value = bytes / 1024;
+    let i = 0;
+    while (value >= 1024 && i < units.length - 1) {
+      value /= 1024;
+      i++;
+    }
+    return value.toFixed(value >= 10 ? 0 : 1) + ' ' + units[i];
+  }
+
+  // Variables injected into every string so static [data-i18n] markup can show
+  // dynamic values. {free} = formatted free-tier allowance.
+  function baseVars() {
+    const f = fmtBytes(freeBytes);
+    return f ? { free: f } : {};
+  }
+
   function t(key, vars) {
     let s =
       (dict[lang] && dict[lang][key] != null ? dict[lang][key] : null) ||
       (dict.en[key] != null ? dict.en[key] : key);
-    if (vars) {
-      for (const k in vars) {
-        s = s.split('{' + k + '}').join(String(vars[k]));
-      }
+    const merged = Object.assign(baseVars(), vars || {});
+    for (const k in merged) {
+      s = s.split('{' + k + '}').join(String(merged[k]));
     }
     return s;
   }
@@ -757,6 +960,9 @@
     const scope = root || document;
     scope.querySelectorAll('[data-i18n]').forEach((el) => {
       el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    scope.querySelectorAll('[data-i18n-html]').forEach((el) => {
+      el.innerHTML = t(el.getAttribute('data-i18n-html'));
     });
     scope.querySelectorAll('[data-i18n-attr]').forEach((el) => {
       el.getAttribute('data-i18n-attr')
@@ -780,6 +986,13 @@
     apply: apply,
     name(l) {
       return (dict[l] && dict[l].lang_name) || l;
+    },
+    setFreeBytes(n) {
+      const v = Number(n);
+      if (Number.isFinite(v) && v > 0 && v !== freeBytes) {
+        freeBytes = v;
+        apply();
+      }
     },
     set(l) {
       if (!dict[l] || l === lang) return;
