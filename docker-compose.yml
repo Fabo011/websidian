@@ -1,4 +1,9 @@
 services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
   websidian:
     build: .
     image: websidian:latest
@@ -44,8 +49,8 @@ services:
       S3_FORCE_PATH_STYLE: "${S3_FORCE_PATH_STYLE:-true}"
       S3_PREFIX: "${S3_PREFIX:-}"
     depends_on:
-      postgres:
-        condition: service_healthy
+      - cloudflared
+      - postgres
 
   postgres:
     image: postgres:18-alpine
@@ -56,10 +61,9 @@ services:
       POSTGRES_PASSWORD: "${DB_PASSWORD:-postgres}"
       POSTGRES_DB: "${DB_DATABASE:-web_obsidian}"
     volumes:
-      # Persisted Postgres data — back this volume up - mega.
-      # PG 18+ stores data in version-specific subdirs, so mount the parent
-      # /var/lib/postgresql (not /var/lib/postgresql/data).
       - postgres-data:/var/lib/postgresql
+    depends_on:
+      - cloudflared
 
 volumes:
   postgres-data:
