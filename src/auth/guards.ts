@@ -1,8 +1,8 @@
 import {
-    CanActivate,
-    ExecutionContext,
-    Injectable,
-    UnauthorizedException,
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { UsersService } from '../users/users.service';
@@ -11,7 +11,8 @@ import { AuthService } from './auth.service';
 import { TokenPurpose } from './auth.types';
 
 function extractToken(req: Request): string | undefined {
-  const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
+  const cookies = (req as Request & { cookies?: Record<string, string> })
+    .cookies;
   return cookies?.[AUTH_COOKIE];
 }
 

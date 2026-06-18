@@ -58,7 +58,12 @@ export class AuthService {
     username: string,
     password: string,
     keys: VaultKeyMaterial,
-  ): Promise<{ user: User; secret: string; otpauthUrl: string; qrDataUrl: string }> {
+  ): Promise<{
+    user: User;
+    secret: string;
+    otpauthUrl: string;
+    qrDataUrl: string;
+  }> {
     if (!this.app.allowRegistration) {
       throw new ForbiddenException('Registration is disabled.');
     }
@@ -202,7 +207,9 @@ export class AuthService {
         'No authenticator reset in progress. Please start again.',
       );
     }
-    if (!authenticator.verify({ token: code, secret: user.pendingTotpSecret })) {
+    if (
+      !authenticator.verify({ token: code, secret: user.pendingTotpSecret })
+    ) {
       throw new BadRequestException('Incorrect code. Please try again.');
     }
 

@@ -1,9 +1,9 @@
 import {
-    Column,
-    CreateDateColumn,
-    Entity,
-    Index,
-    PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 import type { PlanTier } from '../config/configuration';
 import { encryptedColumn } from '../storage/encrypted-column.transformer';

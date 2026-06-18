@@ -9,9 +9,7 @@ import { User } from './user.entity';
 import { UsersService } from './users.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([User, PrivilegedUser, BlacklistedUser]),
-  ],
+  imports: [TypeOrmModule.forFeature([User, PrivilegedUser, BlacklistedUser])],
   providers: [
     UsersService,
     PrivilegedUsersService,

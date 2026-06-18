@@ -24,7 +24,9 @@ export class BlacklistService {
     if (await this.isBlacklisted(name)) {
       return;
     }
-    await this.blacklist.save(this.blacklist.create({ username: name, reason }));
+    await this.blacklist.save(
+      this.blacklist.create({ username: name, reason }),
+    );
   }
 
   /** Remove a username from the blacklist (e.g. once they pay or shrink). */

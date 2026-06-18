@@ -28,10 +28,16 @@ describe('AppController (e2e)', () => {
   });
 
   it('/imprint (GET) serves the imprint page', () => {
-    return request(app.getHttpServer()).get('/imprint').expect(200).expect(/Imprint/);
+    return request(app.getHttpServer())
+      .get('/imprint')
+      .expect(200)
+      .expect(/Imprint/);
   });
 
   it('/privacy (GET) serves the privacy policy page', () => {
-    return request(app.getHttpServer()).get('/privacy').expect(200).expect(/Privacy/);
+    return request(app.getHttpServer())
+      .get('/privacy')
+      .expect(200)
+      .expect(/Privacy/);
   });
 });

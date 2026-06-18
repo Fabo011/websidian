@@ -1,28 +1,28 @@
 import {
-    CopyObjectCommand,
-    DeleteObjectsCommand,
-    GetObjectCommand,
-    HeadObjectCommand,
-    ListObjectsV2Command,
-    PutObjectCommand,
-    S3Client,
-    _Object,
+  CopyObjectCommand,
+  DeleteObjectsCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+  _Object,
 } from '@aws-sdk/client-s3';
 import {
-    BadRequestException,
-    Injectable,
-    Logger,
-    NotFoundException,
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Readable } from 'stream';
 import { AppConfig, S3Config } from '../config/configuration';
 import {
-    StorageEntry,
-    StorageFile,
-    StorageProvider,
-    StorageReadStream,
-    StorageStat,
+  StorageEntry,
+  StorageFile,
+  StorageProvider,
+  StorageReadStream,
+  StorageStat,
 } from './storage.interface';
 
 /** Zero-byte marker object that keeps an otherwise-empty "folder" listable. */
@@ -118,7 +118,9 @@ export class S3StorageProvider implements StorageProvider {
 
   /** Normalise a relative path and reject traversal / absolute segments. */
   private sanitize(relPath = ''): string {
-    const clean = String(relPath).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const clean = String(relPath)
+      .replace(/\\/g, '/')
+      .replace(/^\/+|\/+$/g, '');
     if (!clean) {
       return '';
     }
@@ -294,7 +296,9 @@ export class S3StorageProvider implements StorageProvider {
       );
     });
 
-    await this.deleteKeys(sources.map((o) => o.Key).filter(Boolean) as string[]);
+    await this.deleteKeys(
+      sources.map((o) => o.Key).filter(Boolean) as string[],
+    );
     this.invalidateUsage(username);
   }
 

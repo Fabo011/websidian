@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-    AppConfig,
-    bytesForTier,
-    PlanTier,
-} from '../config/configuration';
+import { AppConfig, bytesForTier, PlanTier } from '../config/configuration';
 import { PrivilegedUsersService } from './privileged-users.service';
 import { SubscriptionStatus, User } from './user.entity';
 
@@ -113,8 +109,7 @@ export class EntitlementsService {
       };
     }
 
-    const paidActive =
-      user.plan !== 'free' && periodEndMs > now;
+    const paidActive = user.plan !== 'free' && periodEndMs > now;
     const effectiveTier: PlanTier = paidActive ? user.plan : 'free';
     const daysUntilExpiry = paidActive
       ? Math.ceil((periodEndMs - now) / DAY_MS)

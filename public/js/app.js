@@ -1463,6 +1463,7 @@ async function renderOffice(path, ext, body) {
       window.OfficeViewer.renderSpreadsheet(container, buf);
     }
   } catch (e) {
+    console.error('office preview failed:', ext, e);
     body.innerHTML = '';
     const p = document.createElement('p');
     p.className = 'muted';

@@ -1,33 +1,26 @@
 import {
-    BadRequestException,
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Post,
-    Put,
-    Query,
-    Res,
-    UploadedFile,
-    UploadedFiles,
-    UseGuards,
-    UseInterceptors,
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Post,
+  Put,
+  Query,
+  Res,
+  UploadedFile,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import {
-    FileInterceptor,
-    FilesInterceptor,
-} from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards';
 import { mimeForExt } from '../common/mime';
-import {
-    CreateFolderDto,
-    RenameDto,
-    WriteFileDto,
-} from './dto/vault.dto';
+import { CreateFolderDto, RenameDto, WriteFileDto } from './dto/vault.dto';
 import { VaultService } from './vault.service';
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB per file
@@ -43,10 +36,7 @@ export class VaultController {
   }
 
   @Get('file')
-  file(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query('path') path: string,
-  ) {
+  file(@CurrentUser() user: AuthenticatedUser, @Query('path') path: string) {
     if (!path) {
       throw new BadRequestException('path is required.');
     }
@@ -54,10 +44,7 @@ export class VaultController {
   }
 
   @Put('file')
-  writeFile(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: WriteFileDto,
-  ) {
+  writeFile(@CurrentUser() user: AuthenticatedUser, @Body() dto: WriteFileDto) {
     return this.vault.writeTextFile(
       user.username,
       dto.path,
@@ -76,10 +63,7 @@ export class VaultController {
   }
 
   @Post('rename')
-  async rename(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: RenameDto,
-  ) {
+  async rename(@CurrentUser() user: AuthenticatedUser, @Body() dto: RenameDto) {
     await this.vault.rename(user.username, dto.from, dto.to);
     return { ok: true };
   }
@@ -174,10 +158,7 @@ export class VaultController {
   }
 
   @Get('search')
-  search(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query('q') q = '',
-  ) {
+  search(@CurrentUser() user: AuthenticatedUser, @Query('q') q = '') {
     return this.vault.search(user.username, q);
   }
 

@@ -8,7 +8,9 @@ export class BeginResetTotpDto {
 
   /** Current 6-digit TOTP code from the existing authenticator. */
   @IsString()
-  @Matches(/^\d{6}$/, { message: 'Enter the 6-digit code from your authenticator.' })
+  @Matches(/^\d{6}$/, {
+    message: 'Enter the 6-digit code from your authenticator.',
+  })
   code: string;
 }
 
@@ -16,6 +18,8 @@ export class BeginResetTotpDto {
 export class ConfirmResetTotpDto {
   /** 6-digit code generated from the new secret. */
   @IsString()
-  @Matches(/^\d{6}$/, { message: 'Enter the 6-digit code from your authenticator.' })
+  @Matches(/^\d{6}$/, {
+    message: 'Enter the 6-digit code from your authenticator.',
+  })
   code: string;
 }

@@ -1,10 +1,10 @@
 import {
-    Body,
-    Controller,
-    Get,
-    Post,
-    UnauthorizedException,
-    UseGuards,
+  Body,
+  Controller,
+  Get,
+  Post,
+  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -63,10 +63,7 @@ export class BillingController {
    */
   @Post('sync')
   @UseGuards(JwtAuthGuard)
-  async sync(
-    @CurrentUser() current: AuthenticatedUser,
-    @Body() dto: SyncDto,
-  ) {
+  async sync(@CurrentUser() current: AuthenticatedUser, @Body() dto: SyncDto) {
     if (!this.billing.ready) {
       return { synced: false };
     }

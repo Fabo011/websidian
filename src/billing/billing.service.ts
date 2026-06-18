@@ -1,8 +1,8 @@
 import {
-    BadRequestException,
-    Injectable,
-    Logger,
-    ServiceUnavailableException,
+  BadRequestException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
@@ -23,7 +23,6 @@ type StripeSubscription = Awaited<
 type StripeCheckoutSession = Awaited<
   ReturnType<StripeClient['checkout']['sessions']['retrieve']>
 >;
-
 
 /**
  * Thin wrapper around the Stripe API for the recurring (annual) storage plans.

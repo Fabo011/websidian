@@ -19,7 +19,8 @@ export class PagesController {
   }
 
   private currentUsername(req: Request): string | null {
-    const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
+    const cookies = (req as Request & { cookies?: Record<string, string> })
+      .cookies;
     const token = cookies?.[AUTH_COOKIE];
     if (!token) {
       return null;
@@ -48,7 +49,8 @@ export class PagesController {
     const username = this.currentUsername(req);
     if (!username) {
       const left = await this.registrationsLeft();
-      const canRegister = this.app.allowRegistration && (left === null || left > 0);
+      const canRegister =
+        this.app.allowRegistration && (left === null || left > 0);
       return res.render('landing', {
         allowRegistration: canRegister,
         registrationsLeft: left,
@@ -108,7 +110,8 @@ export class PagesController {
     if (left !== null && left === 0) {
       return res.render('login', {
         allowRegistration: false,
-        notice: 'Registration is currently full. No spots are available right now.',
+        notice:
+          'Registration is currently full. No spots are available right now.',
       });
     }
     return res.render('register', { registrationsLeft: left });

@@ -223,7 +223,11 @@ export default (): { app: AppConfig } => {
         // STORAGE_QUOTA_GB (0 == unlimited). With billing on it defaults to a
         // fixed 1 GB, but an explicit STORAGE_QUOTA_GB still overrides it so the
         // operator can offer a smaller (or larger) free plan, e.g. 0.5 GB.
-        free: quotaEnvSet ? storageQuotaBytes : billingEnabled ? 1 * GIB : storageQuotaBytes,
+        free: quotaEnvSet
+          ? storageQuotaBytes
+          : billingEnabled
+            ? 1 * GIB
+            : storageQuotaBytes,
         plus5: 5 * GIB,
         plus20: 20 * GIB,
       },

@@ -93,7 +93,10 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.auth.validateCredentials(dto.username, dto.password);
+    const user = await this.auth.validateCredentials(
+      dto.username,
+      dto.password,
+    );
     const pending = this.auth.signToken(user, 'pending');
     this.setPendingCookie(res, pending);
     return { needTotp: true };

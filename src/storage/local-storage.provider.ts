@@ -1,14 +1,18 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createReadStream, promises as fs, Stats } from 'fs';
 import { dirname, join, sep } from 'path';
 import { safeResolve } from '../common/path-safety';
 import { AppConfig } from '../config/configuration';
 import {
-    StorageEntry,
-    StorageProvider,
-    StorageReadStream,
-    StorageStat,
+  StorageEntry,
+  StorageProvider,
+  StorageReadStream,
+  StorageStat,
 } from './storage.interface';
 
 /**
