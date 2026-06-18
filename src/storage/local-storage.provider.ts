@@ -4,8 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createReadStream, promises as fs, Stats } from 'fs';
+import { createReadStream, createWriteStream, promises as fs, Stats } from 'fs';
 import { dirname, join, sep } from 'path';
+import { pipeline } from 'stream/promises';
+import { Readable } from 'stream';
 import { safeResolve } from '../common/path-safety';
 import { AppConfig } from '../config/configuration';
 import {
@@ -96,6 +98,17 @@ export class LocalStorageProvider implements StorageProvider {
     const abs = this.resolve(username, relPath);
     await fs.mkdir(dirname(abs), { recursive: true });
     await fs.writeFile(abs, data);
+  }
+
+  async writeStream(
+    username: string,
+    relPath: string,
+    data: Readable,
+  ): Promise<void> {
+    const abs = this.resolve(username, relPath);
+    await fs.mkdir(dirname(abs), { recursive: true });
+    // pipeline streams disk-to-disk and never holds the whole file in memory.
+    await pipeline(data, createWriteStream(abs));
   }
 
   async makeDir(username: string, relPath: string): Promise<void> {

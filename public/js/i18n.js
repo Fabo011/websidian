@@ -222,8 +222,17 @@
       import_zip_desc: 'Recommended — no browser warning. The archive is unpacked automatically.',
       import_folder: 'Folder',
       import_folder_desc: 'Upload a folder and all of its sub-folders. Your browser will ask you to confirm.',
+      import_limit_note: 'Limits: up to {maxImportTotal} total per import, {maxUploadSize} per file, and {maxImportFiles} files.',
+      import_total_too_large: 'The selected files total {total}, but a single import is limited to {maxImportTotal}. Please select less.',
+      too_many_files: 'You selected {count} files, but a single import is limited to {maxImportFiles}. Please import fewer files.',
+      file_too_large: '“{name}” is too large to upload. Each file is limited to {maxUploadSize}.',
+      deleting: 'Deleting…',
+      delete_failed_title: 'Delete failed',
+      delete_failed_msg: 'The item could not be deleted. Please try again.',
       upload_failed_title: 'Upload failed',
       upload_failed_msg: 'Something went wrong while uploading. Please try again.',
+      request_timeout: 'The upload took too long and was stopped. Check your connection and try with fewer or smaller files.',
+      network_error: 'Network error — the upload could not be completed. Please try again.',
       import_failed_title: 'Import failed',
       import_failed_msg: 'Something went wrong while importing. Please try again.',
       open_failed_title: 'Could not open file',
@@ -364,7 +373,7 @@
       /* footer */
       footer_love_pre: 'Developed with',
       footer_love_post: 'by',
-      footer_source: 'Source code (Codeberg)',
+      footer_source: 'Source code (Github)',
       footer_github: 'GitHub',
       footer_deploy: 'Deployment',
       footer_imprint: 'Imprint',
@@ -439,7 +448,7 @@
       agb_s8_p1:
         'The source code of websidian is publicly available and published under the <strong>PolyForm Noncommercial License 1.0.0</strong>. Non-commercial use and self-hosting are permitted; commercial operation or redistribution as a hosted service is not permitted without express authorisation.',
       agb_s8_p2:
-        'Source code: <a href="https://codeberg.org/Fabo011/websidian" target="_blank" rel="noopener noreferrer">codeberg.org/Fabo011/websidian</a>',
+        'Source code: <a href="https://github.com/Fabo011/websidian" target="_blank" rel="noopener noreferrer">github.com/Fabo011/websidian</a>',
 
       agb_s9_h: '§ 9 Term and Termination',
       agb_s9_p1:
@@ -665,8 +674,17 @@
       import_zip_desc: 'Empfohlen — keine Browser-Warnung. Das Archiv wird automatisch entpackt.',
       import_folder: 'Ordner',
       import_folder_desc: 'Lade einen Ordner samt Unterordnern hoch. Dein Browser fragt zur Bestätigung nach.',
+      import_limit_note: 'Grenzen: bis zu {maxImportTotal} pro Import insgesamt, {maxUploadSize} pro Datei und {maxImportFiles} Dateien.',
+      import_total_too_large: 'Die ausgewählten Dateien haben zusammen {total}, aber ein Import ist auf {maxImportTotal} begrenzt. Bitte wähle weniger aus.',
+      too_many_files: 'Du hast {count} Dateien ausgewählt, aber ein Import ist auf {maxImportFiles} Dateien begrenzt. Bitte importiere weniger Dateien.',
+      file_too_large: '„{name}“ ist zu groß für den Upload. Jede Datei ist auf {maxUploadSize} begrenzt.',
+      deleting: 'Wird gelöscht…',
+      delete_failed_title: 'Löschen fehlgeschlagen',
+      delete_failed_msg: 'Das Element konnte nicht gelöscht werden. Bitte versuche es erneut.',
       upload_failed_title: 'Hochladen fehlgeschlagen',
       upload_failed_msg: 'Beim Hochladen ist etwas schiefgelaufen. Bitte versuche es erneut.',
+      request_timeout: 'Das Hochladen hat zu lange gedauert und wurde abgebrochen. Prüfe deine Verbindung und versuche es mit weniger oder kleineren Dateien.',
+      network_error: 'Netzwerkfehler — das Hochladen konnte nicht abgeschlossen werden. Bitte versuche es erneut.',
       import_failed_title: 'Import fehlgeschlagen',
       import_failed_msg: 'Beim Importieren ist etwas schiefgelaufen. Bitte versuche es erneut.',
       open_failed_title: 'Datei konnte nicht geöffnet werden',
@@ -807,7 +825,7 @@
 
       footer_love_pre: 'Entwickelt mit',
       footer_love_post: 'von',
-      footer_source: 'Quellcode (Codeberg)',
+      footer_source: 'Quellcode (Github)',
       footer_github: 'GitHub',
       footer_deploy: 'Bereitstellung',
       footer_imprint: 'Impressum',
@@ -883,7 +901,7 @@
       agb_s8_p1:
         'Der Quellcode von websidian ist öffentlich einsehbar und wird unter der <strong>PolyForm Noncommercial License 1.0.0</strong> veröffentlicht. Eine nichtkommerzielle Nutzung und das Selbsthosten sind gestattet; ein kommerzieller Betrieb oder die Weitergabe als gehosteter Dienst sind ohne ausdrückliche Genehmigung nicht erlaubt.',
       agb_s8_p2:
-        'Quellcode: <a href="https://codeberg.org/Fabo011/websidian" target="_blank" rel="noopener noreferrer">codeberg.org/Fabo011/websidian</a>',
+        'Quellcode: <a href="https://github.com/Fabo011/websidian" target="_blank" rel="noopener noreferrer">github.com/Fabo011/websidian</a>',
 
       agb_s9_h: '§ 9 Vertragsdauer und Kündigung',
       agb_s9_p1:
@@ -938,11 +956,41 @@
     return value.toFixed(value >= 10 ? 0 : 1) + ' ' + units[i];
   }
 
+  // Import caps, provided by the server (head partial). Used to show the real
+  // limits in the Import dialog. Fall back to the server defaults.
+  const maxUploadMb =
+    Number((typeof window !== 'undefined' && window.__WO_MAX_UPLOAD_MB__) || 0) ||
+    2048;
+  const maxImportFiles =
+    Number(
+      (typeof window !== 'undefined' && window.__WO_MAX_IMPORT_FILES__) || 0,
+    ) || 20000;
+  const maxImportTotalMb =
+    Number(
+      (typeof window !== 'undefined' && window.__WO_MAX_IMPORT_TOTAL_MB__) || 0,
+    ) || 2048;
+
+  // Render a MB value as a friendly size (e.g. 2048 -> "2 GB", 512 -> "512 MB").
+  function fmtMb(mb) {
+    if (mb >= 1024) {
+      const gb = mb / 1024;
+      return (Number.isInteger(gb) ? gb : gb.toFixed(1)) + ' GB';
+    }
+    return mb + ' MB';
+  }
+
   // Variables injected into every string so static [data-i18n] markup can show
-  // dynamic values. {free} = formatted free-tier allowance.
+  // dynamic values. {free} = free-tier allowance; {maxUploadSize} = per-file
+  // upload cap; {maxImportFiles} = files allowed per import.
   function baseVars() {
+    const vars = {
+      maxUploadSize: fmtMb(maxUploadMb),
+      maxImportFiles: maxImportFiles.toLocaleString(),
+      maxImportTotal: fmtMb(maxImportTotalMb),
+    };
     const f = fmtBytes(freeBytes);
-    return f ? { free: f } : {};
+    if (f) vars.free = f;
+    return vars;
   }
 
   function t(key, vars) {

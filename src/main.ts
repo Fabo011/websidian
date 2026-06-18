@@ -87,6 +87,20 @@ async function bootstrap() {
   // UI can render the actual free quota (driven by STORAGE_QUOTA_GB) instead of
   // a hardcoded "1 GB".
   expressInstance.locals.freeBytes = appConfig.tiers.free;
+  // Import limits, surfaced to the client (head partial) so the Import dialog can
+  // tell the user the real caps. Mirror the defaults used in VaultController.
+  expressInstance.locals.maxUploadFileMb = Math.max(
+    1,
+    Number(process.env.MAX_UPLOAD_FILE_MB) || 2048,
+  );
+  expressInstance.locals.maxImportFiles = Math.max(
+    1,
+    Number(process.env.MAX_IMPORT_FILES) || 20000,
+  );
+  expressInstance.locals.maxImportTotalMb = Math.max(
+    1,
+    Number(process.env.MAX_IMPORT_TOTAL_MB) || 2048,
+  );
   app.useStaticAssets(join(process.cwd(), 'public'), { prefix: '/public' });
 
   // Restrict cross-origin browser access to the configured origin(s). Same-origin
@@ -108,6 +122,19 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(appConfig.port);
+  const server = await app.listen(appConfig.port);
+
+  // Large folder/zip imports stream thousands of files to storage within a
+  // single request and can legitimately run for many minutes. Node's default
+  // requestTimeout (5 min) would abort them mid-upload, so extend it. Override
+  // with UPLOAD_REQUEST_TIMEOUT_MIN (minutes); default 30.
+  const uploadTimeoutMs =
+    Math.max(1, Number(process.env.UPLOAD_REQUEST_TIMEOUT_MIN) || 30) *
+    60 *
+    1000;
+  server.requestTimeout = uploadTimeoutMs;
+  // headersTimeout must stay >= requestTimeout or Node clamps the effective
+  // body window back down to it.
+  server.headersTimeout = uploadTimeoutMs + 1000;
 }
 bootstrap();

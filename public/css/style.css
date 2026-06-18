@@ -802,7 +802,10 @@ a { color: var(--accent); }
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 120;
+  /* Must sit BELOW modal-overlay (z-index 100). If the spinner stacks above an
+     alert, it covers the OK button so the alert can never be dismissed and the
+     spinner hangs forever (e.g. an import error). */
+  z-index: 90;
 }
 .loading-overlay[hidden] { display: none; }
 .loading-box {
@@ -859,6 +862,7 @@ a { color: var(--accent); }
 }
 .import-option-title { font-weight: 600; font-size: 14px; }
 .import-option-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+.import-limit-note { margin: 16px 0 0; text-align: center; }
 
 /* ---------- modal dialog ---------- */
 .modal-overlay {

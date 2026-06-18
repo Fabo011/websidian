@@ -15,7 +15,9 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
-import { memoryStorage } from 'multer';
+import { diskStorage } from 'multer';
+import { createReadStream } from 'fs';
+import { unlink } from 'fs/promises';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards';
@@ -23,7 +25,36 @@ import { mimeForExt } from '../common/mime';
 import { CreateFolderDto, RenameDto, WriteFileDto } from './dto/vault.dto';
 import { VaultService } from './vault.service';
 
-const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB per file
+// Per-file upload cap applied by multer to /upload and /import. Files are
+// disk-spooled and streamed to storage (not buffered in RAM), so this mainly
+// bounds temp-disk usage. Override with MAX_UPLOAD_FILE_MB; defaults to 2 GB.
+const MAX_UPLOAD_FILE_MB = Math.max(
+  1,
+  Number(process.env.MAX_UPLOAD_FILE_MB) || 2048,
+);
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_FILE_MB * 1024 * 1024;
+
+// Max number of files accepted in a single import. multer rejects anything past
+// this as LIMIT_UNEXPECTED_FILE ("Unexpected field"), which surfaces as a 400 —
+// so a large vault/zip with many files needs a high ceiling. Override with
+// MAX_IMPORT_FILES.
+const MAX_IMPORT_FILES = Math.max(
+  1,
+  Number(process.env.MAX_IMPORT_FILES) || 20000,
+);
+
+// The client sends every file's relative path in one `paths` JSON field. multer
+// caps a single field at 1 MB by default, which a large import would exceed, so
+// raise it generously.
+const MAX_FIELD_BYTES = 64 * 1024 * 1024;
+
+// Total size cap for a single import (sum of all files). Separate from the
+// per-file cap above. Override with MAX_IMPORT_TOTAL_MB; defaults to 2 GB.
+const MAX_IMPORT_TOTAL_MB = Math.max(
+  1,
+  Number(process.env.MAX_IMPORT_TOTAL_MB) || 2048,
+);
+const MAX_IMPORT_TOTAL_BYTES = MAX_IMPORT_TOTAL_MB * 1024 * 1024;
 
 @Controller('api')
 @UseGuards(JwtAuthGuard)
@@ -83,7 +114,9 @@ export class VaultController {
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: memoryStorage(),
+      // Spool to a temp file on disk instead of RAM so a multi-GB upload never
+      // buffers fully in memory. We stream it to storage and delete the temp.
+      storage: diskStorage({}),
       limits: { fileSize: MAX_UPLOAD_BYTES },
     }),
   )
@@ -95,20 +128,30 @@ export class VaultController {
     if (!file) {
       throw new BadRequestException('No file uploaded.');
     }
-    const path = await this.vault.saveUpload(
-      user.username,
-      folder,
-      file.originalname,
-      file.buffer,
-    );
-    return { ok: true, path };
+    try {
+      const path = await this.vault.saveUploadStream(
+        user.username,
+        folder,
+        file.originalname,
+        createReadStream(file.path),
+        file.size,
+      );
+      return { ok: true, path };
+    } finally {
+      await unlink(file.path).catch(() => {});
+    }
   }
 
   @Post('import')
   @UseInterceptors(
-    FilesInterceptor('files', 2000, {
-      storage: memoryStorage(),
-      limits: { fileSize: MAX_UPLOAD_BYTES },
+    FilesInterceptor('files', MAX_IMPORT_FILES, {
+      // See upload(): disk-spooled so large imports don't sit in RAM.
+      storage: diskStorage({}),
+      limits: {
+        fileSize: MAX_UPLOAD_BYTES,
+        files: MAX_IMPORT_FILES,
+        fieldSize: MAX_FIELD_BYTES,
+      },
     }),
   )
   async import(
@@ -138,17 +181,35 @@ export class VaultController {
 
     let written = 0;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const relName = relPaths[i] || file.originalname || 'file';
-      // Each uploaded file is opaque ciphertext produced in the browser. Zip
-      // archives are expanded client-side (the server cannot read encrypted
-      // contents), so here we only ever write individual files.
-      const rel = this.joinImportPath(base, relName);
-      await this.vault.writeAtPath(user.username, rel, file.buffer);
-      written += 1;
+    try {
+      // Enforce the total-size cap server-side (the client checks too, but the
+      // server is the authority). Temp files are cleaned up in finally.
+      const totalBytes = files.reduce((n, f) => n + f.size, 0);
+      if (totalBytes > MAX_IMPORT_TOTAL_BYTES) {
+        throw new BadRequestException(
+          `Import is ${Math.ceil(totalBytes / (1024 * 1024))} MB but the limit is ${MAX_IMPORT_TOTAL_MB} MB per import.`,
+        );
+      }
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const relName = relPaths[i] || file.originalname || 'file';
+        // Each uploaded file is opaque ciphertext produced in the browser. Zip
+        // archives are expanded client-side (the server cannot read encrypted
+        // contents), so here we only ever write individual files.
+        const rel = this.joinImportPath(base, relName);
+        await this.vault.writeStreamAtPath(
+          user.username,
+          rel,
+          createReadStream(file.path),
+          file.size,
+        );
+        written += 1;
+      }
+      return { ok: true, written };
+    } finally {
+      // Always remove the temp spool files, even if a write fails partway.
+      await Promise.all(files.map((f) => unlink(f.path).catch(() => {})));
     }
-    return { ok: true, written };
   }
 
   private joinImportPath(base: string, name: string): string {

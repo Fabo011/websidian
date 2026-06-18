@@ -142,7 +142,7 @@ License 1.0.0. In plain terms:
 - You **may** self-host websidian for your own personal, noncommercial
   use, study it, and modify it.
 - You **may** use the official hosted ("cloud") version, or deploy the
-  official Docker image from Codeberg or Docker Hub on your own server for
+  official Docker image from Codeberg/Github or Docker Hub on your own server for
   your own use.
 - You **may not** use it for any commercial purpose, including offering it
   to others as a hosted service.

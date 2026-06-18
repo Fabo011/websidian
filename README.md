@@ -160,8 +160,8 @@ server only ever receives ciphertext.
 
 Pushing to `main` triggers the Forgejo Actions pipeline
 (`.forgejo/workflows/release.yml`) which builds and tests the project, creates a
-git tag, and builds & pushes a `linux/arm64` Docker image to the Codeberg
-container registry. Configure a `PACKAGE_TOKEN` secret (Codeberg access token
+git tag, and builds & pushes a `linux/arm64` Docker image to the Github
+container registry. Configure a `PACKAGE_TOKEN` secret (Github access token
 with package read/write scopes) in the repository's Actions settings.
 
 ## License

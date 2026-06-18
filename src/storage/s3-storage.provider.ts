@@ -241,6 +241,26 @@ export class S3StorageProvider implements StorageProvider {
     this.invalidateUsage(username);
   }
 
+  async writeStream(
+    username: string,
+    relPath: string,
+    data: Readable,
+    size: number,
+  ): Promise<void> {
+    const key = this.keyFor(username, relPath);
+    // ContentLength is required for a streamed Body on a single PutObject; multer
+    // gives us the exact size, so no in-memory buffering or multipart upload.
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.cfg.bucket,
+        Key: key,
+        Body: data,
+        ContentLength: size,
+      }),
+    );
+    this.invalidateUsage(username);
+  }
+
   async makeDir(username: string, relPath: string): Promise<void> {
     const rel = this.sanitize(relPath);
     if (!rel) {

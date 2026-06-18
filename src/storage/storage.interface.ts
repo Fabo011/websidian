@@ -56,6 +56,18 @@ export interface StorageProvider {
   /** Write raw bytes (creates parent folders as needed). */
   writeBytes(username: string, relPath: string, data: Buffer): Promise<void>;
 
+  /**
+   * Stream raw bytes to storage without buffering the whole file in memory.
+   * `size` is the known content length (used by object stores). Used for large
+   * uploads/imports so a multi-GB file never sits fully in RAM.
+   */
+  writeStream(
+    username: string,
+    relPath: string,
+    data: Readable,
+    size: number,
+  ): Promise<void>;
+
   /** Create a (possibly nested) folder. */
   makeDir(username: string, relPath: string): Promise<void>;
 

@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import { ReadStream } from 'fs';
 import { basename, extname } from 'path';
+import { Readable } from 'stream';
 import { AppConfig } from '../config/configuration';
 import {
   STORAGE_PROVIDER,
@@ -437,41 +438,40 @@ export class VaultService {
     return purged;
   }
 
-  /** Persist an uploaded binary/file into the given folder, returning its relative path. */
-  async saveUpload(
+  /**
+   * Stream an uploaded file into the user's vault under `destFolder`, returning
+   * its relative path. `size` (from multer) drives the quota check and content
+   * length so the file is never buffered fully in memory.
+   */
+  async saveUploadStream(
     username: string,
     destFolder: string,
     originalName: string,
-    data: Buffer,
+    data: Readable,
+    size: number,
   ): Promise<string> {
     const safeName = basename(originalName);
     if (!safeName) {
       throw new BadRequestException('Invalid file name.');
     }
-    const storageId = await this.sid(username);
     const relPath = destFolder ? `${destFolder}/${safeName}` : safeName;
-    let existingSize = 0;
-    if (await this.storage.isFile(storageId, relPath)) {
-      existingSize = (await this.storage.statFile(storageId, relPath)).size;
-    }
-    await this.assertWithinQuota(username, data.length, existingSize);
-    await this.storage.writeBytes(storageId, relPath, data);
-    return relPath;
+    return this.writeStreamAtPath(username, relPath, data, size);
   }
 
-  /** Write a file at an arbitrary relative path (used by import), preserving folders. */
-  async writeAtPath(
+  /** Streaming variant of writeAtPath (used by import). */
+  async writeStreamAtPath(
     username: string,
     relPath: string,
-    data: Buffer,
+    data: Readable,
+    size: number,
   ): Promise<string> {
     const storageId = await this.sid(username);
     let existingSize = 0;
     if (await this.storage.isFile(storageId, relPath)) {
       existingSize = (await this.storage.statFile(storageId, relPath)).size;
     }
-    await this.assertWithinQuota(username, data.length, existingSize);
-    await this.storage.writeBytes(storageId, relPath, data);
+    await this.assertWithinQuota(username, size, existingSize);
+    await this.storage.writeStream(storageId, relPath, data, size);
     return relPath;
   }
 

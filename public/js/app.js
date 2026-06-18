@@ -2,6 +2,58 @@
 
 /* ---------- small helpers ---------- */
 
+// A failed upload can leave the request body half-sent (the server answers
+// early and stops draining), which makes `fetch` hang forever and the loading
+// spinner never clear. An AbortController guarantees the promise always settles
+// so callers' catch/finally run. Form uploads get a longer budget than JSON.
+const API_TIMEOUT_MS = 30 * 1000;
+// Large folder/zip imports can take many minutes to encrypt and upload, so the
+// upload budget is generous. Keep this >= the server's UPLOAD_REQUEST_TIMEOUT_MIN
+// so the client doesn't give up before the server finishes writing the files.
+const UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
+
+// Upload caps surfaced by the server (head partial). We validate the user's
+// selection in the browser BEFORE encrypting/uploading so an oversized file or
+// a too-large import is rejected up front with a clear message — no long wait
+// and round-trip just to get a 400 back.
+const MAX_UPLOAD_MB = Number(window.__WO_MAX_UPLOAD_MB__) || 2048;
+const MAX_UPLOAD_FILE_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+const MAX_IMPORT_FILES = Number(window.__WO_MAX_IMPORT_FILES__) || 20000;
+const MAX_IMPORT_TOTAL_MB = Number(window.__WO_MAX_IMPORT_TOTAL_MB__) || 2048;
+const MAX_IMPORT_TOTAL_BYTES = MAX_IMPORT_TOTAL_MB * 1024 * 1024;
+
+// Human-readable byte size, e.g. 360 MB / 1.4 GB.
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let v = bytes / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return (v >= 10 ? Math.round(v) : v.toFixed(1)) + ' ' + units[i];
+}
+
+// Validate a selection of { path, size } items against the upload limits.
+// Returns a ready-to-show error message, or '' when the selection is fine. The
+// {maxImportTotal}/{maxUploadSize}/{maxImportFiles} placeholders are filled by
+// i18n automatically.
+function uploadLimitError(items) {
+  const totalBytes = items.reduce((n, it) => n + it.size, 0);
+  if (totalBytes > MAX_IMPORT_TOTAL_BYTES) {
+    return t('import_total_too_large', { total: fmtSize(totalBytes) });
+  }
+  if (items.length > MAX_IMPORT_FILES) {
+    return t('too_many_files', { count: items.length.toLocaleString() });
+  }
+  const big = items.find((it) => it.size > MAX_UPLOAD_FILE_BYTES);
+  if (big) {
+    return t('file_too_large', { name: big.path.split('/').pop() });
+  }
+  return '';
+}
+
 async function api(method, url, body, isForm) {
   const opts = { method, credentials: 'same-origin', headers: {} };
   if (body !== undefined) {
@@ -12,7 +64,26 @@ async function api(method, url, body, isForm) {
       opts.body = JSON.stringify(body);
     }
   }
-  const res = await fetch(url, opts);
+  const ctrl = new AbortController();
+  opts.signal = ctrl.signal;
+  const timer = setTimeout(
+    () => ctrl.abort(),
+    isForm ? UPLOAD_TIMEOUT_MS : API_TIMEOUT_MS,
+  );
+  let res;
+  try {
+    res = await fetch(url, opts);
+  } catch (e) {
+    // Abort (timeout) and network drops both land here; surface a clear,
+    // translatable message instead of a hung spinner or a cryptic DOMException.
+    const err = new Error(
+      e && e.name === 'AbortError' ? t('request_timeout') : t('network_error'),
+    );
+    err.cause = e;
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
   if (res.status === 401) {
     window.location.href = '/login';
     throw new Error('Not authenticated');
@@ -664,6 +735,13 @@ async function readDataTransferEntries(dt) {
 async function uploadDataTransfer(dt, targetDir) {
   const entries = await readDataTransferEntries(dt);
   if (!entries.length) return;
+  const limitErr = uploadLimitError(
+    entries.map((en) => ({ path: en.path, size: en.file.size })),
+  );
+  if (limitErr) {
+    await uiAlert(t('upload_failed_title'), { message: limitErr });
+    return;
+  }
   const hasFolders = entries.some((en) => en.path.includes('/'));
   showLoading(t('uploading'));
   try {
@@ -872,11 +950,22 @@ $('#context-menu').addEventListener('click', async (e) => {
       danger: true,
     });
     if (!ok) return;
-    await api('DELETE', '/api/entry?path=' + encodeURIComponent(node.path));
-    if (state.current && state.current.path.startsWith(node.path)) {
-      showWelcome();
+    // Deleting a folder can remove many files (slow on S3), so show the spinner
+    // and surface any failure instead of silently leaving a stale tree.
+    showLoading(t('deleting'));
+    try {
+      await api('DELETE', '/api/entry?path=' + encodeURIComponent(node.path));
+      if (state.current && state.current.path.startsWith(node.path)) {
+        showWelcome();
+      }
+      await loadTree();
+      hideLoading();
+    } catch (err) {
+      hideLoading();
+      await uiAlert(t('delete_failed_title'), {
+        message: err.message || t('delete_failed_msg'),
+      });
     }
-    await loadTree();
   }
 });
 
@@ -1120,6 +1209,13 @@ function currentIsMarkdown() {
  */
 async function embedDroppedFiles(files) {
   if (!currentIsMarkdown()) return;
+  const limitErr = uploadLimitError(
+    Array.from(files).map((f) => ({ path: f.name, size: f.size })),
+  );
+  if (limitErr) {
+    await uiAlert(t('upload_failed_title'), { message: limitErr });
+    return;
+  }
   const folder = dirname(state.current.path);
   showLoading(t('uploading'));
   const refs = [];
@@ -1604,6 +1700,13 @@ $('#upload-input').addEventListener('change', async (e) => {
   const files = Array.from(e.target.files || []);
   e.target.value = '';
   if (!files.length) return;
+  const limitErr = uploadLimitError(
+    files.map((f) => ({ path: f.name, size: f.size })),
+  );
+  if (limitErr) {
+    await uiAlert(t('upload_failed_title'), { message: limitErr });
+    return;
+  }
   showLoading(t('uploading'));
   try {
     for (const file of files) {
@@ -1654,6 +1757,17 @@ async function runImport(files) {
       }
     }
 
+    // Reject an over-limit selection before doing the expensive encryption and
+    // upload, so the user finds out immediately instead of after a long wait.
+    const limitErr = uploadLimitError(
+      items.map((it) => ({ path: it.path, size: it.bytes.length })),
+    );
+    if (limitErr) {
+      hideLoading();
+      await uiAlert(t('import_failed_title'), { message: limitErr });
+      return;
+    }
+
     const key = await ensureVaultKey();
     const fd = new FormData();
     const paths = [];
@@ -1671,12 +1785,15 @@ async function runImport(files) {
     const res = await api('POST', '/api/import', fd, true);
     await loadTree();
     flash(t('imported_n', { n: res.written || 0 }));
+    hideLoading();
   } catch (err) {
+    // Clear the spinner BEFORE the alert. The loading overlay stacks on top of
+    // the modal, so leaving it up blocks the OK button and the alert promise
+    // never resolves, hanging the spinner forever.
+    hideLoading();
     await uiAlert(t('import_failed_title'), {
       message: err.message || t('import_failed_msg'),
     });
-  } finally {
-    hideLoading();
   }
 }
 

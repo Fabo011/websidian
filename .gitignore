@@ -7,6 +7,8 @@ data-test/
 data/
 .github/skills/
 skills-lock.json
+.env.prep
+.env*
 
 # Logs
 logs

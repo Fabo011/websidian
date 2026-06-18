@@ -40,5 +40,10 @@
   // Free-tier storage allowance (bytes), set by the server from STORAGE_QUOTA_GB.
   // i18n.js reads this to render the real free quota instead of a hardcoded size.
   window.__WO_FREE_BYTES__ = <%= typeof freeBytes !== 'undefined' ? freeBytes : 0 %>;
+  // Import caps, set by the server from MAX_UPLOAD_FILE_MB / MAX_IMPORT_FILES.
+  // i18n.js reads these to show the real limits in the Import dialog.
+  window.__WO_MAX_UPLOAD_MB__ = <%= typeof maxUploadFileMb !== 'undefined' ? maxUploadFileMb : 0 %>;
+  window.__WO_MAX_IMPORT_FILES__ = <%= typeof maxImportFiles !== 'undefined' ? maxImportFiles : 0 %>;
+  window.__WO_MAX_IMPORT_TOTAL_MB__ = <%= typeof maxImportTotalMb !== 'undefined' ? maxImportTotalMb : 0 %>;
 </script>
 <script src="/public/js/i18n.js"></script>
