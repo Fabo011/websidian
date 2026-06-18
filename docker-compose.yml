@@ -4,50 +4,61 @@ services:
     container_name: cloudflared
     restart: unless-stopped
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
+    
   websidian:
-    build: .
-    image: websidian:latest
+    image: ghcr.io/fabo011/websidian:latest
     container_name: websidian
     restart: unless-stopped
     ports:
       - "3065:3065"
     environment:
+      # Basic
+      ALLOW_REGISTRATION: "${ALLOW_REGISTRATION}"
       PORT: 3065
-      # IMPORTANT: set a strong secret, e.g. `openssl rand -hex 32`
-      JWT_SECRET: "${JWT_SECRET:-change-me-please-use-a-long-random-string}"
-      JWT_EXPIRES_IN: "7d"
-      DATA_ROOT: "/app/data"
-      # Set to "false" to disable self-service registration.
-      ALLOW_REGISTRATION: "${ALLOW_REGISTRATION:-true}"
-      # Set to "true" when serving behind HTTPS so the auth cookie is Secure.
-      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
-      # Per-user storage quota in GB (0 = unlimited). Default 8.
-      STORAGE_QUOTA_GB: "${STORAGE_QUOTA_GB:-8}"
-      # Encryption at rest (AES-256-GCM). Default enabled.
-      ENCRYPTION_ENABLED: "${ENCRYPTION_ENABLED:-true}"
-      # Master encryption key (e.g. `openssl rand -hex 32`). Keep it stable and
-      # backed up; if empty it is derived from JWT_SECRET.
-      ENCRYPTION_KEY: "${ENCRYPTION_KEY:-}"
-      # Database: "sqlite" (default) or "postgres".
-      DB_TYPE: "${DB_TYPE:-postgres}"
-      # Postgres settings (only used when DB_TYPE=postgres):
-      DB_HOST: "${DB_HOST:-postgres}"
-      DB_PORT: "${DB_PORT:-5432}"
-      DB_USERNAME: "${DB_USERNAME:-postgres}"
-      DB_PASSWORD: "${DB_PASSWORD:-postgres}"
-      DB_DATABASE: "${DB_DATABASE:-web_obsidian}"
-      DB_SSL: "${DB_SSL:-false}"
-      # Vault storage backend: "local" (default) or "s3" (S3-compatible, e.g. MEGA S4).
-      STORAGE_DRIVER: "${STORAGE_DRIVER:-local}"
-      # S3 settings (only used when STORAGE_DRIVER=s3). For MEGA S4 set the
-      # endpoint/region to your S4 values.
-      S3_ENDPOINT: "${S3_ENDPOINT:-}"
-      S3_REGION: "${S3_REGION:-us-east-1}"
-      S3_BUCKET: "${S3_BUCKET:-}"
-      S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID:-}"
-      S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY:-}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-true}"
+      CORS_ORIGINS: "${CORS_ORIGINS}"
+      TRASH_RETENTION_DAYS: "${TRASH_RETENTION_DAYS}"
+      RATE_LIMIT_ENABLED: "${RATE_LIMIT_ENABLED:-true}"
+      RATE_LIMIT_WINDOW_SECONDS: "${RATE_LIMIT_WINDOW_SECONDS:-60}"
+      RATE_LIMIT_MAX_REQUESTS: "${RATE_LIMIT_MAX_REQUESTS:-200}"
+      VAULT_TREE_CACHE_SECONDS: "${VAULT_TREE_CACHE_SECONDS}"
+      MAX_REGISTRATIONS: "${MAX_REGISTRATIONS}"
+      MAX_UPLOAD_SIZE_MB: "${MAX_UPLOAD_SIZE_MB:-20}"
+      # S3 Storage
+      STORAGE_QUOTA_GB: "${STORAGE_QUOTA_GB}"
+      STORAGE_DRIVER: "${STORAGE_DRIVER}"
+      S3_ENDPOINT: "${S3_ENDPOINT}"
+      S3_REGION: "${S3_REGION}"
+      S3_BUCKET: "${S3_BUCKET}"
+      S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID}"
+      S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY}"
       S3_FORCE_PATH_STYLE: "${S3_FORCE_PATH_STYLE:-true}"
-      S3_PREFIX: "${S3_PREFIX:-}"
+      S3_PREFIX: "${S3_PREFIX}"
+      # JWT
+      JWT_SECRET: "${JWT_SECRET}"
+      JWT_EXPIRES_IN: "7d"
+      # Postgres
+      ENCRYPTION_ENABLED: "${ENCRYPTION_ENABLED:-true}"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY}"
+      DATA_ROOT: "/app/data"
+      DB_TYPE: "${DB_TYPE}"
+      DB_HOST: "${DB_HOST}"
+      DB_PORT: "${DB_PORT:-5432}"
+      DB_USERNAME: "${DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      DB_DATABASE: "${DB_DATABASE}"
+      DB_SSL: "${DB_SSL}"
+      # Stripe Billing
+      BILLING_ENABLED: "${BILLING_ENABLED}"
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY}"
+      STRIPE_PRICE_5GB: "${STRIPE_PRICE_5GB}"
+      STRIPE_PRICE_20GB: "${STRIPE_PRICE_20GB}"
+      APP_URL: "${APP_URL}"
+      PRICE_5GB: "${PRICE_5GB}"
+      PRICE_20GB: "${PRICE_20GB}"
+      CONTACT_EMAIL: "${CONTACT_EMAIL}"
+      AGB: "${AGB}"
+      # 
     depends_on:
       - cloudflared
       - postgres
@@ -57,9 +68,9 @@ services:
     container_name: websidian-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: "${DB_USERNAME:-postgres}"
-      POSTGRES_PASSWORD: "${DB_PASSWORD:-postgres}"
-      POSTGRES_DB: "${DB_DATABASE:-web_obsidian}"
+      POSTGRES_USER: "${DB_USERNAME}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      POSTGRES_DB: "${DB_DATABASE}"
     volumes:
       - postgres-data:/var/lib/postgresql
     depends_on:
