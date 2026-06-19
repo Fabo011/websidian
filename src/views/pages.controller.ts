@@ -69,11 +69,17 @@ export class PagesController {
 
   @Get('/imprint')
   imprint(@Res() res: Response) {
+    if (!this.app.imprintEnabled) {
+      return res.redirect('/');
+    }
     return res.render('imprint', {});
   }
 
   @Get('/privacy')
   privacy(@Res() res: Response) {
+    if (!this.app.privacyEnabled) {
+      return res.redirect('/');
+    }
     return res.render('privacy', {});
   }
 

@@ -96,6 +96,10 @@ export interface AppConfig {
   pricing: PricingConfig;
   /** Whether the AGB (terms) page and its footer link are shown. */
   agbEnabled: boolean;
+  /** Whether the Imprint page and its footer link are shown. */
+  imprintEnabled: boolean;
+  /** Whether the Privacy policy page and its footer link are shown. */
+  privacyEnabled: boolean;
 }
 
 /**
@@ -176,9 +180,15 @@ export default (): { app: AppConfig } => {
   // the free tier under billing (otherwise the free tier defaults to 1 GB).
   const quotaEnvSet = (process.env.STORAGE_QUOTA_GB ?? '').trim() !== '';
 
-  // AGB (terms) page is shown unless AGB=none. When excluded, the /agb route
-  // redirects home and the footer link is hidden.
-  const agbEnabled = process.env.AGB?.trim().toLowerCase() !== 'none';
+  // Legal pages are opt-in: each is hidden unless its flag is explicitly turned
+  // on. When a page is disabled, its route redirects home and the footer link
+  // is hidden.
+  //   AGB=true           -> AGB (terms) page
+  //   IMPRINT=true       -> Imprint page
+  //   LEGAL_NOTICE=true  -> Privacy policy page
+  const agbEnabled = parseBool(process.env.AGB, false);
+  const imprintEnabled = parseBool(process.env.IMPRINT, false);
+  const privacyEnabled = parseBool(process.env.LEGAL_NOTICE, false);
 
   // Billing can be switched off entirely (self-hosting). The feature flag
   // (BILLING_ENABLED) drives the tier structure and dashboard UI. Defaults to
@@ -284,6 +294,8 @@ export default (): { app: AppConfig } => {
         contactEmail: process.env.CONTACT_EMAIL?.trim() || '',
       },
       agbEnabled,
+      imprintEnabled,
+      privacyEnabled,
     },
   };
 };

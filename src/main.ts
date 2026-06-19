@@ -79,10 +79,12 @@ async function bootstrap() {
 
   app.setBaseViewsDir(join(process.cwd(), 'views'));
   app.setViewEngine('ejs');
-  // Expose to every rendered view (incl. the footer partial) so the AGB link
-  // can be hidden when AGB=none.
+  // Expose to every rendered view (incl. the footer partial) so the legal-page
+  // links can be hidden when their flags are off.
   const expressInstance = app.getHttpAdapter().getInstance();
   expressInstance.locals.agbEnabled = appConfig.agbEnabled;
+  expressInstance.locals.imprintEnabled = appConfig.imprintEnabled;
+  expressInstance.locals.privacyEnabled = appConfig.privacyEnabled;
   // Free-tier allowance in bytes, surfaced to the client (head partial) so the
   // UI can render the actual free quota (driven by STORAGE_QUOTA_GB) instead of
   // a hardcoded "1 GB".

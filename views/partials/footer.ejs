@@ -7,11 +7,15 @@
     <a href="https://github.com/Fabo011/websidian" target="_blank" rel="noopener noreferrer" data-i18n="footer_source">Source code (Github)</a>
     <span class="footer-dot">&middot;</span>
     <a href="https://github.com/Fabo011/microk8s-cluster" target="_blank" rel="noopener noreferrer" data-i18n="footer_deploy">Deployment</a>
+    <% if (typeof imprintEnabled !== 'undefined' && imprintEnabled) { %>
     <span class="footer-dot">&middot;</span>
     <a href="/imprint" data-i18n="footer_imprint">Imprint</a>
+    <% } %>
+    <% if (typeof privacyEnabled !== 'undefined' && privacyEnabled) { %>
     <span class="footer-dot">&middot;</span>
     <a href="/privacy" data-i18n="footer_privacy">Privacy</a>
-    <% if (typeof agbEnabled === 'undefined' || agbEnabled) { %>
+    <% } %>
+    <% if (typeof agbEnabled !== 'undefined' && agbEnabled) { %>
     <span class="footer-dot">&middot;</span>
     <a href="/agb" data-i18n="footer_agb">AGB</a>
     <% } %>
