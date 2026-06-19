@@ -5,6 +5,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import * as express from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
+import { readFileSync } from 'fs';
 import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
@@ -85,6 +86,18 @@ async function bootstrap() {
   expressInstance.locals.agbEnabled = appConfig.agbEnabled;
   expressInstance.locals.imprintEnabled = appConfig.imprintEnabled;
   expressInstance.locals.privacyEnabled = appConfig.privacyEnabled;
+  // App version (from package.json), surfaced to views for the footer + the
+  // account dashboard. Read once at startup; failures degrade to an empty
+  // string so the version line is simply omitted.
+  let appVersion = '';
+  try {
+    appVersion =
+      JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'))
+        .version || '';
+  } catch {
+    appVersion = '';
+  }
+  expressInstance.locals.appVersion = appVersion;
   // Free-tier allowance in bytes, surfaced to the client (head partial) so the
   // UI can render the actual free quota (driven by STORAGE_QUOTA_GB) instead of
   // a hardcoded "1 GB".

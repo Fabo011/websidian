@@ -74,14 +74,9 @@ export class BillingService {
     return this.stripe;
   }
 
-  /** Stripe recurring price id for a paid plan. */
+  /** Stripe recurring price id for the paid plan. */
   private priceFor(plan: PlanTier): string {
-    const price =
-      plan === 'plus5'
-        ? this.cfg.priceId5gb
-        : plan === 'plus20'
-          ? this.cfg.priceId20gb
-          : '';
+    const price = plan === 'plus' ? this.cfg.priceIdPlus : '';
     if (!price) {
       throw new ServiceUnavailableException(
         'No Stripe price configured for this plan.',
@@ -90,10 +85,9 @@ export class BillingService {
     return price;
   }
 
-  /** Reverse-map a Stripe price id back to one of our plans. */
+  /** Reverse-map a Stripe price id back to our paid plan. */
   private planForPrice(priceId: string | undefined): PlanTier | null {
-    if (priceId && priceId === this.cfg.priceId5gb) return 'plus5';
-    if (priceId && priceId === this.cfg.priceId20gb) return 'plus20';
+    if (priceId && priceId === this.cfg.priceIdPlus) return 'plus';
     return null;
   }
 
@@ -104,7 +98,7 @@ export class BillingService {
    */
   async createCheckoutSession(user: User, plan: PlanTier): Promise<string> {
     const stripe = this.requireStripe();
-    if (plan !== 'plus5' && plan !== 'plus20') {
+    if (plan !== 'plus') {
       throw new BadRequestException('Invalid plan.');
     }
     const price = this.priceFor(plan);

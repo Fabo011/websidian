@@ -6,9 +6,11 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards';
+import { AppConfig } from '../config/configuration';
 import { EntitlementsService } from '../users/entitlements.service';
 import { UsersService } from '../users/users.service';
 import { BillingService } from './billing.service';
@@ -21,12 +23,22 @@ export class BillingController {
     private readonly billing: BillingService,
     private readonly users: UsersService,
     private readonly entitlements: EntitlementsService,
+    private readonly configService: ConfigService,
   ) {}
 
-  /** Whether paid upgrades are available (Stripe configured) + the plans. */
+  /**
+   * Whether paid upgrades are available (Stripe configured) plus the single
+   * paid plan's size (GB) and suggested donation so the client can label it.
+   */
   @Get('config')
   config() {
-    return { enabled: this.billing.enabled, ready: this.billing.ready };
+    const app = this.configService.get<AppConfig>('app');
+    return {
+      enabled: this.billing.enabled,
+      ready: this.billing.ready,
+      planGb: app.pricing.planGb,
+      planPrice: app.pricing.pricePlus,
+    };
   }
 
   /** Start a Stripe Checkout session for a paid annual plan. */

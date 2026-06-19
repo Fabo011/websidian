@@ -54,6 +54,15 @@ export class EntitlementsService {
     return bytesForTier(this.app.tiers, tier);
   }
 
+  /**
+   * Collapse any stored plan value to the current model. Older records may hold
+   * legacy tier ids (e.g. "plus5"/"plus20") from before the single paid plan;
+   * treat anything that isn't "free" as the paid "plus" tier.
+   */
+  private normalizePlan(plan: PlanTier | string): PlanTier {
+    return plan === 'free' ? 'free' : 'plus';
+  }
+
   /** Whether the Stripe billing feature is switched on. */
   get billingEnabled(): boolean {
     return this.app.stripe.enabled;
@@ -94,12 +103,14 @@ export class EntitlementsService {
       : null;
     const periodEndMs = periodEnd ? periodEnd.getTime() : 0;
 
+    const plan = this.normalizePlan(user.plan);
+
     if (privileged) {
       return {
         privileged: true,
-        plan: user.plan,
-        effectiveTier: 'plus20',
-        quotaBytes: this.bytesFor('plus20'),
+        plan,
+        effectiveTier: 'plus',
+        quotaBytes: this.bytesFor('plus'),
         subscriptionStatus: user.subscriptionStatus,
         currentPeriodEnd: periodEnd,
         cancelAtPeriodEnd: user.cancelAtPeriodEnd,
@@ -109,8 +120,8 @@ export class EntitlementsService {
       };
     }
 
-    const paidActive = user.plan !== 'free' && periodEndMs > now;
-    const effectiveTier: PlanTier = paidActive ? user.plan : 'free';
+    const paidActive = plan !== 'free' && periodEndMs > now;
+    const effectiveTier: PlanTier = paidActive ? plan : 'free';
     const daysUntilExpiry = paidActive
       ? Math.ceil((periodEndMs - now) / DAY_MS)
       : null;
@@ -126,7 +137,7 @@ export class EntitlementsService {
 
     return {
       privileged: false,
-      plan: user.plan,
+      plan,
       effectiveTier,
       quotaBytes: this.bytesFor(effectiveTier),
       subscriptionStatus: user.subscriptionStatus,

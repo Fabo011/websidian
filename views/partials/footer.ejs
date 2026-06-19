@@ -25,4 +25,7 @@
     affiliation, or partnership with Obsidian (obsidian.md). &ldquo;Obsidian&rdquo; is a
     trademark of its respective owner and is referenced here only for comparison.
   </p>
+  <% if (typeof appVersion !== 'undefined' && appVersion) { %>
+  <p class="footer-version">v<%= appVersion %></p>
+  <% } %>
 </footer>

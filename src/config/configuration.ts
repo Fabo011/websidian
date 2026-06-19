@@ -3,16 +3,19 @@ import { isAbsolute, join, resolve } from 'path';
 export type DatabaseType = 'sqlite' | 'postgres';
 export type StorageDriver = 'local' | 's3';
 
-/** The storage plans a user can be on. */
-export type PlanTier = 'free' | 'plus5' | 'plus20';
+/**
+ * The storage plans a user can be on. There is a single paid tier ("plus")
+ * on top of the free allowance. Its size and price are configurable via the
+ * environment (STORAGE_PLUS_GB / PRICE_PLUS).
+ */
+export type PlanTier = 'free' | 'plus';
 
 const GIB = 1024 * 1024 * 1024;
 
 /** Per-plan storage allowance in bytes. */
 export interface TierConfig {
   free: number;
-  plus5: number;
-  plus20: number;
+  plus: number;
 }
 
 /** Stripe billing configuration (all values come from the environment). */
@@ -22,9 +25,8 @@ export interface StripeConfig {
   /** Whether Stripe is fully configured so checkout actually works. */
   ready: boolean;
   secretKey: string;
-  /** Recurring (annual) price IDs for each paid plan. */
-  priceId5gb: string;
-  priceId20gb: string;
+  /** Recurring (annual) price id for the single paid plan. */
+  priceIdPlus: string;
   /** Absolute base URL of this app, used to build redirect URLs. */
   appUrl: string;
 }
@@ -118,10 +120,14 @@ export interface RateLimitConfig {
 
 /** Display-only pricing shown on the landing page (set via environment). */
 export interface PricingConfig {
-  /** Human-readable price for the 5 GB plan, e.g. "€42 / year". */
-  price5gb: string;
-  /** Human-readable price for the 20 GB plan, e.g. "€72 / year". */
-  price20gb: string;
+  /**
+   * Human-readable suggested donation for the paid plan, e.g. "€10 / year".
+   * Framed as a voluntary contribution towards storage/server costs, not a
+   * commercial price (the project is non-profit).
+   */
+  pricePlus: string;
+  /** Storage size of the paid plan, in whole GB (set via STORAGE_PLUS_GB). */
+  planGb: number;
   /** Contact address shown for custom / larger storage requests. */
   contactEmail: string;
 }
@@ -200,6 +206,12 @@ export default (): { app: AppConfig } => {
     hasStripeSecret,
   );
 
+  // Single paid plan ("plus"): its size (GB) and suggested donation are
+  // configurable. STORAGE_PLUS_GB defaults to 3 GB. The donation is a voluntary
+  // contribution towards storage/server costs (non-profit), shown as-is.
+  const planGb = Math.max(1, parseNumber(process.env.STORAGE_PLUS_GB, 3));
+  const plusBytes = Math.round(planGb * GIB);
+
   // Public base URL of this app, used for redirects and as the default CORS
   // origin when CORS_ORIGINS is not explicitly set.
   const appUrl = (
@@ -238,15 +250,16 @@ export default (): { app: AppConfig } => {
           : billingEnabled
             ? 1 * GIB
             : storageQuotaBytes,
-        plus5: 5 * GIB,
-        plus20: 20 * GIB,
+        plus: plusBytes,
       },
       stripe: {
         enabled: billingEnabled,
         ready: billingEnabled && hasStripeSecret,
         secretKey: process.env.STRIPE_SECRET_KEY?.trim() || '',
-        priceId5gb: process.env.STRIPE_PRICE_5GB?.trim() || '',
-        priceId20gb: process.env.STRIPE_PRICE_20GB?.trim() || '',
+        priceIdPlus:
+          process.env.STRIPE_PRICE_PLUS?.trim() ||
+          process.env.STRIPE_PRICE_5GB?.trim() ||
+          '',
         appUrl,
       },
       database: {
@@ -289,8 +302,11 @@ export default (): { app: AppConfig } => {
         max: Math.max(1, parseNumber(process.env.RATE_LIMIT_MAX, 60)),
       },
       pricing: {
-        price5gb: process.env.PRICE_5GB?.trim() || '',
-        price20gb: process.env.PRICE_20GB?.trim() || '',
+        pricePlus:
+          process.env.PRICE_PLUS?.trim() ||
+          process.env.PRICE_5GB?.trim() ||
+          '',
+        planGb,
         contactEmail: process.env.CONTACT_EMAIL?.trim() || '',
       },
       agbEnabled,

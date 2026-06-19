@@ -2240,8 +2240,10 @@ async function loadAccount() {
 }
 
 function planLabel(tier) {
-  if (tier === 'plus20') return t('plan_20gb_name');
-  if (tier === 'plus5') return t('plan_5gb_name');
+  if (tier === 'plus') {
+    const gb = _billingConfig && _billingConfig.planGb ? _billingConfig.planGb : 3;
+    return t('plan_plus_name', { gb });
+  }
   return t('plan_free');
 }
 
@@ -2253,9 +2255,11 @@ async function billingConfig() {
       _billingConfig = {
         enabled: Boolean(cfg && cfg.enabled),
         ready: Boolean(cfg && cfg.ready),
+        planGb: cfg && cfg.planGb ? cfg.planGb : 3,
+        planPrice: (cfg && cfg.planPrice) || '',
       };
     } catch {
-      _billingConfig = { enabled: false, ready: false };
+      _billingConfig = { enabled: false, ready: false, planGb: 3, planPrice: '' };
     }
   }
   return _billingConfig;
@@ -2323,15 +2327,21 @@ async function renderPlan(info) {
     }
   }
 
-  // Offer upgrades to tiers above the current effective tier.
+  // Offer the single paid plan only while the user is on the free tier.
   const tier = info.effectiveTier || 'free';
-  const btn5 = upgrade.querySelector('[data-plan="plus5"]');
-  const btn20 = upgrade.querySelector('[data-plan="plus20"]');
-  btn5.hidden = tier !== 'free';
-  btn20.hidden = tier === 'plus20';
-  upgrade.hidden = btn5.hidden && btn20.hidden;
+  const donationNote = $('#plan-donation-note');
+  upgrade.hidden = tier !== 'free';
+  if (donationNote) donationNote.hidden = upgrade.hidden;
 
-  // Feature is on but Stripe isn't configured yet: show the buttons disabled
+  // Label the upgrade button with the configured size + suggested donation.
+  const upgradeLabel = $('#plan-upgrade-label');
+  if (upgradeLabel) {
+    upgradeLabel.textContent = cfg.planPrice
+      ? t('upgrade_plus_priced', { gb: cfg.planGb, price: cfg.planPrice })
+      : t('upgrade_plus_gb', { gb: cfg.planGb });
+  }
+
+  // Feature is on but Stripe isn't configured yet: show the button disabled
   // and a hint so the operator knows checkout will not work until keys are set.
   if (!cfg.ready) {
     unavailable.hidden = false;

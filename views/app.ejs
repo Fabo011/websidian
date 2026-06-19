@@ -282,11 +282,11 @@
           <span class="dashboard-label" data-i18n="plan_valid_until">Valid until</span>
           <span id="plan-valid" class="dashboard-value"></span>
         </div>
-        <p id="plan-privileged-hint" class="dashboard-hint" data-i18n="plan_privileged_hint" hidden>You have complimentary 20 GB access — no payment required.</p>
+        <p id="plan-privileged-hint" class="dashboard-hint" data-i18n="plan_privileged_hint" hidden>You have complimentary top-tier access — no payment required.</p>
         <div id="plan-upgrade" class="plan-options" hidden>
-          <button class="btn-primary plan-btn" type="button" data-plan="plus5"><i class="bi bi-arrow-up-circle"></i> <span data-i18n="upgrade_5gb">Upgrade to 5 GB — €42/year</span></button>
-          <button class="btn-primary plan-btn" type="button" data-plan="plus20"><i class="bi bi-arrow-up-circle"></i> <span data-i18n="upgrade_20gb">Upgrade to 20 GB — €72/year</span></button>
+          <button class="btn-primary plan-btn" type="button" data-plan="plus"><i class="bi bi-arrow-up-circle"></i> <span id="plan-upgrade-label" data-i18n="upgrade_plus">Get more storage</span></button>
         </div>
+        <p id="plan-donation-note" class="dashboard-hint" data-i18n="plan_donation_note" hidden>A voluntary donation toward storage &amp; server costs — websidian is non-profit.</p>
         <button id="manage-billing-btn" class="btn-ghost" type="button" hidden><i class="bi bi-credit-card"></i> <span data-i18n="manage_billing">Manage subscription</span></button>
         <p id="billing-unavailable" class="dashboard-hint" data-i18n="billing_unavailable" hidden>Paid upgrades are currently unavailable.</p>
       </div>
@@ -304,6 +304,10 @@
         <p class="dashboard-hint" data-i18n="delete_account_hint">Deleting your account permanently removes all your notes, files and account data. This cannot be undone.</p>
         <button id="delete-account-btn" class="btn-danger"><i class="bi bi-trash"></i> <span data-i18n="delete_account">Delete account</span></button>
       </div>
+
+      <% if (typeof appVersion !== 'undefined' && appVersion) { %>
+      <p class="dashboard-version">v<%= appVersion %></p>
+      <% } %>
     </div>
   </div>
 
