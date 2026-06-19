@@ -99,6 +99,8 @@ Copy `.env.example` to `.env` and adjust:
 | `STORAGE_PLUS_GB`    | `3`                  | Storage size of the paid plan, in whole GB       |
 | `PRICE_PLUS`         | _(empty)_            | Display-only suggested donation (e.g. `€10 / year`); `PRICE_5GB` fallback |
 | `CONTACT_EMAIL`      | _(empty)_            | Contact shown for custom/larger storage requests |
+| `PRIVILEGED_USERS`   | _(empty)_            | Comma-separated usernames (e.g. `userA,userB`) granted free dedicated storage; excluded from billing, no upgrade button. Independent of `STORAGE_QUOTA_GB`/`STORAGE_PLUS_GB`. Unioned with the `privileged_users` DB table |
+| `STORAGE_PRIVILEGED_USERS_GB` | `20`       | Storage allowance for privileged users, in whole GB                |
 
 **Legal pages** (opt-in — hidden unless set to `true`)
 

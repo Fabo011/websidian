@@ -2299,9 +2299,10 @@ async function renderPlan(info) {
 
   planValue.textContent = planLabel(info.effectiveTier || 'free');
 
-  // Privileged accounts: complimentary top tier, no billing UI.
+  // Privileged accounts: complimentary storage, no billing whatsoever. Hide the
+  // entire plan/billing section (no plan, no upgrade, no manage-subscription).
   if (info.privileged) {
-    privilegedHint.hidden = false;
+    if (section) section.hidden = true;
     return;
   }
 

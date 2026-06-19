@@ -73,6 +73,18 @@ export interface AppConfig {
   /** Per-user storage quota in bytes. 0 means unlimited. */
   storageQuotaBytes: number;
   /**
+   * Usernames (lowercased) granted the top ("plus") storage tier for free,
+   * configured via the PRIVILEGED_USERS env var (comma-separated). These are
+   * unioned with the privileged_users DB table. Members are excluded from
+   * billing and never see the upgrade button.
+   */
+  privilegedUsers: string[];
+  /**
+   * Storage allowance in bytes for privileged users, independent of the free
+   * and paid tiers. Configured via STORAGE_PRIVILEGED_USERS_GB (default 20 GB).
+   */
+  privilegedQuotaBytes: number;
+  /**
    * Maximum accepted request body size in megabytes (JSON + urlencoded). This
    * caps the size of a single uploaded file/note since vault content is sent as
    * a base64 JSON payload. Configurable via MAX_UPLOAD_SIZE_MB.
@@ -235,6 +247,13 @@ export default (): { app: AppConfig } => {
       cookieSecure: parseBool(process.env.COOKIE_SECURE, false),
       corsOrigins: resolvedCorsOrigins,
       storageQuotaBytes,
+      privilegedUsers: parseList(process.env.PRIVILEGED_USERS).map((u) =>
+        u.toLowerCase(),
+      ),
+      privilegedQuotaBytes: Math.round(
+        Math.max(0, parseNumber(process.env.STORAGE_PRIVILEGED_USERS_GB, 20)) *
+          GIB,
+      ),
       maxUploadSizeMb: Math.max(
         1,
         parseNumber(process.env.MAX_UPLOAD_SIZE_MB, 25),

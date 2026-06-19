@@ -78,9 +78,39 @@ export class EntitlementsService {
     return this.app.tiers.free;
   }
 
+  /** The dedicated privileged-user allowance in bytes (STORAGE_PRIVILEGED_USERS_GB). */
+  get privilegedBytes(): number {
+    return this.app.privilegedQuotaBytes;
+  }
+
   async forUser(user: User): Promise<Entitlement> {
-    // Billing switched off (self-hosting): everyone shares the same allowance
-    // (STORAGE_QUOTA_GB). No plans, subscriptions, privileges or warnings apply.
+    const now = Date.now();
+    const periodEnd = user.currentPeriodEnd
+      ? new Date(user.currentPeriodEnd)
+      : null;
+    const periodEndMs = periodEnd ? periodEnd.getTime() : 0;
+    const plan = this.normalizePlan(user.plan);
+
+    // Privileged users get a fixed, dedicated allowance
+    // (STORAGE_PRIVILEGED_USERS_GB) for free, no payment, no upgrade button.
+    // Checked regardless of whether billing is on so the override always wins.
+    if (await this.privileged.isPrivileged(user.username)) {
+      return {
+        privileged: true,
+        plan,
+        effectiveTier: 'plus',
+        quotaBytes: this.privilegedBytes,
+        subscriptionStatus: user.subscriptionStatus,
+        currentPeriodEnd: periodEnd,
+        cancelAtPeriodEnd: user.cancelAtPeriodEnd,
+        paidActive: false,
+        daysUntilExpiry: null,
+        warnExpiringSoon: false,
+      };
+    }
+
+    // Billing switched off (self-hosting): everyone else shares the same
+    // allowance (STORAGE_QUOTA_GB). No plans, subscriptions or warnings apply.
     if (!this.billingEnabled) {
       return {
         privileged: false,
@@ -90,30 +120,6 @@ export class EntitlementsService {
         subscriptionStatus: 'none',
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
-        paidActive: false,
-        daysUntilExpiry: null,
-        warnExpiringSoon: false,
-      };
-    }
-
-    const privileged = await this.privileged.isPrivileged(user.username);
-    const now = Date.now();
-    const periodEnd = user.currentPeriodEnd
-      ? new Date(user.currentPeriodEnd)
-      : null;
-    const periodEndMs = periodEnd ? periodEnd.getTime() : 0;
-
-    const plan = this.normalizePlan(user.plan);
-
-    if (privileged) {
-      return {
-        privileged: true,
-        plan,
-        effectiveTier: 'plus',
-        quotaBytes: this.bytesFor('plus'),
-        subscriptionStatus: user.subscriptionStatus,
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: user.cancelAtPeriodEnd,
         paidActive: false,
         daysUntilExpiry: null,
         warnExpiringSoon: false,

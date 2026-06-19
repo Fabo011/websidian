@@ -1217,6 +1217,9 @@ a { color: var(--accent); }
   gap: 8px;
   margin: 12px 0;
 }
+/* The display:grid rule above otherwise overrides the `hidden` attribute, so
+   the upgrade area stayed visible even for privileged/paid users. */
+.plan-options[hidden] { display: none; }
 .plan-btn[hidden] { display: none; }
 
 .plan-warning {
