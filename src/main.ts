@@ -116,7 +116,21 @@ async function bootstrap() {
     1,
     Number(process.env.MAX_IMPORT_TOTAL_MB) || 2048,
   );
-  app.useStaticAssets(join(process.cwd(), 'public'), { prefix: '/public' });
+  // Cache-busting token appended to static asset URLs (?v=...). Changes on every
+  // boot (i.e. every deploy) unless pinned via ASSET_VERSION, so a new release is
+  // never masked by a stale Cloudflare-edge / browser copy of app.js, i18n.js,
+  // style.css, etc. Templates read it as `v`.
+  expressInstance.locals.v =
+    process.env.ASSET_VERSION?.trim() || String(Date.now());
+
+  // Assets are versioned via the ?v= query above, so each build serves a fresh
+  // URL. That lets us cache them aggressively (immutable) without risking stale
+  // code after a deploy.
+  app.useStaticAssets(join(process.cwd(), 'public'), {
+    prefix: '/public',
+    maxAge: '1y',
+    immutable: true,
+  });
 
   // Restrict cross-origin browser access to the configured origin(s). Same-origin
   // requests are unaffected; other domains cannot make credentialed calls.

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <%- include('partials/head', { title: 'websidian' }) %>
-  <link rel="stylesheet" href="/public/js/excalidraw-bundle.css" />
+  <link rel="stylesheet" href="/public/js/excalidraw-bundle.css?v=<%= v %>" />
 </head>
 <body class="app" data-username="<%= username %>">
   <header class="topbar">
@@ -363,9 +363,9 @@
     </div>
   </div>
 
-  <script src="/public/js/crypto.js"></script>
-  <script src="/public/js/markdown-bundle.js"></script>
-  <script src="/public/js/zip-bundle.js"></script>
-  <script src="/public/js/app.js"></script>
+  <script src="/public/js/crypto.js?v=<%= v %>"></script>
+  <script src="/public/js/markdown-bundle.js?v=<%= v %>"></script>
+  <script src="/public/js/zip-bundle.js?v=<%= v %>"></script>
+  <script src="/public/js/app.js?v=<%= v %>"></script>
 </body>
 </html>

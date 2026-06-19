@@ -5,7 +5,7 @@
 <link rel="icon" type="image/svg+xml" href="/public/favicon.svg" />
 <link rel="apple-touch-icon" href="/public/websidian-logo.png" />
 <link rel="stylesheet" href="/public/vendor/bootstrap-icons/bootstrap-icons.min.css" />
-<link rel="stylesheet" href="/public/css/style.css" />
+<link rel="stylesheet" href="/public/css/style.css?v=<%= v %>" />
 <script>
   // Apply saved theme before paint to avoid a flash.
   (function () {
@@ -46,4 +46,4 @@
   window.__WO_MAX_IMPORT_FILES__ = <%= typeof maxImportFiles !== 'undefined' ? maxImportFiles : 0 %>;
   window.__WO_MAX_IMPORT_TOTAL_MB__ = <%= typeof maxImportTotalMb !== 'undefined' ? maxImportTotalMb : 0 %>;
 </script>
-<script src="/public/js/i18n.js"></script>
+<script src="/public/js/i18n.js?v=<%= v %>"></script>
