@@ -14,6 +14,7 @@ import { AuthService } from './auth/auth.service';
 import { AppConfig } from './config/configuration';
 import { registerColumnEncryptor } from './storage/encrypted-column.transformer';
 import { EncryptionService } from './storage/encryption.service';
+import { setupTus, TUS_HEADERS } from './upload/tus.setup';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -137,7 +138,15 @@ async function bootstrap() {
   app.enableCors({
     origin: appConfig.corsOrigins,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    // tus needs its protocol headers to pass both ways through the proxy.
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      ...TUS_HEADERS,
+    ],
+    exposedHeaders: TUS_HEADERS,
   });
 
   // Security headers. CSP and COEP are disabled because the server-rendered
@@ -150,6 +159,11 @@ async function bootstrap() {
       crossOriginEmbedderPolicy: false,
     }),
   );
+
+  // Resumable chunked upload endpoint (tus, /files). Mounted on the raw Express
+  // instance so chunk bodies stay unparsed; folder uploads are encrypted in the
+  // browser and streamed into the vault on completion. See src/upload/tus.setup.
+  setupTus(app);
 
   const server = await app.listen(appConfig.port);
 

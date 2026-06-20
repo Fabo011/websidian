@@ -177,6 +177,30 @@
     return concat(MAGIC, iv, new Uint8Array(ct));
   }
 
+  /**
+   * Like {@link encryptBytes} but with a deterministic IV derived from the
+   * plaintext (the first 12 bytes of its SHA-256). Same input bytes + same key
+   * always produce the same ciphertext.
+   *
+   * This is used for resumable chunked uploads (tus): if the page is refreshed
+   * or the connection drops mid-upload, re-selecting the same file must produce
+   * byte-identical ciphertext so tus can safely resume from the stored offset
+   * instead of stitching together two different encryptions. Decryption is
+   * unchanged — the IV is read from the header either way.
+   *
+   * Trade-off: two byte-identical files encrypt to identical ciphertext, so an
+   * observer of the stored ciphertext (the server) can tell they are equal.
+   * Acceptable here: the threat model is "server cannot read contents", not
+   * "server cannot detect duplicate blobs". A unique IV per distinct file is
+   * still guaranteed because distinct content yields a distinct SHA-256.
+   */
+  async function encryptBytesDeterministic(vaultCryptoKey, bytes) {
+    const digest = await subtle.digest('SHA-256', bytes);
+    const iv = new Uint8Array(digest).subarray(0, IV_LEN);
+    const ct = await subtle.encrypt({ name: 'AES-GCM', iv }, vaultCryptoKey, bytes);
+    return concat(MAGIC, iv, new Uint8Array(ct));
+  }
+
   /** Decrypt a blob produced by {@link encryptBytes}; returns raw bytes. */
   async function decryptBytes(vaultCryptoKey, blob) {
     const arr = blob instanceof Uint8Array ? blob : new Uint8Array(blob);
@@ -427,6 +451,7 @@
     encryptBytesToB64,
     decryptB64ToBytes,
     encryptBytes,
+    encryptBytesDeterministic,
     decryptBytes,
     decryptBytesMaybe,
     decryptB64ToTextMaybe,

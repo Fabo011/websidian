@@ -322,9 +322,7 @@ export default (): { app: AppConfig } => {
       },
       pricing: {
         pricePlus:
-          process.env.PRICE_PLUS?.trim() ||
-          process.env.PRICE_5GB?.trim() ||
-          '',
+          process.env.PRICE_PLUS?.trim() || process.env.PRICE_5GB?.trim() || '',
         planGb,
         contactEmail: process.env.CONTACT_EMAIL?.trim() || '',
       },

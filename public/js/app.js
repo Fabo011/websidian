@@ -735,49 +735,24 @@ async function readDataTransferEntries(dt) {
 async function uploadDataTransfer(dt, targetDir) {
   const entries = await readDataTransferEntries(dt);
   if (!entries.length) return;
-  const limitErr = uploadLimitError(
-    entries.map((en) => ({ path: en.path, size: en.file.size })),
-  );
-  if (limitErr) {
-    await uiAlert(t('upload_failed_title'), { message: limitErr });
-    return;
-  }
-  const hasFolders = entries.some((en) => en.path.includes('/'));
-  showLoading(t('uploading'));
+  // Route dropped files/folders through the resumable, chunked tus uploader so
+  // a multi-GB drop never sends an over-100 MB request. Each file is encrypted
+  // in the browser; its drop path (en.path) preserves the folder structure.
   try {
-    // Encrypt every file's bytes in the browser before upload so the server
-    // only ever stores ciphertext. Names/paths stay plaintext.
-    if (hasFolders) {
-      // Preserve the folder structure via the import endpoint.
-      const fd = new FormData();
-      const paths = [];
-      for (const en of entries) {
-        paths.push(en.path);
-        const blob = await encryptFileBlob(en.file);
-        fd.append('files', blob, en.path.split('/').pop());
-      }
-      fd.append('paths', JSON.stringify(paths));
-      fd.append('base', targetDir);
-      const res = await api('POST', '/api/import', fd, true);
-      flash(t('imported_n', { n: (res && res.written) || 0 }));
-    } else {
-      for (const en of entries) {
-        const fd = new FormData();
-        const blob = await encryptFileBlob(en.file);
-        fd.append('file', blob, en.file.name);
-        fd.append('folder', targetDir);
-        await api('POST', '/api/upload', fd, true);
-      }
-      flash(t('uploaded_n', { n: entries.length }));
-    }
-    expandAncestors(targetDir);
-    await loadTree();
+    await window.WOUpload.start({
+      entries: entries.map((en) => ({ file: en.file, relativePath: en.path })),
+      baseDir: targetDir,
+      getKey: ensureVaultKey,
+      t,
+      onComplete: () => {
+        expandAncestors(targetDir);
+        loadTree();
+      },
+    });
   } catch (err) {
     await uiAlert(t('upload_failed_title'), {
       message: err.message || t('upload_failed_msg'),
     });
-  } finally {
-    hideLoading();
   }
 }
 
@@ -1739,58 +1714,26 @@ function closeImportModal() {
 
 async function runImport(files) {
   if (!files.length) return;
-  showLoading(t('importing'));
+  // Folders upload through the resumable, chunked tus uploader (window.WOUpload),
+  // which encrypts each file in the browser and sends it in 50 MB chunks so no
+  // request exceeds Cloudflare's 100 MB body limit. The folder structure is
+  // preserved via each file's webkitRelativePath. No artificial size/count caps
+  // here — the storage quota is the real limit, enforced server-side.
   try {
-    // Build a flat list of {path, bytes}. Any .zip is expanded in the browser
-    // (the server can't read encrypted contents), and every entry is encrypted
-    // before upload.
-    const items = [];
-    for (const file of files) {
-      const rel = file.webkitRelativePath || file.name;
-      if (rel.toLowerCase().endsWith('.zip')) {
-        const buf = new Uint8Array(await file.arrayBuffer());
-        for (const entry of window.WOZip.unzip(buf)) {
-          items.push({ path: entry.path, bytes: entry.bytes });
-        }
-      } else {
-        items.push({ path: rel, bytes: new Uint8Array(await file.arrayBuffer()) });
-      }
-    }
-
-    // Reject an over-limit selection before doing the expensive encryption and
-    // upload, so the user finds out immediately instead of after a long wait.
-    const limitErr = uploadLimitError(
-      items.map((it) => ({ path: it.path, size: it.bytes.length })),
-    );
-    if (limitErr) {
-      hideLoading();
-      await uiAlert(t('import_failed_title'), { message: limitErr });
-      return;
-    }
-
-    const key = await ensureVaultKey();
-    const fd = new FormData();
-    const paths = [];
-    for (const item of items) {
-      paths.push(item.path);
-      const ct = await window.WOCrypto.encryptBytes(key, item.bytes);
-      fd.append(
-        'files',
-        new Blob([ct], { type: 'application/octet-stream' }),
-        item.path.split('/').pop(),
-      );
-    }
-    fd.append('paths', JSON.stringify(paths));
-    fd.append('base', state.selectedDir);
-    const res = await api('POST', '/api/import', fd, true);
-    await loadTree();
-    flash(t('imported_n', { n: res.written || 0 }));
-    hideLoading();
+    const entries = files.map((file) => ({
+      file,
+      relativePath: file.webkitRelativePath || file.name,
+    }));
+    await window.WOUpload.start({
+      entries,
+      baseDir: state.selectedDir,
+      getKey: ensureVaultKey,
+      t,
+      onComplete: () => {
+        loadTree();
+      },
+    });
   } catch (err) {
-    // Clear the spinner BEFORE the alert. The loading overlay stacks on top of
-    // the modal, so leaving it up blocks the OK button and the alert promise
-    // never resolves, hanging the spinner forever.
-    hideLoading();
     await uiAlert(t('import_failed_title'), {
       message: err.message || t('import_failed_msg'),
     });
@@ -1799,7 +1742,6 @@ async function runImport(files) {
 
 (function setupImport() {
   const folderInput = $('#import-input');
-  const zipInput = $('#import-zip-input');
   const supportsDir = 'webkitdirectory' in document.createElement('input');
   if (supportsDir) {
     folderInput.webkitdirectory = true;
@@ -1813,7 +1755,6 @@ async function runImport(files) {
     await runImport(files);
   };
   folderInput.addEventListener('change', onChange);
-  zipInput.addEventListener('change', onChange);
 
   $('#import-btn').addEventListener('click', openImportModal);
   $('#import-modal-close').addEventListener('click', closeImportModal);
@@ -1822,10 +1763,6 @@ async function runImport(files) {
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !$('#import-overlay').hidden) closeImportModal();
-  });
-  $('#import-zip-choice').addEventListener('click', () => {
-    closeImportModal();
-    zipInput.click();
   });
   $('#import-folder-choice').addEventListener('click', () => {
     closeImportModal();

@@ -226,13 +226,71 @@ password to confirm).
 
 ## Importing an existing Obsidian vault
 
-Use the **Import** button in the sidebar:
+Use the **Import** button in the sidebar (or drag a folder onto the file tree)
+and pick a folder — its structure is preserved. You can also drag individual
+files in. Several-GB folders with thousands of files are fine.
 
-- **Desktop:** pick a folder; its structure is preserved.
-- **Mobile:** select multiple files or upload a `.zip`.
-
-Imports are expanded and encrypted **in your browser** before upload, so the
+Every file is encrypted **in your browser** before the first byte leaves, so the
 server only ever receives ciphertext.
+
+### Resumable, chunked uploads
+
+Folder uploads run over the [tus](https://tus.io) resumable protocol
+(Uppy + `@uppy/tus` on the client, `@tus/server` on the backend, endpoint
+`/files`). This solves a hard constraint: the deployment sits behind a
+**Cloudflare Zero Trust** proxy that caps every HTTP request body at **100 MB**.
+
+- **Chunk size — why 50 MB.** Each file is uploaded in 50 MB chunks
+  (`MAX_UPLOAD_FILE_MB` bounds a whole file, not a chunk). One chunk plus the tus
+  protocol headers is comfortably under 100 MB, so no request ever trips the
+  Cloudflare limit, with margin to spare. The chunk size is set in
+  `client/upload-entry.js` (`CHUNK_SIZE`).
+- **Folder structure.** For each file the browser reads its
+  `webkitRelativePath` and sends it (path minus filename) as the tus
+  `relativePath` metadata, plus `filename` and the destination `base` folder. On
+  completion the server recreates the tree under the user's vault root.
+- **How resume works.** tus tracks a per-upload byte offset; `@uppy/tus` stores
+  the upload URL in `localStorage`. If the connection drops or the page reloads,
+  re-selecting the same folder resumes each file from its stored offset instead
+  of restarting at 0 — the progress UI shows it continuing. To make this safe
+  with end-to-end encryption, files are encrypted **deterministically**
+  (`WOCrypto.encryptBytesDeterministic`, IV derived from the plaintext's
+  SHA-256), so re-encrypting a file after a refresh produces byte-identical
+  ciphertext and the resumed bytes line up.
+- **Path sanitization.** The client path is never trusted. Before writing,
+  `sanitizeRelPath` (`src/common/path-safety.ts`) normalizes backslashes,
+  strips leading slashes, and **rejects** `..` segments, drive letters (`C:`),
+  and NUL bytes. A traversal attempt fails with a 400 rather than escaping the
+  vault.
+- **Concurrency & retries.** Up to 3 files upload in parallel; network errors
+  auto-retry with backoff. The browser keeps only a few encrypted files in
+  memory at once regardless of folder size.
+
+### Migration away from `.zip` uploads
+
+The old workaround — zip a folder, upload one `.zip`, expand it client-side — is
+gone. Native folder uploads with preserved structure replace it. Removed:
+
+- the `.zip` choice in the Import dialog and its client-side unpack path
+  (`runImport`); the export feature still builds a `.zip` in the browser, so the
+  zip helper (`WOZip.zip`) stays.
+- the old bulk `POST /api/import` multipart endpoint (it sent the whole folder in
+  one request, which broke the 100 MB limit). Single small inline attachments
+  still use `POST /api/upload`.
+- the unused `adm-zip` dependency. There was never a server-side unzip step —
+  the server only ever held ciphertext — so nothing else changed on the backend.
+
+### Cloudflare / ingress notes
+
+- Each chunk request is < 100 MB, satisfying the Cloudflare body limit. Confirm
+  the **origin** (nginx/ingress) allows it too: set `client_max_body_size` to at
+  least ~55 MB (one 50 MB chunk plus headers); larger is fine.
+- The proxy and CORS must pass the tus headers both ways: `Tus-Resumable`,
+  `Upload-Offset`, `Upload-Length`, `Upload-Metadata`, `Upload-Defer-Length`,
+  `Upload-Concat`, and `Location`. These are allow-listed in `src/main.ts`
+  (`enableCors`) and advertised by the tus server; a stripping proxy in front
+  would break resume.
+- `TUS_TMP_DIR` must be writable with room for the largest in-flight upload.
 
 ## Continuous delivery
 

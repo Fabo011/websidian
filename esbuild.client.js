@@ -90,6 +90,21 @@ async function main() {
     logLevel: 'info',
   });
   console.log('Zip helper bundle ready.');
+
+  // Bundle the resumable folder uploader (Uppy + @uppy/tus). Folder uploads are
+  // chunked to 50 MB per request to stay under Cloudflare's 100 MB body limit;
+  // files are encrypted in the browser before upload. Exposes window.WOUpload.
+  await esbuild.build({
+    entryPoints: ['client/upload-entry.js'],
+    bundle: true,
+    format: 'iife',
+    outfile: 'public/js/upload-bundle.js',
+    minify: true,
+    sourcemap: false,
+    define: { 'process.env.NODE_ENV': '"production"' },
+    logLevel: 'info',
+  });
+  console.log('Upload (tus) bundle ready.');
 }
 
 main().catch((err) => {

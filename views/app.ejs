@@ -319,24 +319,18 @@
       </div>
       <p class="modal-message" data-i18n="import_choose_hint">Import a whole vault to get started, or add more folders to an existing vault. The folder structure is preserved.</p>
       <div class="import-options">
-        <button id="import-zip-choice" class="import-option" type="button">
-          <i class="bi bi-file-earmark-zip"></i>
-          <span class="import-option-title" data-i18n="import_zip">Zip file</span>
-          <span class="import-option-desc" data-i18n="import_zip_desc">Recommended — no browser warning. The archive is unpacked automatically.</span>
-        </button>
         <button id="import-folder-choice" class="import-option" type="button">
           <i class="bi bi-folder2-open"></i>
           <span class="import-option-title" data-i18n="import_folder">Folder</span>
-          <span class="import-option-desc" data-i18n="import_folder_desc">Your browser will ask you to confirm the folder upload.</span>
+          <span class="import-option-desc" data-i18n="import_folder_desc">Pick a whole folder. It uploads in resumable chunks with the structure preserved — your browser will ask you to confirm.</span>
         </button>
       </div>
-      <p class="muted import-limit-note" data-i18n="import_limit_note">Limits apply to each upload.</p>
+      <p class="muted import-limit-note" data-i18n="import_resume_note">Large uploads resume automatically if the connection drops or the page reloads.</p>
     </div>
   </div>
 
   <input id="upload-input" type="file" hidden multiple />
   <input id="import-input" type="file" hidden multiple />
-  <input id="import-zip-input" type="file" hidden accept=".zip,application/zip" />
   <input id="weblinks-import-input" type="file" hidden accept=".csv,text/csv" />
 
   <div id="weblink-overlay" class="modal-overlay" hidden>
@@ -366,6 +360,7 @@
   <script src="/public/js/crypto.js?v=<%= v %>"></script>
   <script src="/public/js/markdown-bundle.js?v=<%= v %>"></script>
   <script src="/public/js/zip-bundle.js?v=<%= v %>"></script>
+  <script src="/public/js/upload-bundle.js?v=<%= v %>"></script>
   <script src="/public/js/app.js?v=<%= v %>"></script>
 </body>
 </html>
