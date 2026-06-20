@@ -80,6 +80,15 @@ export function setupTus(app: NestExpressApplication): void {
     // Same-origin requests carry the auth cookie automatically; advertise the
     // tus headers (Nest's enableCors handles exposing them back to the browser).
     allowedHeaders: TUS_HEADERS,
+    // Return a RELATIVE `Location` (e.g. `/files/<id>`) for each upload. Behind
+    // the Cloudflare Zero Trust tunnel, TLS terminates at the edge and the origin
+    // receives plain HTTP, so tus would otherwise build an absolute `http://…`
+    // upload URL — which the browser blocks as mixed content on the HTTPS page.
+    // A relative URL is resolved by the client against the current (https) origin.
+    relativeLocation: true,
+    // If an absolute URL is ever built, trust the proxy's forwarded proto/host so
+    // it is https, not the origin's http.
+    respectForwardedHeaders: true,
 
     // Authenticate every tus request from the auth cookie (httpOnly JWT). A bad
     // or missing token aborts the request with 401 before any bytes are stored.
