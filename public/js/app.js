@@ -1935,6 +1935,141 @@ $('#export-btn').addEventListener('click', async () => {
   }
 });
 
+/* ---------- trash ---------- */
+
+function openTrashModal() {
+  $('#trash-overlay').hidden = false;
+  loadTrashList();
+}
+function closeTrashModal() {
+  $('#trash-overlay').hidden = true;
+}
+
+function formatTrashDate(ms) {
+  if (!ms) return '';
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return '';
+  }
+}
+
+async function loadTrashList() {
+  const listEl = $('#trash-list');
+  listEl.textContent = '';
+  const loading = document.createElement('div');
+  loading.className = 'trash-empty-msg';
+  loading.textContent = t('loading');
+  listEl.appendChild(loading);
+  try {
+    const items = await api('GET', '/api/trash');
+    renderTrashList(items || []);
+  } catch (err) {
+    listEl.textContent = '';
+    const msg = document.createElement('div');
+    msg.className = 'trash-empty-msg';
+    msg.textContent = err.message || t('trash_load_failed');
+    listEl.appendChild(msg);
+  }
+}
+
+function renderTrashList(items) {
+  const listEl = $('#trash-list');
+  const emptyBtn = $('#trash-empty-btn');
+  listEl.textContent = '';
+  if (!items.length) {
+    const msg = document.createElement('div');
+    msg.className = 'trash-empty-msg';
+    msg.textContent = t('trash_empty_state');
+    listEl.appendChild(msg);
+    emptyBtn.disabled = true;
+    return;
+  }
+  emptyBtn.disabled = false;
+  for (const it of items) {
+    const row = document.createElement('div');
+    row.className = 'trash-row';
+
+    const icon = document.createElement('i');
+    icon.className =
+      'bi ti ' + (it.type === 'dir' ? 'bi-folder-fill' : 'bi-file-earmark');
+    row.appendChild(icon);
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const name = document.createElement('div');
+    name.className = 'tname';
+    name.textContent = it.name;
+    const path = document.createElement('div');
+    path.className = 'tpath';
+    path.textContent = it.path;
+    meta.appendChild(name);
+    meta.appendChild(path);
+    row.appendChild(meta);
+
+    const date = document.createElement('span');
+    date.className = 'tdate';
+    date.textContent = formatTrashDate(it.deletedAt);
+    row.appendChild(date);
+
+    const restore = document.createElement('button');
+    restore.className = 'trestore';
+    restore.innerHTML = '<i class="bi bi-arrow-counterclockwise"></i>';
+    restore.appendChild(document.createTextNode(' ' + t('trash_restore')));
+    restore.addEventListener('click', () => restoreTrashItem(it, restore));
+    row.appendChild(restore);
+
+    listEl.appendChild(row);
+  }
+}
+
+async function restoreTrashItem(it, btn) {
+  btn.disabled = true;
+  try {
+    await api('POST', '/api/trash/restore', { id: it.id });
+    flash(t('trash_restored', { name: it.name }));
+    await loadTrashList();
+    await loadTree();
+  } catch (err) {
+    btn.disabled = false;
+    await uiAlert(t('trash_restore_failed_title'), {
+      message: err.message || t('trash_restore_failed_msg'),
+    });
+  }
+}
+
+(function setupTrash() {
+  $('#trash-btn').addEventListener('click', openTrashModal);
+  $('#trash-modal-close').addEventListener('click', closeTrashModal);
+  $('#trash-overlay').addEventListener('click', (e) => {
+    if (e.target === $('#trash-overlay')) closeTrashModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('#trash-overlay').hidden) closeTrashModal();
+  });
+  $('#trash-empty-btn').addEventListener('click', async () => {
+    const ok = await uiConfirm(t('trash_empty'), {
+      message: t('trash_empty_confirm'),
+      okText: t('trash_empty'),
+      danger: true,
+    });
+    if (!ok) return;
+    closeTrashModal();
+    showProgress(t('trash_emptying'));
+    try {
+      await api('DELETE', '/api/trash', undefined, false, MUTATION_TIMEOUT_MS);
+      hideProgress();
+      flash(t('trash_emptied'));
+      await loadTree();
+    } catch (err) {
+      hideProgress();
+      await uiAlert(t('trash_empty_failed_title'), {
+        message: err.message || t('trash_empty_failed_msg'),
+      });
+    }
+  });
+})();
+
 /* ---------- search ---------- */
 
 // Client-side content index. The server can only match file *names* now (it

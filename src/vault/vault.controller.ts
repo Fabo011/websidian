@@ -70,6 +70,29 @@ export class VaultController {
     return { ok: true };
   }
 
+  @Get('trash')
+  listTrash(@CurrentUser() user: AuthenticatedUser) {
+    return this.vault.listTrash(user.username);
+  }
+
+  @Post('trash/restore')
+  async restoreTrash(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body('id') id: string,
+  ) {
+    if (!id) {
+      throw new BadRequestException('id is required.');
+    }
+    const result = await this.vault.restoreFromTrash(user.username, id);
+    return { ok: true, ...result };
+  }
+
+  @Delete('trash')
+  async emptyTrash(@CurrentUser() user: AuthenticatedUser) {
+    await this.vault.emptyTrash(user.username);
+    return { ok: true };
+  }
+
   @Post('rename')
   async rename(@CurrentUser() user: AuthenticatedUser, @Body() dto: RenameDto) {
     await this.vault.rename(user.username, dto.from, dto.to);

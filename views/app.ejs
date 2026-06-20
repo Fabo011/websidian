@@ -30,6 +30,7 @@
         <button id="upload-btn" title="Upload files from your computer" data-i18n-attr="title:title_upload"><i class="bi bi-file-earmark-arrow-up"></i> <span data-i18n="tool_upload">Upload files</span></button>
         <button id="import-btn" title="Import folders or a whole vault (.zip)" data-i18n-attr="title:title_import"><i class="bi bi-folder-symlink"></i> <span data-i18n="tool_import">Import folder</span></button>
         <button id="export-btn" title="Download the whole vault as a .zip" data-i18n-attr="title:title_export"><i class="bi bi-download"></i> <span data-i18n="tool_export">Export</span></button>
+        <button id="trash-btn" title="Open the trash to restore or permanently delete items" data-i18n-attr="title:title_trash"><i class="bi bi-trash3"></i> <span data-i18n="tool_trash">Trash</span></button>
       </div>
       <div id="selected-folder" class="selected-folder breadcrumb" aria-label="Selected folder" data-i18n-attr="aria-label:selected_folder"></div>
       <nav id="tree" class="tree" aria-label="Files" data-i18n-attr="aria-label:files_aria"></nav>
@@ -326,6 +327,20 @@
         </button>
       </div>
       <p class="muted import-limit-note" data-i18n="import_resume_note">Large uploads resume automatically if the connection drops or the page reloads.</p>
+    </div>
+  </div>
+
+  <div id="trash-overlay" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="trash-modal-title">
+      <div class="dashboard-head">
+        <h3 id="trash-modal-title" class="modal-title"><i class="bi bi-trash3"></i> <span data-i18n="trash_title">Trash</span></h3>
+        <button id="trash-modal-close" class="icon-btn" title="Close" aria-label="Close" data-i18n-attr="title:close;aria-label:close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <p class="modal-message" data-i18n="trash_hint">Deleted items are kept here so you can restore them. Emptying the trash deletes everything in it permanently.</p>
+      <div id="trash-list" class="trash-list" aria-live="polite"></div>
+      <div class="modal-actions">
+        <button id="trash-empty-btn" class="btn-danger" type="button"><i class="bi bi-trash3"></i> <span data-i18n="trash_empty">Empty trash</span></button>
+      </div>
     </div>
   </div>
 

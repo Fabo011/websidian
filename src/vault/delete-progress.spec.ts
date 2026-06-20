@@ -12,6 +12,7 @@ function makeStorage(tree: Record<string, Entry[]>, files: Set<string>) {
     list: jest.fn(async (_sid: string, dir: string) => tree[dir] || []),
     move: jest.fn(async () => {}),
     remove: jest.fn(async () => {}),
+    writeBytes: jest.fn(async () => {}),
   };
 }
 

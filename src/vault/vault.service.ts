@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
@@ -101,6 +102,25 @@ export interface QuotaUsage {
  * providers exclude it explicitly).
  */
 export const TRASH_DIR = '.trash';
+
+// Marker file written inside each trash batch (`.trash/<stamp>/.origin`) holding
+// the deleted entry's original path + type, so the trash UI can list and restore
+// it unambiguously. Batches created before this existed fall back to inferring
+// the original path by walking the batch's single-child directory chain.
+const TRASH_ORIGIN = '.origin';
+
+/** One restorable entry shown in the trash view. */
+export interface TrashItem {
+  /** Batch id (the `<deletedAtMs>-<rand>` folder name). */
+  id: string;
+  /** Original vault-relative path the entry will be restored to. */
+  path: string;
+  /** Leaf name for display. */
+  name: string;
+  type: 'file' | 'dir';
+  /** Epoch ms the entry was deleted. */
+  deletedAt: number;
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -403,8 +423,15 @@ export class VaultService {
       await this.storage.remove(storageId, clean);
       return;
     }
+    const isFile = await this.storage.isFile(storageId, clean);
     const stamp = `${Date.now()}-${randomBytes(4).toString('hex')}`;
     await this.storage.move(storageId, clean, `${TRASH_DIR}/${stamp}/${clean}`);
+    await this.writeTrashOrigin(
+      storageId,
+      stamp,
+      clean,
+      isFile ? 'file' : 'dir',
+    );
   }
 
   /**
@@ -437,6 +464,15 @@ export class VaultService {
     onProgress(done, total);
 
     const stamp = `${Date.now()}-${randomBytes(4).toString('hex')}`;
+    if (!immediate) {
+      // Record what was deleted so the trash UI can restore it as one entry.
+      await this.writeTrashOrigin(
+        storageId,
+        stamp,
+        clean,
+        isFile ? 'file' : 'dir',
+      );
+    }
     for (const file of files) {
       if (immediate) {
         await this.storage.remove(storageId, file);
@@ -510,6 +546,182 @@ export class VaultService {
       purged++;
     }
     return purged;
+  }
+
+  /* ----------------------------- trash UI ------------------------------ */
+
+  /** Validate a trash batch id (the `<ms>-<rand>` folder name). */
+  private assertTrashId(id: string): void {
+    if (!/^\d+-[0-9a-zA-Z]+$/.test(id)) {
+      throw new BadRequestException('Invalid trash id.');
+    }
+  }
+
+  /** Write the origin marker for a trash batch. */
+  private async writeTrashOrigin(
+    storageId: string,
+    stamp: string,
+    originalPath: string,
+    type: 'file' | 'dir',
+  ): Promise<void> {
+    const data = Buffer.from(
+      JSON.stringify({ path: originalPath, type }),
+      'utf8',
+    );
+    await this.storage.writeBytes(
+      storageId,
+      `${TRASH_DIR}/${stamp}/${TRASH_ORIGIN}`,
+      data,
+    );
+  }
+
+  /** Read a batch's origin marker, or null if absent/corrupt (legacy batch). */
+  private async readTrashOrigin(
+    storageId: string,
+    base: string,
+  ): Promise<{ path: string; type: 'file' | 'dir' } | null> {
+    const marker = `${base}/${TRASH_ORIGIN}`;
+    if (!(await this.storage.isFile(storageId, marker))) {
+      return null;
+    }
+    try {
+      const raw = (await this.storage.readBytes(storageId, marker)).toString(
+        'utf8',
+      );
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.path === 'string') {
+        return {
+          path: parsed.path.replace(/^\/+|\/+$/g, ''),
+          type: parsed.type === 'file' ? 'file' : 'dir',
+        };
+      }
+    } catch {
+      /* fall through to null */
+    }
+    return null;
+  }
+
+  /**
+   * Best-effort recovery of a legacy trash batch's original path (no marker):
+   * walk the single-child directory chain down from the batch root, which
+   * reconstructs the deleted entry's path because each batch only holds that one
+   * entry's tree.
+   */
+  private async deriveTrashEntry(
+    storageId: string,
+    base: string,
+  ): Promise<{ path: string; type: 'file' | 'dir' } | null> {
+    let rel = '';
+    for (let i = 0; i < 4096; i++) {
+      const dir = rel ? `${base}/${rel}` : base;
+      const entries = (await this.storage.list(storageId, dir)).filter(
+        (e) => e.name !== TRASH_ORIGIN,
+      );
+      if (entries.length === 1) {
+        const child = entries[0];
+        rel = rel ? `${rel}/${child.name}` : child.name;
+        if (child.type === 'file') {
+          return { path: rel, type: 'file' };
+        }
+        continue; // single sub-dir: keep descending
+      }
+      // Zero or many children: the current rel is the deleted entry (a folder).
+      return rel ? { path: rel, type: 'dir' } : null;
+    }
+    return null;
+  }
+
+  /** List restorable entries in the trash, newest first. */
+  async listTrash(username: string): Promise<TrashItem[]> {
+    const storageId = await this.sid(username);
+    if (!(await this.storage.isDir(storageId, TRASH_DIR))) {
+      return [];
+    }
+    const batches = await this.storage.list(storageId, TRASH_DIR);
+    const items: TrashItem[] = [];
+    for (const entry of batches) {
+      if (entry.type !== 'dir') {
+        continue;
+      }
+      const id = entry.name;
+      const base = `${TRASH_DIR}/${id}`;
+      const dash = id.indexOf('-');
+      const deletedAt = Number(dash > 0 ? id.slice(0, dash) : id) || 0;
+      const origin =
+        (await this.readTrashOrigin(storageId, base)) ||
+        (await this.deriveTrashEntry(storageId, base));
+      if (!origin || !origin.path) {
+        continue;
+      }
+      items.push({
+        id,
+        path: origin.path,
+        name: basename(origin.path),
+        type: origin.type,
+        deletedAt,
+      });
+    }
+    items.sort((a, b) => b.deletedAt - a.deletedAt);
+    return items;
+  }
+
+  /** Restore one trash batch to its original path (de-duplicating on conflict). */
+  async restoreFromTrash(
+    username: string,
+    id: string,
+  ): Promise<{ restoredTo: string }> {
+    this.assertTrashId(id);
+    const storageId = await this.sid(username);
+    const base = `${TRASH_DIR}/${id}`;
+    if (!(await this.storage.isDir(storageId, base))) {
+      throw new NotFoundException('Trash entry not found.');
+    }
+    const origin =
+      (await this.readTrashOrigin(storageId, base)) ||
+      (await this.deriveTrashEntry(storageId, base));
+    if (!origin || !origin.path) {
+      throw new BadRequestException('Trash entry is empty.');
+    }
+    const target = await this.freeRestorePath(storageId, origin.path);
+    await this.storage.move(storageId, `${base}/${origin.path}`, target);
+    // Drop the now-empty batch (including the .origin marker).
+    await this.storage.remove(storageId, base).catch(() => {});
+    return { restoredTo: target };
+  }
+
+  /** Permanently delete the entire trash. */
+  async emptyTrash(username: string): Promise<void> {
+    const storageId = await this.sid(username);
+    if (await this.storage.isDir(storageId, TRASH_DIR)) {
+      await this.storage.remove(storageId, TRASH_DIR);
+    }
+  }
+
+  /** Find a non-colliding restore path, appending " (restored[ N])" if needed. */
+  private async freeRestorePath(
+    storageId: string,
+    path: string,
+  ): Promise<string> {
+    const exists = async (p: string) =>
+      (await this.storage.isFile(storageId, p)) ||
+      (await this.storage.isDir(storageId, p));
+    if (!(await exists(path))) {
+      return path;
+    }
+    const slash = path.lastIndexOf('/');
+    const dir = slash >= 0 ? path.slice(0, slash) : '';
+    const name = slash >= 0 ? path.slice(slash + 1) : path;
+    const dot = name.lastIndexOf('.');
+    const stem = dot > 0 ? name.slice(0, dot) : name;
+    const ext = dot > 0 ? name.slice(dot) : '';
+    for (let i = 1; i < 1000; i++) {
+      const suffix = i > 1 ? ` (restored ${i})` : ' (restored)';
+      const candidate = `${dir ? `${dir}/` : ''}${stem}${suffix}${ext}`;
+      if (!(await exists(candidate))) {
+        return candidate;
+      }
+    }
+    throw new ConflictException('Could not find a free name to restore to.');
   }
 
   /**

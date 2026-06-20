@@ -988,6 +988,61 @@ a { color: var(--accent); }
   font-weight: 600;
 }
 .btn-danger:hover { background: var(--danger); filter: brightness(1.1); }
+
+/* ===== Trash view ===== */
+.trash-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  margin: 6px 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.trash-empty-msg {
+  padding: 26px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.trash-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.trash-row:last-child { border-bottom: none; }
+.trash-row > .ti { color: var(--text-muted); flex: none; font-size: 16px; }
+.trash-row .meta { flex: 1; min-width: 0; }
+.trash-row .tname {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.trash-row .tpath {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.trash-row .tdate { font-size: 11px; color: var(--text-muted); flex: none; }
+.trash-row .trestore {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+  background: var(--bg-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.trash-row .trestore:hover { border-color: var(--accent); color: var(--accent); }
+.trash-row .trestore:disabled { opacity: 0.5; cursor: default; }
 /* Keep the delete-account button small to avoid accidental clicks. */
 #delete-account-btn {
   width: auto;
