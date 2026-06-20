@@ -11,6 +11,10 @@ const API_TIMEOUT_MS = 30 * 1000;
 // upload budget is generous. Keep this >= the server's UPLOAD_REQUEST_TIMEOUT_MIN
 // so the client doesn't give up before the server finishes writing the files.
 const UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
+// Deleting or renaming a large folder recursively moves/removes many objects
+// (slow on S3). Give those mutations the same generous budget as uploads so the
+// client doesn't abort at API_TIMEOUT_MS and mislabel a slow op as a timeout.
+const MUTATION_TIMEOUT_MS = UPLOAD_TIMEOUT_MS;
 
 // Upload caps surfaced by the server (head partial). We validate the user's
 // selection in the browser BEFORE encrypting/uploading so an oversized file or
@@ -54,7 +58,7 @@ function uploadLimitError(items) {
   return '';
 }
 
-async function api(method, url, body, isForm) {
+async function api(method, url, body, isForm, timeoutMs) {
   const opts = { method, credentials: 'same-origin', headers: {} };
   if (body !== undefined) {
     if (isForm) {
@@ -66,9 +70,12 @@ async function api(method, url, body, isForm) {
   }
   const ctrl = new AbortController();
   opts.signal = ctrl.signal;
+  // Most API calls abort after API_TIMEOUT_MS so the spinner always settles.
+  // Long-running mutations (deleting/renaming a large folder, which recursively
+  // moves/removes many objects on S3) pass an explicit, longer timeoutMs.
   const timer = setTimeout(
     () => ctrl.abort(),
-    isForm ? UPLOAD_TIMEOUT_MS : API_TIMEOUT_MS,
+    timeoutMs || (isForm ? UPLOAD_TIMEOUT_MS : API_TIMEOUT_MS),
   );
   let res;
   try {
@@ -642,7 +649,13 @@ async function moveEntry(fromPath, targetDir) {
   const name = basename(fromPath);
   const to = targetDir ? targetDir + '/' + name : name;
   try {
-    await api('POST', '/api/rename', { from: fromPath, to });
+    await api(
+      'POST',
+      '/api/rename',
+      { from: fromPath, to },
+      false,
+      MUTATION_TIMEOUT_MS,
+    );
   } catch (err) {
     flash(err.message || t('could_not_move'));
     return;
@@ -899,7 +912,13 @@ $('#context-menu').addEventListener('click', async (e) => {
     if (!newName || newName === node.name) return;
     const parent = dirname(node.path);
     const to = parent ? parent + '/' + newName : newName;
-    await api('POST', '/api/rename', { from: node.path, to });
+    await api(
+      'POST',
+      '/api/rename',
+      { from: node.path, to },
+      false,
+      MUTATION_TIMEOUT_MS,
+    );
     if (state.current && state.current.path === node.path) {
       state.current.path = to;
       $('#current-path').textContent = to;
@@ -929,7 +948,13 @@ $('#context-menu').addEventListener('click', async (e) => {
     // and surface any failure instead of silently leaving a stale tree.
     showLoading(t('deleting'));
     try {
-      await api('DELETE', '/api/entry?path=' + encodeURIComponent(node.path));
+      await api(
+        'DELETE',
+        '/api/entry?path=' + encodeURIComponent(node.path),
+        undefined,
+        false,
+        MUTATION_TIMEOUT_MS,
+      );
       if (state.current && state.current.path.startsWith(node.path)) {
         showWelcome();
       }
