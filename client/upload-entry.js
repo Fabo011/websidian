@@ -302,9 +302,11 @@ function buildPanel(t, handlers) {
  * @param {Function} opts.getKey  async () => CryptoKey (the vault key).
  * @param {Function} opts.t       i18n translate(key, params).
  * @param {Function} [opts.onComplete] called once when all uploads settle.
+ * @param {Function} [opts.onFileComplete] called after each file finishes
+ *        uploading, so the caller can refresh the sidebar live (debounce it).
  */
 async function start(opts) {
-  const { entries, baseDir = '', getKey, t, onComplete } = opts;
+  const { entries, baseDir = '', getKey, t, onComplete, onFileComplete } = opts;
   if (!entries || !entries.length) return;
 
   const key = await getKey();
@@ -529,6 +531,9 @@ async function start(opts) {
     uppy.removeFile(file.id); // drop the ciphertext Blob from memory
     afterFileSettled(it);
     panel.touch();
+    // Let the caller refresh the sidebar as files land (it should debounce) so
+    // uploaded files show up immediately, not only after everything finishes.
+    if (typeof onFileComplete === 'function') onFileComplete();
   });
 
   uppy.on('upload-error', (file, error) => {

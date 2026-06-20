@@ -408,6 +408,80 @@ export class VaultService {
   }
 
   /**
+   * Like {@link deleteEntry} but processes the entry file-by-file and reports
+   * progress, so the client can show a real progress bar instead of a spinner
+   * for a large folder (whose move/remove on S3 can take minutes). Files are
+   * still soft-deleted into a single trash batch (or removed for good when
+   * retention is off / the path is already in the trash). `onProgress(done,
+   * total)` is invoked before the first file and after each one.
+   */
+  async deleteEntryProgress(
+    username: string,
+    relPath: string,
+    onProgress: (done: number, total: number) => void,
+  ): Promise<void> {
+    if (!relPath) {
+      throw new BadRequestException('Path is required.');
+    }
+    const storageId = await this.sid(username);
+    const clean = relPath.replace(/^\/+|\/+$/g, '');
+    const inTrash = clean === TRASH_DIR || clean.startsWith(`${TRASH_DIR}/`);
+    const immediate = this.trashRetentionDays <= 0 || inTrash;
+
+    const isFile = await this.storage.isFile(storageId, clean);
+    const files = isFile
+      ? [clean]
+      : await this.collectFilesUnder(storageId, clean);
+    const total = files.length;
+    let done = 0;
+    onProgress(done, total);
+
+    const stamp = `${Date.now()}-${randomBytes(4).toString('hex')}`;
+    for (const file of files) {
+      if (immediate) {
+        await this.storage.remove(storageId, file);
+      } else {
+        await this.storage.move(
+          storageId,
+          file,
+          `${TRASH_DIR}/${stamp}/${file}`,
+        );
+      }
+      done += 1;
+      onProgress(done, total);
+    }
+
+    // Moving/removing files individually can leave the now-empty source folder
+    // (and any directory markers) behind, so clear it. Skip for a single file —
+    // it was already handled above.
+    if (!isFile) {
+      await this.storage.remove(storageId, clean).catch(() => {});
+      onProgress(total, total);
+    }
+  }
+
+  /** Recursively collect every file path under a folder (forward-slash rel). */
+  private async collectFilesUnder(
+    storageId: string,
+    relDir: string,
+  ): Promise<string[]> {
+    const out: string[] = [];
+    const walk = async (dir: string): Promise<void> => {
+      const entries = await this.storage.list(storageId, dir);
+      for (const entry of entries) {
+        const rel = dir ? `${dir}/${entry.name}` : entry.name;
+        if (entry.type === 'dir') {
+          await walk(rel);
+        } else {
+          out.push(rel);
+        }
+      }
+    };
+    await walk(relDir);
+    return out;
+  }
+
+  /**
    * Permanently remove trashed batches older than the retention window for a
    * single user. Each batch folder is named `<deletedAtMs>-<rand>`; the leading
    * timestamp decides expiry. Returns the number of batches purged.

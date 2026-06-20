@@ -80,12 +80,34 @@ export class VaultController {
   async remove(
     @CurrentUser() user: AuthenticatedUser,
     @Query('path') path: string,
+    @Query('stream') stream: string,
+    @Res({ passthrough: true }) res?: Response,
   ) {
     if (!path) {
       throw new BadRequestException('path is required.');
     }
-    await this.vault.deleteEntry(user.username, path);
-    return { ok: true };
+    // Default (back-compatible) behaviour: do the delete and return JSON.
+    if (stream !== '1' || !res) {
+      await this.vault.deleteEntry(user.username, path);
+      return { ok: true };
+    }
+    // Streaming mode: emit NDJSON progress lines so the client can render a real
+    // progress bar while a large folder's files are moved/removed one by one.
+    res.setHeader('Content-Type', 'application/x-ndjson');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('X-Accel-Buffering', 'no'); // don't let nginx buffer the stream
+    const write = (obj: Record<string, unknown>) =>
+      res.write(`${JSON.stringify(obj)}\n`);
+    try {
+      await this.vault.deleteEntryProgress(user.username, path, (done, total) =>
+        write({ done, total }),
+      );
+      write({ ok: true });
+    } catch (err) {
+      write({ error: (err as Error)?.message || 'Delete failed.' });
+    } finally {
+      res.end();
+    }
   }
 
   @Post('upload')

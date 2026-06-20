@@ -127,6 +127,65 @@ async function api(method, url, body, isForm, timeoutMs) {
   return data;
 }
 
+// Delete an entry while streaming progress back. The server (with ?stream=1)
+// moves/removes the folder's files one by one and emits NDJSON lines
+// {done,total}; a final {ok:true} signals success, {error} a failure. onProgress
+// is called for each {done,total}. Returns the final {ok} object.
+async function apiDeleteStream(path, onProgress) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), MUTATION_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(
+      '/api/entry?stream=1&path=' + encodeURIComponent(path),
+      { method: 'DELETE', credentials: 'same-origin', signal: ctrl.signal },
+    );
+  } catch (e) {
+    clearTimeout(timer);
+    throw new Error(
+      e && e.name === 'AbortError' ? t('request_timeout') : t('network_error'),
+    );
+  }
+  if (res.status === 401) {
+    clearTimeout(timer);
+    window.location.href = '/login';
+    throw new Error('Not authenticated');
+  }
+  if (!res.ok || !res.body) {
+    clearTimeout(timer);
+    throw new Error(t('delete_failed_msg'));
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  let result = null;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        let obj;
+        try {
+          obj = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (obj.error) throw new Error(obj.error);
+        if (obj.ok) result = obj;
+        else if (typeof obj.done === 'number') onProgress(obj.done, obj.total);
+      }
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+  return result || { ok: true };
+}
+
 const $ = (sel) => document.querySelector(sel);
 const t = (key, vars) => (window.I18N ? window.I18N.t(key, vars) : key);
 const debounce = (fn, ms) => {
@@ -450,6 +509,27 @@ async function loadTree() {
   invalidateSearchIndex();
 }
 
+// Throttled tree refresh used during an upload so the sidebar updates live as
+// files land. Throttle (not debounce) so a continuous stream of completions
+// still refreshes periodically — at most once per interval — instead of only
+// after the whole upload goes quiet. Fires immediately, then trailing.
+let _treeRefreshTs = 0;
+let _treeRefreshTimer = null;
+function refreshTreeSoon() {
+  const INTERVAL = 1500;
+  const run = () => {
+    _treeRefreshTs = Date.now();
+    _treeRefreshTimer = null;
+    loadTree().catch(() => {});
+  };
+  const since = Date.now() - _treeRefreshTs;
+  if (since >= INTERVAL) {
+    run();
+  } else if (!_treeRefreshTimer) {
+    _treeRefreshTimer = setTimeout(run, INTERVAL - since);
+  }
+}
+
 // Dropping on empty tree space moves an entry to the vault root.
 (function setupRootDrop() {
   const tree = $('#tree');
@@ -757,6 +837,7 @@ async function uploadDataTransfer(dt, targetDir) {
       baseDir: targetDir,
       getKey: ensureVaultKey,
       t,
+      onFileComplete: refreshTreeSoon,
       onComplete: () => {
         expandAncestors(targetDir);
         loadTree();
@@ -944,24 +1025,20 @@ $('#context-menu').addEventListener('click', async (e) => {
       danger: true,
     });
     if (!ok) return;
-    // Deleting a folder can remove many files (slow on S3), so show the spinner
-    // and surface any failure instead of silently leaving a stale tree.
-    showLoading(t('deleting'));
+    // Deleting a folder can remove many files (slow on S3). Stream real progress
+    // so the user sees a moving bar instead of a multi-minute spinner.
+    showProgress(t('delete_progress'));
     try {
-      await api(
-        'DELETE',
-        '/api/entry?path=' + encodeURIComponent(node.path),
-        undefined,
-        false,
-        MUTATION_TIMEOUT_MS,
-      );
+      await apiDeleteStream(node.path, (done, total) => {
+        updateProgress(done, total, t('progress_files', { done, total }));
+      });
       if (state.current && state.current.path.startsWith(node.path)) {
         showWelcome();
       }
       await loadTree();
-      hideLoading();
+      hideProgress();
     } catch (err) {
-      hideLoading();
+      hideProgress();
       await uiAlert(t('delete_failed_title'), {
         message: err.message || t('delete_failed_msg'),
       });
@@ -1749,12 +1826,15 @@ async function runImport(files) {
       file,
       relativePath: file.webkitRelativePath || file.name,
     }));
+    const dir = state.selectedDir;
     await window.WOUpload.start({
       entries,
-      baseDir: state.selectedDir,
+      baseDir: dir,
       getKey: ensureVaultKey,
       t,
+      onFileComplete: refreshTreeSoon,
       onComplete: () => {
+        expandAncestors(dir);
         loadTree();
       },
     });
@@ -1802,26 +1882,38 @@ $('#export-btn').addEventListener('click', async () => {
   const originalIconClass = icon ? icon.className : '';
   btn.disabled = true;
   if (icon) icon.className = 'bi bi-arrow-repeat spin';
-  flash(t('preparing_download'));
   try {
     // Build the export archive in the browser: the server only holds
     // ciphertext, so we fetch every file, decrypt it with the vault key, and
-    // zip the plaintext locally.
+    // zip the plaintext locally. Show real per-file progress since a large vault
+    // can take minutes.
     const key = await ensureVaultKey();
+    showProgress(t('export_progress'));
     const list = await api('GET', '/api/files');
     const files = {};
+    const total = (list || []).length;
+    let done = 0;
+    updateProgress(0, total, t('progress_files', { done: 0, total }));
     for (const entry of list || []) {
       const res = await fetch(attachmentUrl(entry.path), {
         credentials: 'same-origin',
       });
-      if (!res.ok) continue;
-      const cipher = new Uint8Array(await res.arrayBuffer());
-      try {
-        files[entry.path] = await window.WOCrypto.decryptBytesMaybe(key, cipher);
-      } catch (e) {
-        /* skip files that fail to decrypt */
+      if (res.ok) {
+        const cipher = new Uint8Array(await res.arrayBuffer());
+        try {
+          files[entry.path] = await window.WOCrypto.decryptBytesMaybe(
+            key,
+            cipher,
+          );
+        } catch (e) {
+          /* skip files that fail to decrypt */
+        }
       }
+      done += 1;
+      updateProgress(done, total, t('progress_files', { done, total }));
     }
+    // Packaging the zip is a single synchronous step with no sub-progress.
+    updateProgress(total, total, t('export_packaging'));
     const zipped = window.WOZip.zip(files);
     const stamp = new Date().toISOString().slice(0, 10);
     const filename = 'vault-' + stamp + '.zip';
@@ -1837,6 +1929,7 @@ $('#export-btn').addEventListener('click', async () => {
   } catch {
     flash(t('export_failed'));
   } finally {
+    hideProgress();
     btn.disabled = false;
     if (icon) icon.className = originalIconClass;
   }
@@ -3155,6 +3248,53 @@ function hideLoading() {
   loadingCount = Math.max(0, loadingCount - 1);
   if (loadingCount > 0) return;
   const el = $('#loading-overlay');
+  if (el) el.hidden = true;
+}
+
+/* ---------- determinate progress (export / large delete) ---------- */
+
+// A separate overlay from the spinner so long operations (exporting or deleting
+// a large folder) show a real bar with counts instead of a spinner the user
+// stares at for minutes. Call showProgress(label), then updateProgress(done,
+// total, sub) as work proceeds, then hideProgress() when finished.
+function showProgress(label) {
+  let el = $('#progress-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'progress-overlay';
+    el.className = 'loading-overlay';
+    el.innerHTML =
+      '<div class="loading-box progress-box">' +
+      '<div class="loading-text"></div>' +
+      '<div class="progress-track indeterminate"><i></i></div>' +
+      '<div class="progress-sub"></div></div>';
+    document.body.appendChild(el);
+  }
+  el.querySelector('.loading-text').textContent = label || t('loading');
+  el.querySelector('.progress-sub').textContent = '';
+  const track = el.querySelector('.progress-track');
+  track.classList.add('indeterminate');
+  track.querySelector('i').style.width = '';
+  el.hidden = false;
+}
+
+function updateProgress(done, total, sub) {
+  const el = $('#progress-overlay');
+  if (!el) return;
+  const track = el.querySelector('.progress-track');
+  const bar = track.querySelector('i');
+  if (total && total > 0) {
+    track.classList.remove('indeterminate');
+    const pct = Math.min(100, Math.round((done / total) * 100));
+    bar.style.width = pct + '%';
+  } else {
+    track.classList.add('indeterminate');
+  }
+  el.querySelector('.progress-sub').textContent = sub || '';
+}
+
+function hideProgress() {
+  const el = $('#progress-overlay');
   if (el) el.hidden = true;
 }
 
