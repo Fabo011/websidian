@@ -224,24 +224,42 @@ a { color: var(--accent); }
 #sidebar-toggle { display: none; }
 .mobile-back { display: none; }
 
-.search-wrap { position: relative; flex: 1; max-width: 460px; }
-.search-icon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  pointer-events: none;
-  font-size: 14px;
+.search-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 460px;
 }
 #search-input {
   width: 100%;
-  padding: 7px 12px 7px 32px;
+  /* Right padding leaves room for the in-bar search button. */
+  padding: 7px 40px 7px 12px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
 }
+/* The search trigger lives *inside* the bar, on the right, so the magnifier
+   clearly reads as "search this field" rather than a topbar icon. */
+.search-btn {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.search-btn:hover { filter: brightness(1.08); }
+.search-btn:disabled { opacity: 0.6; cursor: default; }
 .search-results {
   position: absolute;
   top: 110%;
@@ -269,6 +287,24 @@ a { color: var(--accent); }
 .search-hit-name { font-weight: 600; font-size: 13px; }
 .search-hit-snippet { font-size: 12px; color: var(--text-muted); }
 .search-empty { padding: 10px 12px; color: var(--text-muted); font-size: 13px; }
+.search-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.search-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: search-spin 0.7s linear infinite;
+  flex: 0 0 auto;
+}
+@keyframes search-spin { to { transform: rotate(360deg); } }
 
 .topbar-right { display: flex; align-items: center; gap: 10px; }
 .user {
@@ -728,7 +764,9 @@ a { color: var(--accent); }
   }
   .topbar::-webkit-scrollbar { display: none; }
   .topbar > * { flex-shrink: 0; }
-  .search-wrap { flex: 0 0 auto; width: 40vw; min-width: 140px; max-width: none; }
+  .search-wrap { flex: 0 0 auto; width: 46vw; min-width: 160px; max-width: none; }
+  .search-btn { width: 34px; height: 34px; right: 3px; }
+  #search-input { padding-right: 42px; }
   .mobile-back { display: inline-flex; align-items: center; }
   .sidebar {
     position: absolute;

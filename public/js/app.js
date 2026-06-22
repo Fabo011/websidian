@@ -2155,6 +2155,29 @@ async function clearSearchCache() {
   }
 }
 
+// Run `fn` over `items` with at most `limit` in flight at once. Results keep
+// input order; rejected tasks surface their error (callers handle per-item).
+async function mapPool(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  const workers = new Array(Math.min(limit, items.length)).fill(0).map(
+    async () => {
+      while (true) {
+        const i = next++;
+        if (i >= items.length) return;
+        results[i] = await fn(items[i], i);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+// How many note downloads/decryptions to run concurrently while (re)building the
+// content index. The old serial loop meant one network round-trip per note —
+// minutes on a large vault. A pool keeps the pipe full without hammering it.
+const INDEX_CONCURRENCY = 12;
+
 async function buildSearchIndex() {
   if (searchIndex.built) return;
   if (searchIndex.building) return searchIndex.building;
@@ -2178,41 +2201,54 @@ async function buildSearchIndex() {
     }
 
     // Reuse cache entries whose version still matches the server; decrypt them
-    // straight into the in-memory index (no network).
+    // (in parallel) straight into the in-memory index — no network.
     const docs = [];
     const fresh = new Set();
-    for (const rec of cached) {
-      if (rec.version == null || rec.version !== wantedVersions.get(rec.path)) {
-        continue; // changed, deleted, or no longer a text file
-      }
+    const reusable = cached.filter(
+      (rec) => rec.version != null && rec.version === wantedVersions.get(rec.path),
+    );
+    const decoded = await mapPool(reusable, INDEX_CONCURRENCY, async (rec) => {
       try {
         const bytes = await window.WOCrypto.decryptBytes(key, rec.cipher);
-        const text = new TextDecoder().decode(bytes);
-        docs.push({ path: rec.path, name: basename(rec.path), text });
-        fresh.add(rec.path);
+        return { path: rec.path, name: basename(rec.path), text: new TextDecoder().decode(bytes) };
       } catch (e) {
-        /* unreadable cache entry: treat as a miss and refetch below */
+        return null; // unreadable cache entry: refetch below
+      }
+    });
+    for (const doc of decoded) {
+      if (doc) {
+        docs.push(doc);
+        fresh.add(doc.path);
       }
     }
 
-    // Download + decrypt only the notes that are new or changed since last sync.
+    // Download + decrypt only the notes that are new or changed since last sync,
+    // running up to INDEX_CONCURRENCY transfers at once.
     const puts = [];
-    for (const entry of wanted) {
-      if (fresh.has(entry.path)) continue;
+    const toFetch = wanted.filter((e) => !fresh.has(e.path));
+    const fetched = await mapPool(toFetch, INDEX_CONCURRENCY, async (entry) => {
       try {
         const res = await fetch(attachmentUrl(entry.path), {
           credentials: 'same-origin',
         });
-        if (!res.ok) continue;
+        if (!res.ok) return null;
         const cipher = new Uint8Array(await res.arrayBuffer());
         const bytes = await window.WOCrypto.decryptBytesMaybe(key, cipher);
         const text = new TextDecoder().decode(bytes);
-        docs.push({ path: entry.path, name: basename(entry.path), text });
         // Re-seal under the vault key so nothing readable sits in IndexedDB.
         const sealed = await window.WOCrypto.encryptBytes(key, bytes);
-        puts.push({ path: entry.path, version: entry.version, cipher: sealed });
+        return {
+          doc: { path: entry.path, name: basename(entry.path), text },
+          put: { path: entry.path, version: entry.version, cipher: sealed },
+        };
       } catch (e) {
-        /* skip unreadable files */
+        return null; // skip unreadable files
+      }
+    });
+    for (const r of fetched) {
+      if (r) {
+        docs.push(r.doc);
+        puts.push(r.put);
       }
     }
 
@@ -2265,15 +2301,92 @@ function searchContent(q) {
   return hits;
 }
 
-const runSearch = debounce(async (q) => {
+// Search runs only on an explicit trigger (Enter or the search button), never
+// while typing — this keeps a single query under the /api rate limit and avoids
+// a slow server walk per keystroke. `searching` guards against double-submits.
+let searching = false;
+
+async function runSearch(q) {
   const box = $('#search-results');
   if (!q.trim()) {
     box.hidden = true;
     box.innerHTML = '';
     return;
   }
-  // Name matches come from the server; content matches are computed locally
-  // over the decrypted index. Merge them, de-duplicating by path.
+  if (searching) return;
+  searching = true;
+  const btn = $('#search-btn');
+  if (btn) btn.disabled = true;
+  // Show a spinner immediately: the server name search plus building/syncing the
+  // local content index can take a moment on a large vault.
+  box.innerHTML =
+    '<div class="search-loading"><span class="search-spinner"></span>' +
+    t('searching') +
+    '</div>';
+  box.hidden = false;
+  try {
+    await runSearchInner(q, box);
+  } finally {
+    searching = false;
+    if (btn) btn.disabled = false;
+  }
+}
+
+/** Merge local content matches for `q` into a list of (name) hits, in place. */
+function mergeContentHits(hits, q) {
+  const byPath = new Set(hits.map((h) => h.path));
+  for (const ch of searchContent(q)) {
+    if (byPath.has(ch.path)) {
+      const existing = hits.find((h) => h.path === ch.path);
+      if (existing && !existing.snippet) existing.snippet = ch.snippet;
+    } else {
+      hits.push(ch);
+      byPath.add(ch.path);
+    }
+  }
+}
+
+/** Render the results dropdown. `indexing` appends a "searching contents" note. */
+function renderResults(box, hits, indexing) {
+  box.innerHTML = '';
+  if (!hits.length && !indexing) {
+    box.innerHTML = '<div class="search-empty">' + t('no_matches') + '</div>';
+    box.hidden = false;
+    return;
+  }
+  for (const hit of hits) {
+    const item = document.createElement('button');
+    item.className = 'search-hit';
+    const title = document.createElement('div');
+    title.className = 'search-hit-name';
+    title.textContent = hit.name;
+    item.appendChild(title);
+    if (hit.snippet) {
+      const sn = document.createElement('div');
+      sn.className = 'search-hit-snippet';
+      sn.textContent = hit.snippet;
+      item.appendChild(sn);
+    }
+    item.addEventListener('click', () => {
+      box.hidden = true;
+      $('#search-input').value = '';
+      openFile(hit.path);
+    });
+    box.appendChild(item);
+  }
+  if (indexing) {
+    const note = document.createElement('div');
+    note.className = 'search-loading';
+    note.innerHTML = '<span class="search-spinner"></span>' + t('searching_contents');
+    box.appendChild(note);
+  }
+  box.hidden = false;
+}
+
+async function runSearchInner(q, box) {
+  // Name matches come from the server (fast) and are shown immediately. Content
+  // matches need the local decrypted index; if it isn't warm yet we render name
+  // hits first, build the index in the background, then fold content hits in.
   let hits = [];
   try {
     const nameHits = await api('GET', '/api/search?q=' + encodeURIComponent(q));
@@ -2281,51 +2394,42 @@ const runSearch = debounce(async (q) => {
   } catch (e) {
     hits = [];
   }
+
+  if (searchIndex.built) {
+    mergeContentHits(hits, q);
+    renderResults(box, hits, false);
+    return;
+  }
+
+  // Index cold: paint name hits now (with an "indexing" note) so the user isn't
+  // staring at a spinner while the vault content index warms up.
+  renderResults(box, hits, true);
   try {
     await buildSearchIndex();
-    const byPath = new Set(hits.map((h) => h.path));
-    for (const ch of searchContent(q)) {
-      if (byPath.has(ch.path)) {
-        // Enrich the existing name hit with a content snippet.
-        const existing = hits.find((h) => h.path === ch.path);
-        if (existing && !existing.snippet) existing.snippet = ch.snippet;
-      } else {
-        hits.push(ch);
-        byPath.add(ch.path);
-      }
-    }
+    mergeContentHits(hits, q);
   } catch (e) {
-    /* content search unavailable; fall back to name hits only */
+    /* content search unavailable; keep name hits only */
   }
-  box.innerHTML = '';
-  if (!hits.length) {
-    box.innerHTML = '<div class="search-empty">' + t('no_matches') + '</div>';
-  } else {
-    for (const hit of hits) {
-      const item = document.createElement('button');
-      item.className = 'search-hit';
-      const title = document.createElement('div');
-      title.className = 'search-hit-name';
-      title.textContent = hit.name;
-      item.appendChild(title);
-      if (hit.snippet) {
-        const sn = document.createElement('div');
-        sn.className = 'search-hit-snippet';
-        sn.textContent = hit.snippet;
-        item.appendChild(sn);
-      }
-      item.addEventListener('click', () => {
-        box.hidden = true;
-        $('#search-input').value = '';
-        openFile(hit.path);
-      });
-      box.appendChild(item);
-    }
-  }
-  box.hidden = false;
-}, 250);
+  renderResults(box, hits, false);
+}
 
-$('#search-input').addEventListener('input', (e) => runSearch(e.target.value));
+$('#search-btn').addEventListener('click', () =>
+  runSearch($('#search-input').value),
+);
+$('#search-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    runSearch(e.target.value);
+  }
+});
+// Clearing the field (native "x" or empty) hides the results without searching.
+$('#search-input').addEventListener('input', (e) => {
+  if (!e.target.value.trim()) {
+    const box = $('#search-results');
+    box.hidden = true;
+    box.innerHTML = '';
+  }
+});
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.search-wrap')) $('#search-results').hidden = true;
 });
@@ -3441,6 +3545,17 @@ setSelectedDir('');
 // dismisses the prompt they are redirected to login.
 ensureVaultKey()
   .then(() => loadTree())
+  .then(() => {
+    // Warm the content index in the background once the UI is up, so the first
+    // search returns content matches immediately instead of waiting on a cold,
+    // full-vault index build. Best effort — failures are handled at search time.
+    const warm = () => buildSearchIndex().catch(() => {});
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(warm, { timeout: 3000 });
+    } else {
+      setTimeout(warm, 1200);
+    }
+  })
   .catch((e) => console.error(e));
 handleCheckoutReturn().catch((e) => console.error(e));
 

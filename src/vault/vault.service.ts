@@ -133,9 +133,24 @@ export class VaultService {
     private readonly config: ConfigService,
   ) {}
 
+  /**
+   * Short-lived per-user cache of the flat vault file list, used to answer
+   * repeated name searches without re-enumerating storage each time. Keyed by
+   * lowercased username. TTL comes from SEARCH_CACHE_TTL_MS (0 disables).
+   */
+  private readonly searchCache = new Map<
+    string,
+    { expires: number; files: Array<{ relPath: string }> }
+  >();
+
   /** Days a deleted item stays in the trash before permanent removal. */
   private get trashRetentionDays(): number {
     return this.config.get<AppConfig>('app')?.trashRetentionDays ?? 0;
+  }
+
+  /** TTL (ms) for the flat file-list search cache. 0 disables caching. */
+  private get searchCacheTtlMs(): number {
+    return this.config.get<AppConfig>('app')?.searchCacheTtlMs ?? 0;
   }
 
   /**
@@ -840,35 +855,77 @@ export class VaultService {
     if (!q) {
       return [];
     }
-    await this.ensureUserRoot(username);
-    const storageId = await this.sid(username);
+    const files = await this.searchFileList(username);
     const hits: SearchHit[] = [];
-    await this.searchWalk(storageId, '', q, hits);
-    return hits.slice(0, 100);
+    for (const { relPath } of files) {
+      // Soft-deleted items live under .trash and are hidden from search.
+      if (relPath.split('/')[0] === TRASH_DIR) {
+        continue;
+      }
+      const name = basename(relPath);
+      // Content is opaque ciphertext on the server; only names are searchable.
+      if (name.toLowerCase().includes(q)) {
+        hits.push({
+          path: relPath,
+          name,
+          matchedName: true,
+          matchedContent: false,
+        });
+        if (hits.length >= 100) {
+          break;
+        }
+      }
+    }
+    return hits;
   }
 
+  /**
+   * Flat list of every vault file, enumerated in a single storage pass (one S3
+   * `ListObjectsV2` walk rather than one request per directory). Results are
+   * cached per user for {@link searchCacheTtlMs} so a burst of searches reuses
+   * the same listing.
+   */
+  private async searchFileList(
+    username: string,
+  ): Promise<Array<{ relPath: string }>> {
+    const ttl = this.searchCacheTtlMs;
+    const cacheKey = username.toLowerCase();
+    if (ttl > 0) {
+      const cached = this.searchCache.get(cacheKey);
+      if (cached && cached.expires > Date.now()) {
+        return cached.files;
+      }
+    }
+    await this.ensureUserRoot(username);
+    const storageId = await this.sid(username);
+    const flat = await this.storage.walkFiles?.(storageId);
+    const files = flat
+      ? flat.map((f) => ({ relPath: f.relPath }))
+      : await this.searchWalk(storageId, '');
+    if (ttl > 0) {
+      this.searchCache.set(cacheKey, { expires: Date.now() + ttl, files });
+    }
+    return files;
+  }
+
+  /**
+   * Recursive fallback enumeration for storage backends without a flat
+   * {@link StorageProvider.walkFiles} (e.g. the local filesystem provider).
+   */
   private async searchWalk(
     storageId: string,
     relDir: string,
-    q: string,
-    hits: SearchHit[],
-  ): Promise<void> {
+  ): Promise<Array<{ relPath: string }>> {
+    const out: Array<{ relPath: string }> = [];
     const entries = await this.storage.list(storageId, relDir);
     for (const entry of entries) {
       const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
       if (entry.type === 'dir') {
-        await this.searchWalk(storageId, rel, q, hits);
-        continue;
-      }
-      // Content is opaque ciphertext on the server; only names are searchable.
-      if (entry.name.toLowerCase().includes(q)) {
-        hits.push({
-          path: rel,
-          name: entry.name,
-          matchedName: true,
-          matchedContent: false,
-        });
+        out.push(...(await this.searchWalk(storageId, rel)));
+      } else {
+        out.push({ relPath: rel });
       }
     }
+    return out;
   }
 }

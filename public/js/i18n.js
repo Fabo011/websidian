@@ -20,6 +20,9 @@
 
       /* topbar */
       search_placeholder: 'Search notes…',
+      search_button: 'Search',
+      searching: 'Searching…',
+      searching_contents: 'Searching note contents…',
       toggle_theme: 'Toggle light/dark',
       account_storage: 'Account & storage',
       logout: 'Logout',
@@ -580,6 +583,9 @@
       lang_switch: 'Sprache',
 
       search_placeholder: 'Notizen durchsuchen…',
+      search_button: 'Suchen',
+      searching: 'Suche läuft…',
+      searching_contents: 'Durchsuche Notizinhalte…',
       toggle_theme: 'Hell/Dunkel umschalten',
       account_storage: 'Konto & Speicher',
       logout: 'Abmelden',
