@@ -103,6 +103,10 @@ async function bootstrap() {
   // UI can render the actual free quota (driven by STORAGE_QUOTA_GB) instead of
   // a hardcoded "1 GB".
   expressInstance.locals.freeBytes = appConfig.tiers.free;
+  // Client-side graph cache TTL (ms), surfaced to the client so reopening the
+  // wikilink graph within the window reuses the built layout instead of
+  // refetching + re-simulating. Driven by GRAPH_CACHE_TTL_MS.
+  expressInstance.locals.graphCacheTtlMs = appConfig.graphCacheTtlMs;
   // Import limits, surfaced to the client (head partial) so the Import dialog can
   // tell the user the real caps. Mirror the defaults used in VaultController.
   expressInstance.locals.maxUploadFileMb = Math.max(

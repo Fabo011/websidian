@@ -45,5 +45,8 @@
   window.__WO_MAX_UPLOAD_MB__ = <%= typeof maxUploadFileMb !== 'undefined' ? maxUploadFileMb : 0 %>;
   window.__WO_MAX_IMPORT_FILES__ = <%= typeof maxImportFiles !== 'undefined' ? maxImportFiles : 0 %>;
   window.__WO_MAX_IMPORT_TOTAL_MB__ = <%= typeof maxImportTotalMb !== 'undefined' ? maxImportTotalMb : 0 %>;
+  // How long (ms) the client reuses a built wikilink graph before rebuilding,
+  // set by the server from GRAPH_CACHE_TTL_MS. app.js reads this.
+  window.__WO_GRAPH_CACHE_TTL_MS__ = <%= typeof graphCacheTtlMs !== 'undefined' ? graphCacheTtlMs : 0 %>;
 </script>
 <script src="/public/js/i18n.js?v=<%= v %>"></script>

@@ -505,8 +505,10 @@ async function loadTree() {
   container.innerHTML = '';
   container.appendChild(buildList(tree));
   // The vault changed shape; drop the cached full-text index so the next search
-  // rebuilds it from the current files.
+  // rebuilds it from the current files, and the graph so it reflects new/removed
+  // notes and links.
   invalidateSearchIndex();
+  if (typeof invalidateGraphCache === 'function') invalidateGraphCache();
 }
 
 // Throttled tree refresh used during an upload so the sidebar updates live as
@@ -1858,6 +1860,7 @@ async function saveCurrent() {
   if (result && result.version) state.current.version = result.version;
   state.dirty = false;
   invalidateSearchIndex();
+  invalidateGraphCache(); // note content (and thus its links) changed
   flash(t('saved'));
 }
 $('#save-btn').addEventListener('click', saveCurrent);
@@ -4248,13 +4251,52 @@ function graphZoomAround(px, py, factor) {
   requestGraphDraw();
 }
 
-async function openGraph() {
+// Timestamp of the last successful graph build. The built nodes/edges live in
+// `graphState` (with their settled positions), so reopening the graph within
+// the TTL reuses them — no refetch, no re-simulation. The vault key changes
+// (note saved, created, renamed, deleted) clear this via invalidateGraphCache().
+let graphBuiltAt = 0;
+function graphCacheTtl() {
+  return Number(window.__WO_GRAPH_CACHE_TTL_MS__) || 0;
+}
+function invalidateGraphCache() {
+  graphBuiltAt = 0;
+}
+
+/** Reveal the graph view and (re)draw the current `graphState` layout. */
+function showGraphView(resim) {
+  const n = graphState.nodes.length;
+  graphState.active = null;
+  hideAllViews();
+  state.current = null;
+  $('#graph-view').hidden = false;
+  $('#graph-empty').hidden = n > 0;
+  $('#graph-hint').hidden = n === 0;
+  $('#graph-tooltip').hidden = true;
+  maybeCloseSidebar();
+  // Defer sizing until the view is laid out so clientWidth/Height are correct.
+  requestAnimationFrame(() => {
+    resizeGraphCanvas();
+    if (resim) startGraphSim(1);
+    else requestGraphDraw();
+  });
+}
+
+async function openGraph(force) {
+  const ttl = graphCacheTtl();
+  const fresh =
+    !force && graphBuiltAt && graphState.nodes.length &&
+    Date.now() - graphBuiltAt < ttl;
+  if (fresh) {
+    // Reuse the cached layout (keeps the user's pan/zoom too).
+    showGraphView(false);
+    return;
+  }
   showLoading(t('graph_building'));
   try {
     const data = await buildGraphData();
     graphState.nodes = data.nodes;
     graphState.edges = data.edges;
-    graphState.active = null;
     graphState.scale = 1;
     graphState.offsetX = 0;
     graphState.offsetY = 0;
@@ -4266,18 +4308,8 @@ async function openGraph() {
       nd.x = Math.cos(a) * radius * jitter;
       nd.y = Math.sin(a) * radius * jitter;
     });
-    hideAllViews();
-    state.current = null;
-    $('#graph-view').hidden = false;
-    $('#graph-empty').hidden = n > 0;
-    $('#graph-hint').hidden = n === 0;
-    $('#graph-tooltip').hidden = true;
-    maybeCloseSidebar();
-    // Defer sizing until the view is laid out so clientWidth/Height are correct.
-    requestAnimationFrame(() => {
-      resizeGraphCanvas();
-      startGraphSim(1);
-    });
+    graphBuiltAt = Date.now();
+    showGraphView(true);
   } catch (err) {
     await uiAlert(t('open_failed_title'), { message: err.message || t('graph_failed') });
   } finally {
@@ -4287,7 +4319,7 @@ async function openGraph() {
 
 (function setupGraph() {
   const btn = $('#graph-btn');
-  if (btn) btn.addEventListener('click', openGraph);
+  if (btn) btn.addEventListener('click', () => openGraph());
   const canvas = $('#graph-canvas');
   if (!canvas) return;
 
@@ -4297,7 +4329,7 @@ async function openGraph() {
   $('#graph-zoom-out').addEventListener('click', () => {
     graphZoomAround(canvas.clientWidth / 2, canvas.clientHeight / 2, 0.8);
   });
-  $('#graph-refresh').addEventListener('click', openGraph);
+  $('#graph-refresh').addEventListener('click', () => openGraph(true));
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();

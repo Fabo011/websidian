@@ -112,6 +112,13 @@ export interface AppConfig {
    * the cache. Configured via SEARCH_CACHE_TTL_MS.
    */
   searchCacheTtlMs: number;
+  /**
+   * How long (ms) the client reuses an already-built wikilink graph before
+   * rebuilding it from the vault. Lets the user open a note from the graph and
+   * return without the whole graph reloading. 0 disables the cache (every open
+   * rebuilds). Configured via GRAPH_CACHE_TTL_MS.
+   */
+  graphCacheTtlMs: number;
   /** Marketing/pricing copy surfaced on the public landing page. */
   pricing: PricingConfig;
   /** Whether the AGB (terms) page and its footer link are shown. */
@@ -331,6 +338,12 @@ export default (): { app: AppConfig } => {
       searchCacheTtlMs: Math.max(
         0,
         parseNumber(process.env.SEARCH_CACHE_TTL_MS, 15000),
+      ),
+      // Client-side wikilink-graph reuse window. Default 5 min; set to 0 to
+      // rebuild on every open.
+      graphCacheTtlMs: Math.max(
+        0,
+        parseNumber(process.env.GRAPH_CACHE_TTL_MS, 300000),
       ),
       pricing: {
         pricePlus:
