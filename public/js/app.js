@@ -1130,6 +1130,7 @@ function setViewMode(viewing) {
     state.current &&
     (state.current.ext === 'md' || state.current.ext === 'markdown');
   state.viewing = viewing;
+  if (typeof closeWikiSuggest === 'function') closeWikiSuggest();
   if (viewing) {
     editor.hidden = true;
     preview.hidden = false;
@@ -1413,10 +1414,12 @@ function applyLinePrefix(prefix) {
 function applyMarkdown(action) {
   if (action === 'bold') {
     wrapSelection('**', '**', 'text');
+  } else if (action === 'highlight') {
+    wrapSelection('==', '==', 'text');
   } else if (action === 'image') {
     wrapSelection('![[', ']]', 'image.png');
   } else if (action === 'wikilink') {
-    wrapSelection('[[', ']]', 'The System');
+    startWikilink();
   } else if (MD_LINE_PREFIX[action]) {
     applyLinePrefix(MD_LINE_PREFIX[action]);
   }
@@ -1453,6 +1456,324 @@ document.addEventListener('click', (e) => {
     closeHeadingMenu();
   }
 });
+
+/* ---------- Obsidian-style list continuation ---------- */
+
+// When the caret line is a list/task/ordered item, pressing Enter starts the
+// next item automatically (so the user need not re-click the toolbar). Pressing
+// Enter on an empty item instead clears the marker and exits the list.
+const LIST_CONTINUE_RULES = [
+  // Task list: `- [ ] `, `* [x] `, … → next blank task item.
+  { re: /^(\s*)([-*+])(\s+)\[[ xX]\](\s+)/, next: (m) => `${m[1]}${m[2]}${m[3]}[ ]${m[4]}` },
+  // Bullet list: `- `, `* `, `+ ` → same marker.
+  { re: /^(\s*)([-*+])(\s+)/, next: (m) => `${m[1]}${m[2]}${m[3]}` },
+  // Ordered list: `1. `, `2) ` → incremented number, same delimiter.
+  { re: /^(\s*)(\d+)([.)])(\s+)/, next: (m) => `${m[1]}${Number(m[2]) + 1}${m[3]}${m[4]}` },
+];
+
+/**
+ * Continue the current list item on Enter. Returns true when it handled the
+ * keystroke (caller should suppress the default newline).
+ */
+function continueListItem() {
+  const editor = $('#editor');
+  const { selectionStart, selectionEnd, value } = editor;
+  if (selectionStart !== selectionEnd) return false; // active selection → default
+  const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+  const nl = value.indexOf('\n', selectionStart);
+  const lineEnd = nl === -1 ? value.length : nl;
+  const line = value.slice(lineStart, lineEnd);
+
+  for (const rule of LIST_CONTINUE_RULES) {
+    const m = rule.re.exec(line);
+    if (!m) continue;
+    const marker = m[0];
+    // Empty item (only the marker) → exit the list by removing the marker.
+    if (line.slice(marker.length).trim() === '') {
+      editor.value = value.slice(0, lineStart) + value.slice(lineStart + marker.length);
+      editor.selectionStart = editor.selectionEnd = lineStart;
+      fireEditorInput();
+      return true;
+    }
+    const insert = '\n' + rule.next(m);
+    editor.value = value.slice(0, selectionStart) + insert + value.slice(selectionEnd);
+    editor.selectionStart = editor.selectionEnd = selectionStart + insert.length;
+    fireEditorInput();
+    return true;
+  }
+  return false;
+}
+
+(function setupListContinuation() {
+  const editor = $('#editor');
+  if (!editor) return;
+  // Desktop: keydown lets us honour Shift+Enter (soft break) and skip IME.
+  editor.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+    if (wikiSuggest.open) return; // suggestion popup handles Enter itself
+    if (continueListItem()) e.preventDefault();
+  });
+  // Mobile: many virtual keyboards don't emit a usable Enter keydown, so fall
+  // back to beforeinput. If keydown already handled it, the default newline was
+  // prevented and this never fires for that keystroke.
+  editor.addEventListener('beforeinput', (e) => {
+    if (e.inputType !== 'insertLineBreak') return;
+    if (wikiSuggest.open) return;
+    if (continueListItem()) e.preventDefault();
+  });
+})();
+
+/* ---------- wikilink autocomplete (Obsidian-style) ---------- */
+
+// Typing `[[` (or pressing the toolbar wikilink button) opens a searchable
+// popup of the vault's notes so the user can link without remembering exact
+// names. The popup tracks the text between `[[` and the caret as a live query.
+const wikiSuggest = {
+  open: false,
+  items: [],
+  active: 0,
+  queryStart: -1, // index just after the `[[`
+};
+
+// CSS properties copied onto the mirror element used to locate the caret pixel
+// position inside the textarea (no native API exists for this).
+const CARET_MIRROR_PROPS = [
+  'boxSizing', 'width', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth',
+  'borderLeftWidth', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+  'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize', 'lineHeight',
+  'fontFamily', 'textAlign', 'textTransform', 'textIndent', 'letterSpacing',
+  'wordSpacing', 'tabSize',
+];
+
+/** Pixel coordinates of the caret (relative to the textarea border box). */
+function caretCoordinates(el, position) {
+  const computed = window.getComputedStyle(el);
+  const div = document.createElement('div');
+  const style = div.style;
+  style.position = 'absolute';
+  style.visibility = 'hidden';
+  style.whiteSpace = 'pre-wrap';
+  style.wordWrap = 'break-word';
+  style.overflow = 'hidden';
+  CARET_MIRROR_PROPS.forEach((p) => { style[p] = computed[p]; });
+  document.body.appendChild(div);
+  div.textContent = el.value.slice(0, position);
+  const span = document.createElement('span');
+  span.textContent = el.value.slice(position) || '.';
+  div.appendChild(span);
+  const coords = {
+    top: span.offsetTop + parseInt(computed.borderTopWidth, 10),
+    left: span.offsetLeft + parseInt(computed.borderLeftWidth, 10),
+    height: parseInt(computed.lineHeight, 10) || parseInt(computed.fontSize, 10),
+  };
+  document.body.removeChild(div);
+  return coords;
+}
+
+/** All markdown notes in the vault except the one being edited. */
+function mdNoteList() {
+  const cur = state.current ? state.current.path : null;
+  return collectVaultPaths()
+    .filter((p) => /\.(md|markdown)$/i.test(p) && p !== cur)
+    .map((p) => ({ path: p, name: p.split('/').pop().replace(/\.(md|markdown)$/i, '') }));
+}
+
+/** Rank notes against the query: exact > prefix > substring > path match. */
+function filterNotes(notes, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return notes.slice(0, 50);
+  const scored = [];
+  for (const n of notes) {
+    const name = n.name.toLowerCase();
+    const path = n.path.toLowerCase();
+    let score = -1;
+    if (name === q) score = 0;
+    else if (name.startsWith(q)) score = 1;
+    else if (name.includes(q)) score = 2;
+    else if (path.includes(q)) score = 3;
+    if (score >= 0) scored.push({ n, score });
+  }
+  scored.sort((a, b) => a.score - b.score || a.n.name.localeCompare(b.n.name));
+  return scored.slice(0, 50).map((s) => s.n);
+}
+
+/** Obsidian-style link target: bare note name when unique, else full path. */
+function wikiLinkName(file, notes) {
+  const dupe = notes.filter(
+    (o) => o.name.toLowerCase() === file.name.toLowerCase(),
+  ).length > 1;
+  return dupe ? file.path.replace(/\.(md|markdown)$/i, '') : file.name;
+}
+
+/** Detect an open `[[…` immediately before the caret on the current line. */
+function detectWikilinkContext() {
+  const editor = $('#editor');
+  const pos = editor.selectionStart;
+  if (pos !== editor.selectionEnd) return null;
+  const value = editor.value;
+  const lineStart = value.lastIndexOf('\n', pos - 1) + 1;
+  const before = value.slice(lineStart, pos);
+  const m = /\[\[([^[\]\n]*)$/.exec(before);
+  if (!m) return null;
+  return { query: m[1], queryStart: pos - m[1].length };
+}
+
+function closeWikiSuggest() {
+  if (!wikiSuggest.open) return;
+  wikiSuggest.open = false;
+  const box = $('#wikilink-suggest');
+  if (box) {
+    box.hidden = true;
+    box.innerHTML = '';
+  }
+}
+
+function renderWikiSuggest() {
+  const box = $('#wikilink-suggest');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!wikiSuggest.items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'wikilink-suggest-empty';
+    empty.textContent = t('wikilink_no_match');
+    box.appendChild(empty);
+    box.hidden = false;
+    return;
+  }
+  wikiSuggest.items.forEach((file, i) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'wikilink-suggest-item' + (i === wikiSuggest.active ? ' active' : '');
+    item.dataset.idx = String(i);
+    item.setAttribute('role', 'option');
+    const name = document.createElement('span');
+    name.className = 'wikilink-suggest-name';
+    name.textContent = file.name;
+    item.appendChild(name);
+    if (file.path !== file.name + '.md') {
+      const path = document.createElement('span');
+      path.className = 'wikilink-suggest-path';
+      path.textContent = file.path;
+      item.appendChild(path);
+    }
+    box.appendChild(item);
+  });
+  box.hidden = false;
+}
+
+/** Place the popup at the caret, flipping above the line if it would overflow. */
+function positionWikiSuggest() {
+  const editor = $('#editor');
+  const box = $('#wikilink-suggest');
+  if (!box || box.hidden) return;
+  const coords = caretCoordinates(editor, editor.selectionStart);
+  const surface = editor.parentElement; // .editor-surface (position: relative)
+  const top = coords.top - editor.scrollTop + coords.height;
+  const left = Math.max(4, coords.left - editor.scrollLeft);
+  box.style.left = Math.min(left, surface.clientWidth - box.offsetWidth - 4) + 'px';
+  if (top + box.offsetHeight > surface.clientHeight && coords.top - editor.scrollTop > box.offsetHeight) {
+    // Not enough room below — show above the current line.
+    box.style.top = (coords.top - editor.scrollTop - box.offsetHeight - 2) + 'px';
+  } else {
+    box.style.top = top + 'px';
+  }
+}
+
+function updateWikiSuggest() {
+  if (state.viewing) { closeWikiSuggest(); return; }
+  const ctx = detectWikilinkContext();
+  if (!ctx) { closeWikiSuggest(); return; }
+  const notes = mdNoteList();
+  wikiSuggest.notes = notes;
+  wikiSuggest.items = filterNotes(notes, ctx.query);
+  wikiSuggest.queryStart = ctx.queryStart;
+  wikiSuggest.active = 0;
+  wikiSuggest.open = true;
+  renderWikiSuggest();
+  positionWikiSuggest();
+}
+
+/** Insert the chosen note as a `[[link]]`, replacing the typed query. */
+function selectWikiSuggest(index) {
+  const file = wikiSuggest.items[index];
+  if (!file) return;
+  const editor = $('#editor');
+  const value = editor.value;
+  const pos = editor.selectionStart;
+  const name = wikiLinkName(file, wikiSuggest.notes || mdNoteList());
+  let tail = value.slice(pos);
+  if (tail.startsWith(']]')) tail = tail.slice(2); // avoid doubling the closer
+  const head = value.slice(0, wikiSuggest.queryStart); // keeps the leading `[[`
+  editor.value = head + name + ']]' + tail;
+  const caret = head.length + name.length + 2;
+  editor.selectionStart = editor.selectionEnd = caret;
+  closeWikiSuggest();
+  editor.focus();
+  fireEditorInput();
+}
+
+/** Toolbar wikilink button: drop a `[[` at the caret and open the popup. */
+function startWikilink() {
+  if (state.viewing) setViewMode(false);
+  const editor = $('#editor');
+  const { selectionStart: s, selectionEnd: e, value } = editor;
+  const sel = value.slice(s, e); // reuse any selected text as the initial query
+  const insert = '[[' + sel;
+  editor.value = value.slice(0, s) + insert + value.slice(e);
+  editor.selectionStart = editor.selectionEnd = s + insert.length;
+  editor.focus();
+  fireEditorInput();
+  updateWikiSuggest();
+}
+
+(function setupWikiSuggest() {
+  const editor = $('#editor');
+  const box = $('#wikilink-suggest');
+  if (!editor || !box) return;
+
+  editor.addEventListener('input', updateWikiSuggest);
+  editor.addEventListener('click', updateWikiSuggest);
+
+  editor.addEventListener('keydown', (e) => {
+    if (!wikiSuggest.open) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      wikiSuggest.active = Math.min(wikiSuggest.active + 1, wikiSuggest.items.length - 1);
+      renderWikiSuggest();
+      const el = box.querySelector('.wikilink-suggest-item.active');
+      if (el) el.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      wikiSuggest.active = Math.max(wikiSuggest.active - 1, 0);
+      renderWikiSuggest();
+      const el = box.querySelector('.wikilink-suggest-item.active');
+      if (el) el.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (!wikiSuggest.items.length) { closeWikiSuggest(); return; }
+      e.preventDefault();
+      selectWikiSuggest(wikiSuggest.active);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeWikiSuggest();
+    }
+  });
+
+  // Tap/click a suggestion (mousedown so it beats the textarea blur).
+  box.addEventListener('mousedown', (e) => {
+    const item = e.target.closest('.wikilink-suggest-item');
+    if (!item) return;
+    e.preventDefault();
+    selectWikiSuggest(Number(item.dataset.idx));
+  });
+
+  editor.addEventListener('blur', () => {
+    // Delay so a suggestion tap (which blurs the textarea) still registers.
+    setTimeout(closeWikiSuggest, 150);
+  });
+  editor.addEventListener('scroll', () => {
+    if (wikiSuggest.open) positionWikiSuggest();
+  });
+})();
 
 $('#preview').addEventListener('click', (e) => {
   const link = e.target.closest('a.wo-wikilink');

@@ -87,11 +87,13 @@
 
       /* markdown toolbar tooltips */
       md_bold_tip: 'Bold — wrap text in ** ** · e.g. **important**',
+      md_highlight_tip: 'Highlight — wrap text in == == · e.g. ==important==',
       md_heading_tip: 'Heading — pick a level (#, ##, …) · e.g. # Title',
       md_list_tip: 'Bullet list — start a line with "- " · e.g. - item',
       md_check_tip: 'Task list — start a line with "- [ ] " · e.g. - [ ] to do',
       md_image_tip: 'Embed image — ![[file]] · e.g. ![[diagram.png]]',
       md_wikilink_tip: 'Internal link — [[Note]] · e.g. [[The System]]',
+      wikilink_no_match: 'No matching notes',
 
       /* context menu */
       rename: 'Rename',
@@ -652,11 +654,13 @@
 
       /* Markdown-Werkzeugleiste */
       md_bold_tip: 'Fett — Text in ** ** einfassen · z. B. **wichtig**',
+      md_highlight_tip: 'Hervorheben — Text in == == einfassen · z. B. ==wichtig==',
       md_heading_tip: 'Überschrift — Ebene wählen (#, ##, …) · z. B. # Titel',
       md_list_tip: 'Aufzählung — Zeile mit „- " beginnen · z. B. - Eintrag',
       md_check_tip: 'Aufgabenliste — Zeile mit „- [ ] " beginnen · z. B. - [ ] Aufgabe',
       md_image_tip: 'Bild einbetten — ![[Datei]] · z. B. ![[diagramm.png]]',
       md_wikilink_tip: 'Interner Link — [[Notiz]] · z. B. [[The System]]',
+      wikilink_no_match: 'Keine passenden Notizen',
 
       rename: 'Umbenennen',
       ctx_new_note: 'Neue Notiz',

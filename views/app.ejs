@@ -62,6 +62,9 @@
             <button type="button" class="md-btn" data-md="bold" title="Bold — wrap text in ** ** · e.g. **important**" data-i18n-attr="title:md_bold_tip;aria-label:md_bold_tip" aria-label="Bold">
               <i class="bi bi-type-bold"></i>
             </button>
+            <button type="button" class="md-btn" data-md="highlight" title="Highlight — wrap text in == == · e.g. ==important==" data-i18n-attr="title:md_highlight_tip;aria-label:md_highlight_tip" aria-label="Highlight">
+              <i class="bi bi-highlighter"></i>
+            </button>
             <div class="md-dropdown">
               <button type="button" class="md-btn" data-md-heading-toggle aria-haspopup="true" aria-expanded="false" title="Heading — pick a level (#, ##, …) · e.g. # Title" data-i18n-attr="title:md_heading_tip;aria-label:md_heading_tip" aria-label="Heading">
                 <i class="bi bi-type-h1"></i> <i class="bi bi-caret-down-fill md-caret"></i>
@@ -91,6 +94,7 @@
           <div class="editor-surface">
             <textarea id="editor" spellcheck="false" placeholder="# Start writing…"></textarea>
             <div id="preview" class="preview markdown" hidden></div>
+            <div id="wikilink-suggest" class="wikilink-suggest" hidden role="listbox" aria-label="Link suggestions"></div>
           </div>
         </div>
       </section>

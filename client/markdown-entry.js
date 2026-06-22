@@ -209,6 +209,106 @@ function classifyHref(href, ctx) {
   return null;
 }
 
+/**
+ * Obsidian-style `==highlight==` support. markdown-it has no native `==mark==`
+ * rule, so we register one (a compact port of markdown-it-mark) that turns
+ * `==text==` into `<mark>text</mark>`. `<mark>` is in DOMPurify's default
+ * allow-list, so it survives sanitization unchanged.
+ */
+function markPlugin(md) {
+  function tokenize(state, silent) {
+    const start = state.pos;
+    const marker = state.src.charCodeAt(start);
+    if (silent) return false;
+    if (marker !== 0x3d /* = */) return false;
+
+    const scanned = state.scanDelims(state.pos, true);
+    let len = scanned.length;
+    const ch = String.fromCharCode(marker);
+    if (len < 2) return false;
+
+    let token;
+    if (len % 2) {
+      token = state.push('text', '', 0);
+      token.content = ch;
+      len--;
+    }
+
+    for (let i = 0; i < len; i += 2) {
+      token = state.push('text', '', 0);
+      token.content = ch + ch;
+      state.delimiters.push({
+        marker,
+        length: 0,
+        jump: i / 2,
+        token: state.tokens.length - 1,
+        end: -1,
+        open: scanned.can_open,
+        close: scanned.can_close,
+      });
+    }
+
+    state.pos += scanned.length;
+    return true;
+  }
+
+  function postProcess(state, delimiters) {
+    const loneMarkers = [];
+    const max = delimiters.length;
+    for (let i = 0; i < max; i++) {
+      const startDelim = delimiters[i];
+      if (startDelim.marker !== 0x3d /* = */) continue;
+      if (startDelim.end === -1) continue;
+      const endDelim = delimiters[startDelim.end];
+
+      let token = state.tokens[startDelim.token];
+      token.type = 'mark_open';
+      token.tag = 'mark';
+      token.nesting = 1;
+      token.markup = '==';
+      token.content = '';
+
+      token = state.tokens[endDelim.token];
+      token.type = 'mark_close';
+      token.tag = 'mark';
+      token.nesting = -1;
+      token.markup = '==';
+      token.content = '';
+
+      if (
+        state.tokens[endDelim.token - 1].type === 'text' &&
+        state.tokens[endDelim.token - 1].content === '='
+      ) {
+        loneMarkers.push(endDelim.token - 1);
+      }
+    }
+
+    while (loneMarkers.length) {
+      const i = loneMarkers.pop();
+      let j = i + 1;
+      while (j < state.tokens.length && state.tokens[j].type === 'mark_close') j++;
+      j--;
+      if (i !== j) {
+        const token = state.tokens[j];
+        state.tokens[j] = state.tokens[i];
+        state.tokens[i] = token;
+      }
+    }
+  }
+
+  md.inline.ruler.before('emphasis', 'mark', tokenize);
+  md.inline.ruler2.before('emphasis', 'mark', (state) => {
+    const tokensMeta = state.tokens_meta;
+    const max = (state.tokens_meta || []).length;
+    postProcess(state, state.delimiters);
+    for (let curr = 0; curr < max; curr++) {
+      if (tokensMeta[curr] && tokensMeta[curr].delimiters) {
+        postProcess(state, tokensMeta[curr].delimiters);
+      }
+    }
+  });
+}
+
 function createRenderer() {
   const md = new MarkdownIt({
     html: false,
@@ -218,6 +318,8 @@ function createRenderer() {
     highlight: (code, lang) =>
       `<pre class="hljs"><code>${highlightToHtml(code, lang)}</code></pre>`,
   });
+
+  md.use(markPlugin);
 
   const defaultValidate = md.validateLink.bind(md);
   md.validateLink = (url) =>
