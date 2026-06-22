@@ -100,6 +100,7 @@
       ctx_new_folder: 'New folder',
       ctx_upload: 'Upload files here',
       ctx_import: 'Import folder here',
+      ctx_download: 'Download',
       delete: 'Delete',
       copy: 'Copy',
 
@@ -217,6 +218,7 @@
       imported_n: 'Imported {n} file(s)',
       preparing_download: 'Preparing vault download…',
       export_failed: 'Could not export your vault. Please try again.',
+      download_failed: 'Could not download. Please try again.',
       opening_file: 'Opening…',
       uploading: 'Uploading…',
       importing: 'Importing…',
@@ -662,6 +664,7 @@
       ctx_new_folder: 'Neuer Ordner',
       ctx_upload: 'Dateien hierher hochladen',
       ctx_import: 'Ordner hierher importieren',
+      ctx_download: 'Herunterladen',
       delete: 'Löschen',
       copy: 'Kopieren',
 
@@ -777,6 +780,7 @@
       imported_n: '{n} Datei(en) importiert',
       preparing_download: 'Tresor-Download wird vorbereitet…',
       export_failed: 'Dein Tresor konnte nicht exportiert werden. Bitte versuche es erneut.',
+      download_failed: 'Download fehlgeschlagen. Bitte versuche es erneut.',
       opening_file: 'Wird geöffnet…',
       uploading: 'Wird hochgeladen…',
       importing: 'Wird importiert…',

@@ -1018,6 +1018,16 @@ $('#context-menu').addEventListener('click', async (e) => {
   } else if (action === 'import') {
     selectDirByPath(node.path);
     openImportModal();
+  } else if (action === 'download') {
+    try {
+      if (node.type === 'dir') {
+        await downloadFolderNode(node);
+      } else {
+        await downloadFileNode(node);
+      }
+    } catch {
+      flash(t('download_failed'));
+    }
   } else if (action === 'delete') {
     const ok = await uiConfirm(t('delete'), {
       message: t('confirm_delete_msg', { name: node.name }),
@@ -1934,6 +1944,75 @@ $('#export-btn').addEventListener('click', async () => {
     if (icon) icon.className = originalIconClass;
   }
 });
+
+/** Trigger a browser download for an in-memory blob. */
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Fetch a single vault file, decrypt it, and download the plaintext. */
+async function downloadFileNode(node) {
+  const key = await ensureVaultKey();
+  const res = await fetch(attachmentUrl(node.path), {
+    credentials: 'same-origin',
+  });
+  if (!res.ok) throw new Error('fetch failed');
+  const cipher = new Uint8Array(await res.arrayBuffer());
+  const plain = await window.WOCrypto.decryptBytesMaybe(key, cipher);
+  const blob = new Blob([plain], { type: mimeForPath(node.path) });
+  triggerDownload(blob, basename(node.path));
+}
+
+/** Decrypt every file under a folder and download them as a single zip. */
+async function downloadFolderNode(node) {
+  const key = await ensureVaultKey();
+  showProgress(t('export_progress'));
+  try {
+    const list = await api('GET', '/api/files');
+    const prefix = node.path + '/';
+    const entries = (list || []).filter(
+      (e) => e.path === node.path || e.path.startsWith(prefix),
+    );
+    // Keep the folder name as the archive root by stripping its parent path.
+    const parent = dirname(node.path);
+    const strip = parent ? parent + '/' : '';
+    const files = {};
+    const total = entries.length;
+    let done = 0;
+    updateProgress(0, total, t('progress_files', { done: 0, total }));
+    for (const entry of entries) {
+      const res = await fetch(attachmentUrl(entry.path), {
+        credentials: 'same-origin',
+      });
+      if (res.ok) {
+        const cipher = new Uint8Array(await res.arrayBuffer());
+        try {
+          const rel = entry.path.startsWith(strip)
+            ? entry.path.slice(strip.length)
+            : entry.path;
+          files[rel] = await window.WOCrypto.decryptBytesMaybe(key, cipher);
+        } catch (e) {
+          /* skip files that fail to decrypt */
+        }
+      }
+      done += 1;
+      updateProgress(done, total, t('progress_files', { done, total }));
+    }
+    updateProgress(total, total, t('export_packaging'));
+    const zipped = window.WOZip.zip(files);
+    const blob = new Blob([zipped], { type: 'application/zip' });
+    triggerDownload(blob, basename(node.path) + '.zip');
+  } finally {
+    hideProgress();
+  }
+}
 
 /* ---------- trash ---------- */
 
