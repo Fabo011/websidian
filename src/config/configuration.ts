@@ -106,6 +106,19 @@ export interface AppConfig {
   encryption: { enabled: boolean; key: string };
   /** API request rate limiting (protects storage/S3 from abuse + reload storms). */
   rateLimit: RateLimitConfig;
+  /**
+   * How long (ms) the server caches a user's flat file list to answer repeated
+   * name searches without re-listing the whole vault from storage. 0 disables
+   * the cache. Configured via SEARCH_CACHE_TTL_MS.
+   */
+  searchCacheTtlMs: number;
+  /**
+   * How long (ms) the client reuses an already-built wikilink graph before
+   * rebuilding it from the vault. Lets the user open a note from the graph and
+   * return without the whole graph reloading. 0 disables the cache (every open
+   * rebuilds). Configured via GRAPH_CACHE_TTL_MS.
+   */
+  graphCacheTtlMs: number;
   /** Marketing/pricing copy surfaced on the public landing page. */
   pricing: PricingConfig;
   /** Whether the AGB (terms) page and its footer link are shown. */
@@ -320,6 +333,18 @@ export default (): { app: AppConfig } => {
         // Max requests per window, per user (default 60/min ≈ 1 req/sec).
         max: Math.max(1, parseNumber(process.env.RATE_LIMIT_MAX, 60)),
       },
+      // Server-side flat file-list cache TTL for name search. Default 15s; set
+      // to 0 to disable (every search re-lists the vault from storage).
+      searchCacheTtlMs: Math.max(
+        0,
+        parseNumber(process.env.SEARCH_CACHE_TTL_MS, 15000),
+      ),
+      // Client-side wikilink-graph reuse window. Default 5 min; set to 0 to
+      // rebuild on every open.
+      graphCacheTtlMs: Math.max(
+        0,
+        parseNumber(process.env.GRAPH_CACHE_TTL_MS, 300000),
+      ),
       pricing: {
         pricePlus:
           process.env.PRICE_PLUS?.trim() || process.env.PRICE_5GB?.trim() || '',

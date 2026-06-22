@@ -187,6 +187,15 @@ export class VaultController {
     return files.map((f) => ({ path: f.relPath, version: f.version }));
   }
 
+  /**
+   * Return every markdown note's ciphertext in one response so the client can
+   * build the wikilink graph with a single request instead of one per note.
+   */
+  @Get('graph/notes')
+  graphNotes(@CurrentUser() user: AuthenticatedUser) {
+    return this.vault.readNotesContent(user.username);
+  }
+
   @Get('attachment')
   async attachment(
     @CurrentUser() user: AuthenticatedUser,

@@ -20,10 +20,14 @@
 
       /* topbar */
       search_placeholder: 'Search notes…',
+      search_button: 'Search',
+      searching: 'Searching…',
+      searching_contents: 'Searching note contents…',
       toggle_theme: 'Toggle light/dark',
       account_storage: 'Account & storage',
       logout: 'Logout',
       toggle_sidebar: 'Toggle sidebar',
+      resize_sidebar: 'Resize sidebar',
 
       /* sidebar tools */
       tool_note: 'Note',
@@ -33,6 +37,16 @@
       tool_import: 'Import folder',
       tool_export: 'Export',
       tool_weblinks: 'Web links',
+      tool_graph: 'Graph',
+      title_graph: 'Open the wikilink graph',
+      graph_title: 'Graph',
+      graph_empty: 'No notes to graph yet. Create notes and connect them with [[wikilinks]].',
+      graph_hint: 'Tap a dot to see its name, then tap the name to open it.',
+      graph_zoom_in: 'Zoom in',
+      graph_zoom_out: 'Zoom out',
+      graph_refresh: 'Rebuild the graph',
+      graph_building: 'Building graph…',
+      graph_failed: 'Could not build the graph.',
       title_new_note: 'Create a new markdown note',
       title_new_file: 'Create a new Excalidraw drawing',
       title_new_folder: 'Create a new folder',
@@ -83,11 +97,13 @@
 
       /* markdown toolbar tooltips */
       md_bold_tip: 'Bold — wrap text in ** ** · e.g. **important**',
+      md_highlight_tip: 'Highlight — wrap text in == == · e.g. ==important==',
       md_heading_tip: 'Heading — pick a level (#, ##, …) · e.g. # Title',
       md_list_tip: 'Bullet list — start a line with "- " · e.g. - item',
       md_check_tip: 'Task list — start a line with "- [ ] " · e.g. - [ ] to do',
       md_image_tip: 'Embed image — ![[file]] · e.g. ![[diagram.png]]',
       md_wikilink_tip: 'Internal link — [[Note]] · e.g. [[The System]]',
+      wikilink_no_match: 'No matching notes',
 
       /* context menu */
       rename: 'Rename',
@@ -96,6 +112,7 @@
       ctx_new_folder: 'New folder',
       ctx_upload: 'Upload files here',
       ctx_import: 'Import folder here',
+      ctx_download: 'Download',
       delete: 'Delete',
       copy: 'Copy',
 
@@ -213,6 +230,7 @@
       imported_n: 'Imported {n} file(s)',
       preparing_download: 'Preparing vault download…',
       export_failed: 'Could not export your vault. Please try again.',
+      download_failed: 'Could not download. Please try again.',
       opening_file: 'Opening…',
       uploading: 'Uploading…',
       importing: 'Importing…',
@@ -580,10 +598,14 @@
       lang_switch: 'Sprache',
 
       search_placeholder: 'Notizen durchsuchen…',
+      search_button: 'Suchen',
+      searching: 'Suche läuft…',
+      searching_contents: 'Durchsuche Notizinhalte…',
       toggle_theme: 'Hell/Dunkel umschalten',
       account_storage: 'Konto & Speicher',
       logout: 'Abmelden',
       toggle_sidebar: 'Seitenleiste umschalten',
+      resize_sidebar: 'Seitenleiste anpassen',
 
       tool_note: 'Notiz',
       tool_file: 'Zeichnung',
@@ -592,6 +614,16 @@
       tool_import: 'Ordner importieren',
       tool_export: 'Exportieren',
       tool_weblinks: 'Weblinks',
+      tool_graph: 'Graph',
+      title_graph: 'Wikilink-Graph öffnen',
+      graph_title: 'Graph',
+      graph_empty: 'Noch keine Notizen für den Graph. Erstelle Notizen und verbinde sie mit [[Wikilinks]].',
+      graph_hint: 'Auf einen Punkt tippen, um den Namen zu sehen, dann auf den Namen tippen zum Öffnen.',
+      graph_zoom_in: 'Vergrößern',
+      graph_zoom_out: 'Verkleinern',
+      graph_refresh: 'Graph neu aufbauen',
+      graph_building: 'Graph wird erstellt…',
+      graph_failed: 'Graph konnte nicht erstellt werden.',
       title_new_note: 'Neue Markdown-Notiz erstellen',
       title_new_file: 'Neue Excalidraw-Zeichnung erstellen',
       title_new_folder: 'Neuen Ordner erstellen',
@@ -642,11 +674,13 @@
 
       /* Markdown-Werkzeugleiste */
       md_bold_tip: 'Fett — Text in ** ** einfassen · z. B. **wichtig**',
+      md_highlight_tip: 'Hervorheben — Text in == == einfassen · z. B. ==wichtig==',
       md_heading_tip: 'Überschrift — Ebene wählen (#, ##, …) · z. B. # Titel',
       md_list_tip: 'Aufzählung — Zeile mit „- " beginnen · z. B. - Eintrag',
       md_check_tip: 'Aufgabenliste — Zeile mit „- [ ] " beginnen · z. B. - [ ] Aufgabe',
       md_image_tip: 'Bild einbetten — ![[Datei]] · z. B. ![[diagramm.png]]',
       md_wikilink_tip: 'Interner Link — [[Notiz]] · z. B. [[The System]]',
+      wikilink_no_match: 'Keine passenden Notizen',
 
       rename: 'Umbenennen',
       ctx_new_note: 'Neue Notiz',
@@ -654,6 +688,7 @@
       ctx_new_folder: 'Neuer Ordner',
       ctx_upload: 'Dateien hierher hochladen',
       ctx_import: 'Ordner hierher importieren',
+      ctx_download: 'Herunterladen',
       delete: 'Löschen',
       copy: 'Kopieren',
 
@@ -769,6 +804,7 @@
       imported_n: '{n} Datei(en) importiert',
       preparing_download: 'Tresor-Download wird vorbereitet…',
       export_failed: 'Dein Tresor konnte nicht exportiert werden. Bitte versuche es erneut.',
+      download_failed: 'Download fehlgeschlagen. Bitte versuche es erneut.',
       opening_file: 'Wird geöffnet…',
       uploading: 'Wird hochgeladen…',
       importing: 'Wird importiert…',

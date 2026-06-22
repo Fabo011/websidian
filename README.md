@@ -56,6 +56,7 @@ Copy `.env.example` to `.env` and adjust:
 | `RATE_LIMIT_ENABLED` | `true`               | Throttle the `/api` data routes per user (`false` to disable) |
 | `RATE_LIMIT_WINDOW_SECONDS` | `60`          | Length of the rate-limit window in seconds       |
 | `RATE_LIMIT_MAX`     | `60`                 | Max API requests per window, per user/IP         |
+| `SEARCH_CACHE_TTL_MS` | `15000`             | How long (ms) the server caches a user's flat file list for name search; `0` disables. New/renamed files may take up to this long to appear in name search |
 
 **Encryption (DB columns at rest)**
 

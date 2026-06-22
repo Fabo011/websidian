@@ -505,8 +505,10 @@ async function loadTree() {
   container.innerHTML = '';
   container.appendChild(buildList(tree));
   // The vault changed shape; drop the cached full-text index so the next search
-  // rebuilds it from the current files.
+  // rebuilds it from the current files, and the graph so it reflects new/removed
+  // notes and links.
   invalidateSearchIndex();
+  if (typeof invalidateGraphCache === 'function') invalidateGraphCache();
 }
 
 // Throttled tree refresh used during an upload so the sidebar updates live as
@@ -1018,6 +1020,16 @@ $('#context-menu').addEventListener('click', async (e) => {
   } else if (action === 'import') {
     selectDirByPath(node.path);
     openImportModal();
+  } else if (action === 'download') {
+    try {
+      if (node.type === 'dir') {
+        await downloadFolderNode(node);
+      } else {
+        await downloadFileNode(node);
+      }
+    } catch {
+      flash(t('download_failed'));
+    }
   } else if (action === 'delete') {
     const ok = await uiConfirm(t('delete'), {
       message: t('confirm_delete_msg', { name: node.name }),
@@ -1051,6 +1063,7 @@ $('#context-menu').addEventListener('click', async (e) => {
 function hideAllViews() {
   $('#welcome').hidden = true;
   document.querySelectorAll('.view').forEach((v) => (v.hidden = true));
+  if (typeof stopGraphSim === 'function') stopGraphSim();
 }
 function showWelcome() {
   hideAllViews();
@@ -1120,6 +1133,7 @@ function setViewMode(viewing) {
     state.current &&
     (state.current.ext === 'md' || state.current.ext === 'markdown');
   state.viewing = viewing;
+  if (typeof closeWikiSuggest === 'function') closeWikiSuggest();
   if (viewing) {
     editor.hidden = true;
     preview.hidden = false;
@@ -1403,10 +1417,12 @@ function applyLinePrefix(prefix) {
 function applyMarkdown(action) {
   if (action === 'bold') {
     wrapSelection('**', '**', 'text');
+  } else if (action === 'highlight') {
+    wrapSelection('==', '==', 'text');
   } else if (action === 'image') {
     wrapSelection('![[', ']]', 'image.png');
   } else if (action === 'wikilink') {
-    wrapSelection('[[', ']]', 'The System');
+    startWikilink();
   } else if (MD_LINE_PREFIX[action]) {
     applyLinePrefix(MD_LINE_PREFIX[action]);
   }
@@ -1443,6 +1459,324 @@ document.addEventListener('click', (e) => {
     closeHeadingMenu();
   }
 });
+
+/* ---------- Obsidian-style list continuation ---------- */
+
+// When the caret line is a list/task/ordered item, pressing Enter starts the
+// next item automatically (so the user need not re-click the toolbar). Pressing
+// Enter on an empty item instead clears the marker and exits the list.
+const LIST_CONTINUE_RULES = [
+  // Task list: `- [ ] `, `* [x] `, … → next blank task item.
+  { re: /^(\s*)([-*+])(\s+)\[[ xX]\](\s+)/, next: (m) => `${m[1]}${m[2]}${m[3]}[ ]${m[4]}` },
+  // Bullet list: `- `, `* `, `+ ` → same marker.
+  { re: /^(\s*)([-*+])(\s+)/, next: (m) => `${m[1]}${m[2]}${m[3]}` },
+  // Ordered list: `1. `, `2) ` → incremented number, same delimiter.
+  { re: /^(\s*)(\d+)([.)])(\s+)/, next: (m) => `${m[1]}${Number(m[2]) + 1}${m[3]}${m[4]}` },
+];
+
+/**
+ * Continue the current list item on Enter. Returns true when it handled the
+ * keystroke (caller should suppress the default newline).
+ */
+function continueListItem() {
+  const editor = $('#editor');
+  const { selectionStart, selectionEnd, value } = editor;
+  if (selectionStart !== selectionEnd) return false; // active selection → default
+  const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+  const nl = value.indexOf('\n', selectionStart);
+  const lineEnd = nl === -1 ? value.length : nl;
+  const line = value.slice(lineStart, lineEnd);
+
+  for (const rule of LIST_CONTINUE_RULES) {
+    const m = rule.re.exec(line);
+    if (!m) continue;
+    const marker = m[0];
+    // Empty item (only the marker) → exit the list by removing the marker.
+    if (line.slice(marker.length).trim() === '') {
+      editor.value = value.slice(0, lineStart) + value.slice(lineStart + marker.length);
+      editor.selectionStart = editor.selectionEnd = lineStart;
+      fireEditorInput();
+      return true;
+    }
+    const insert = '\n' + rule.next(m);
+    editor.value = value.slice(0, selectionStart) + insert + value.slice(selectionEnd);
+    editor.selectionStart = editor.selectionEnd = selectionStart + insert.length;
+    fireEditorInput();
+    return true;
+  }
+  return false;
+}
+
+(function setupListContinuation() {
+  const editor = $('#editor');
+  if (!editor) return;
+  // Desktop: keydown lets us honour Shift+Enter (soft break) and skip IME.
+  editor.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+    if (wikiSuggest.open) return; // suggestion popup handles Enter itself
+    if (continueListItem()) e.preventDefault();
+  });
+  // Mobile: many virtual keyboards don't emit a usable Enter keydown, so fall
+  // back to beforeinput. If keydown already handled it, the default newline was
+  // prevented and this never fires for that keystroke.
+  editor.addEventListener('beforeinput', (e) => {
+    if (e.inputType !== 'insertLineBreak') return;
+    if (wikiSuggest.open) return;
+    if (continueListItem()) e.preventDefault();
+  });
+})();
+
+/* ---------- wikilink autocomplete (Obsidian-style) ---------- */
+
+// Typing `[[` (or pressing the toolbar wikilink button) opens a searchable
+// popup of the vault's notes so the user can link without remembering exact
+// names. The popup tracks the text between `[[` and the caret as a live query.
+const wikiSuggest = {
+  open: false,
+  items: [],
+  active: 0,
+  queryStart: -1, // index just after the `[[`
+};
+
+// CSS properties copied onto the mirror element used to locate the caret pixel
+// position inside the textarea (no native API exists for this).
+const CARET_MIRROR_PROPS = [
+  'boxSizing', 'width', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth',
+  'borderLeftWidth', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+  'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize', 'lineHeight',
+  'fontFamily', 'textAlign', 'textTransform', 'textIndent', 'letterSpacing',
+  'wordSpacing', 'tabSize',
+];
+
+/** Pixel coordinates of the caret (relative to the textarea border box). */
+function caretCoordinates(el, position) {
+  const computed = window.getComputedStyle(el);
+  const div = document.createElement('div');
+  const style = div.style;
+  style.position = 'absolute';
+  style.visibility = 'hidden';
+  style.whiteSpace = 'pre-wrap';
+  style.wordWrap = 'break-word';
+  style.overflow = 'hidden';
+  CARET_MIRROR_PROPS.forEach((p) => { style[p] = computed[p]; });
+  document.body.appendChild(div);
+  div.textContent = el.value.slice(0, position);
+  const span = document.createElement('span');
+  span.textContent = el.value.slice(position) || '.';
+  div.appendChild(span);
+  const coords = {
+    top: span.offsetTop + parseInt(computed.borderTopWidth, 10),
+    left: span.offsetLeft + parseInt(computed.borderLeftWidth, 10),
+    height: parseInt(computed.lineHeight, 10) || parseInt(computed.fontSize, 10),
+  };
+  document.body.removeChild(div);
+  return coords;
+}
+
+/** All markdown notes in the vault except the one being edited. */
+function mdNoteList() {
+  const cur = state.current ? state.current.path : null;
+  return collectVaultPaths()
+    .filter((p) => /\.(md|markdown)$/i.test(p) && p !== cur)
+    .map((p) => ({ path: p, name: p.split('/').pop().replace(/\.(md|markdown)$/i, '') }));
+}
+
+/** Rank notes against the query: exact > prefix > substring > path match. */
+function filterNotes(notes, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return notes.slice(0, 50);
+  const scored = [];
+  for (const n of notes) {
+    const name = n.name.toLowerCase();
+    const path = n.path.toLowerCase();
+    let score = -1;
+    if (name === q) score = 0;
+    else if (name.startsWith(q)) score = 1;
+    else if (name.includes(q)) score = 2;
+    else if (path.includes(q)) score = 3;
+    if (score >= 0) scored.push({ n, score });
+  }
+  scored.sort((a, b) => a.score - b.score || a.n.name.localeCompare(b.n.name));
+  return scored.slice(0, 50).map((s) => s.n);
+}
+
+/** Obsidian-style link target: bare note name when unique, else full path. */
+function wikiLinkName(file, notes) {
+  const dupe = notes.filter(
+    (o) => o.name.toLowerCase() === file.name.toLowerCase(),
+  ).length > 1;
+  return dupe ? file.path.replace(/\.(md|markdown)$/i, '') : file.name;
+}
+
+/** Detect an open `[[…` immediately before the caret on the current line. */
+function detectWikilinkContext() {
+  const editor = $('#editor');
+  const pos = editor.selectionStart;
+  if (pos !== editor.selectionEnd) return null;
+  const value = editor.value;
+  const lineStart = value.lastIndexOf('\n', pos - 1) + 1;
+  const before = value.slice(lineStart, pos);
+  const m = /\[\[([^[\]\n]*)$/.exec(before);
+  if (!m) return null;
+  return { query: m[1], queryStart: pos - m[1].length };
+}
+
+function closeWikiSuggest() {
+  if (!wikiSuggest.open) return;
+  wikiSuggest.open = false;
+  const box = $('#wikilink-suggest');
+  if (box) {
+    box.hidden = true;
+    box.innerHTML = '';
+  }
+}
+
+function renderWikiSuggest() {
+  const box = $('#wikilink-suggest');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!wikiSuggest.items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'wikilink-suggest-empty';
+    empty.textContent = t('wikilink_no_match');
+    box.appendChild(empty);
+    box.hidden = false;
+    return;
+  }
+  wikiSuggest.items.forEach((file, i) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'wikilink-suggest-item' + (i === wikiSuggest.active ? ' active' : '');
+    item.dataset.idx = String(i);
+    item.setAttribute('role', 'option');
+    const name = document.createElement('span');
+    name.className = 'wikilink-suggest-name';
+    name.textContent = file.name;
+    item.appendChild(name);
+    if (file.path !== file.name + '.md') {
+      const path = document.createElement('span');
+      path.className = 'wikilink-suggest-path';
+      path.textContent = file.path;
+      item.appendChild(path);
+    }
+    box.appendChild(item);
+  });
+  box.hidden = false;
+}
+
+/** Place the popup at the caret, flipping above the line if it would overflow. */
+function positionWikiSuggest() {
+  const editor = $('#editor');
+  const box = $('#wikilink-suggest');
+  if (!box || box.hidden) return;
+  const coords = caretCoordinates(editor, editor.selectionStart);
+  const surface = editor.parentElement; // .editor-surface (position: relative)
+  const top = coords.top - editor.scrollTop + coords.height;
+  const left = Math.max(4, coords.left - editor.scrollLeft);
+  box.style.left = Math.min(left, surface.clientWidth - box.offsetWidth - 4) + 'px';
+  if (top + box.offsetHeight > surface.clientHeight && coords.top - editor.scrollTop > box.offsetHeight) {
+    // Not enough room below — show above the current line.
+    box.style.top = (coords.top - editor.scrollTop - box.offsetHeight - 2) + 'px';
+  } else {
+    box.style.top = top + 'px';
+  }
+}
+
+function updateWikiSuggest() {
+  if (state.viewing) { closeWikiSuggest(); return; }
+  const ctx = detectWikilinkContext();
+  if (!ctx) { closeWikiSuggest(); return; }
+  const notes = mdNoteList();
+  wikiSuggest.notes = notes;
+  wikiSuggest.items = filterNotes(notes, ctx.query);
+  wikiSuggest.queryStart = ctx.queryStart;
+  wikiSuggest.active = 0;
+  wikiSuggest.open = true;
+  renderWikiSuggest();
+  positionWikiSuggest();
+}
+
+/** Insert the chosen note as a `[[link]]`, replacing the typed query. */
+function selectWikiSuggest(index) {
+  const file = wikiSuggest.items[index];
+  if (!file) return;
+  const editor = $('#editor');
+  const value = editor.value;
+  const pos = editor.selectionStart;
+  const name = wikiLinkName(file, wikiSuggest.notes || mdNoteList());
+  let tail = value.slice(pos);
+  if (tail.startsWith(']]')) tail = tail.slice(2); // avoid doubling the closer
+  const head = value.slice(0, wikiSuggest.queryStart); // keeps the leading `[[`
+  editor.value = head + name + ']]' + tail;
+  const caret = head.length + name.length + 2;
+  editor.selectionStart = editor.selectionEnd = caret;
+  closeWikiSuggest();
+  editor.focus();
+  fireEditorInput();
+}
+
+/** Toolbar wikilink button: drop a `[[` at the caret and open the popup. */
+function startWikilink() {
+  if (state.viewing) setViewMode(false);
+  const editor = $('#editor');
+  const { selectionStart: s, selectionEnd: e, value } = editor;
+  const sel = value.slice(s, e); // reuse any selected text as the initial query
+  const insert = '[[' + sel;
+  editor.value = value.slice(0, s) + insert + value.slice(e);
+  editor.selectionStart = editor.selectionEnd = s + insert.length;
+  editor.focus();
+  fireEditorInput();
+  updateWikiSuggest();
+}
+
+(function setupWikiSuggest() {
+  const editor = $('#editor');
+  const box = $('#wikilink-suggest');
+  if (!editor || !box) return;
+
+  editor.addEventListener('input', updateWikiSuggest);
+  editor.addEventListener('click', updateWikiSuggest);
+
+  editor.addEventListener('keydown', (e) => {
+    if (!wikiSuggest.open) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      wikiSuggest.active = Math.min(wikiSuggest.active + 1, wikiSuggest.items.length - 1);
+      renderWikiSuggest();
+      const el = box.querySelector('.wikilink-suggest-item.active');
+      if (el) el.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      wikiSuggest.active = Math.max(wikiSuggest.active - 1, 0);
+      renderWikiSuggest();
+      const el = box.querySelector('.wikilink-suggest-item.active');
+      if (el) el.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (!wikiSuggest.items.length) { closeWikiSuggest(); return; }
+      e.preventDefault();
+      selectWikiSuggest(wikiSuggest.active);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeWikiSuggest();
+    }
+  });
+
+  // Tap/click a suggestion (mousedown so it beats the textarea blur).
+  box.addEventListener('mousedown', (e) => {
+    const item = e.target.closest('.wikilink-suggest-item');
+    if (!item) return;
+    e.preventDefault();
+    selectWikiSuggest(Number(item.dataset.idx));
+  });
+
+  editor.addEventListener('blur', () => {
+    // Delay so a suggestion tap (which blurs the textarea) still registers.
+    setTimeout(closeWikiSuggest, 150);
+  });
+  editor.addEventListener('scroll', () => {
+    if (wikiSuggest.open) positionWikiSuggest();
+  });
+})();
 
 $('#preview').addEventListener('click', (e) => {
   const link = e.target.closest('a.wo-wikilink');
@@ -1526,6 +1860,7 @@ async function saveCurrent() {
   if (result && result.version) state.current.version = result.version;
   state.dirty = false;
   invalidateSearchIndex();
+  invalidateGraphCache(); // note content (and thus its links) changed
   flash(t('saved'));
 }
 $('#save-btn').addEventListener('click', saveCurrent);
@@ -1935,6 +2270,75 @@ $('#export-btn').addEventListener('click', async () => {
   }
 });
 
+/** Trigger a browser download for an in-memory blob. */
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Fetch a single vault file, decrypt it, and download the plaintext. */
+async function downloadFileNode(node) {
+  const key = await ensureVaultKey();
+  const res = await fetch(attachmentUrl(node.path), {
+    credentials: 'same-origin',
+  });
+  if (!res.ok) throw new Error('fetch failed');
+  const cipher = new Uint8Array(await res.arrayBuffer());
+  const plain = await window.WOCrypto.decryptBytesMaybe(key, cipher);
+  const blob = new Blob([plain], { type: mimeForPath(node.path) });
+  triggerDownload(blob, basename(node.path));
+}
+
+/** Decrypt every file under a folder and download them as a single zip. */
+async function downloadFolderNode(node) {
+  const key = await ensureVaultKey();
+  showProgress(t('export_progress'));
+  try {
+    const list = await api('GET', '/api/files');
+    const prefix = node.path + '/';
+    const entries = (list || []).filter(
+      (e) => e.path === node.path || e.path.startsWith(prefix),
+    );
+    // Keep the folder name as the archive root by stripping its parent path.
+    const parent = dirname(node.path);
+    const strip = parent ? parent + '/' : '';
+    const files = {};
+    const total = entries.length;
+    let done = 0;
+    updateProgress(0, total, t('progress_files', { done: 0, total }));
+    for (const entry of entries) {
+      const res = await fetch(attachmentUrl(entry.path), {
+        credentials: 'same-origin',
+      });
+      if (res.ok) {
+        const cipher = new Uint8Array(await res.arrayBuffer());
+        try {
+          const rel = entry.path.startsWith(strip)
+            ? entry.path.slice(strip.length)
+            : entry.path;
+          files[rel] = await window.WOCrypto.decryptBytesMaybe(key, cipher);
+        } catch (e) {
+          /* skip files that fail to decrypt */
+        }
+      }
+      done += 1;
+      updateProgress(done, total, t('progress_files', { done, total }));
+    }
+    updateProgress(total, total, t('export_packaging'));
+    const zipped = window.WOZip.zip(files);
+    const blob = new Blob([zipped], { type: 'application/zip' });
+    triggerDownload(blob, basename(node.path) + '.zip');
+  } finally {
+    hideProgress();
+  }
+}
+
 /* ---------- trash ---------- */
 
 function openTrashModal() {
@@ -2155,6 +2559,29 @@ async function clearSearchCache() {
   }
 }
 
+// Run `fn` over `items` with at most `limit` in flight at once. Results keep
+// input order; rejected tasks surface their error (callers handle per-item).
+async function mapPool(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  const workers = new Array(Math.min(limit, items.length)).fill(0).map(
+    async () => {
+      while (true) {
+        const i = next++;
+        if (i >= items.length) return;
+        results[i] = await fn(items[i], i);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+// How many note downloads/decryptions to run concurrently while (re)building the
+// content index. The old serial loop meant one network round-trip per note —
+// minutes on a large vault. A pool keeps the pipe full without hammering it.
+const INDEX_CONCURRENCY = 12;
+
 async function buildSearchIndex() {
   if (searchIndex.built) return;
   if (searchIndex.building) return searchIndex.building;
@@ -2178,41 +2605,54 @@ async function buildSearchIndex() {
     }
 
     // Reuse cache entries whose version still matches the server; decrypt them
-    // straight into the in-memory index (no network).
+    // (in parallel) straight into the in-memory index — no network.
     const docs = [];
     const fresh = new Set();
-    for (const rec of cached) {
-      if (rec.version == null || rec.version !== wantedVersions.get(rec.path)) {
-        continue; // changed, deleted, or no longer a text file
-      }
+    const reusable = cached.filter(
+      (rec) => rec.version != null && rec.version === wantedVersions.get(rec.path),
+    );
+    const decoded = await mapPool(reusable, INDEX_CONCURRENCY, async (rec) => {
       try {
         const bytes = await window.WOCrypto.decryptBytes(key, rec.cipher);
-        const text = new TextDecoder().decode(bytes);
-        docs.push({ path: rec.path, name: basename(rec.path), text });
-        fresh.add(rec.path);
+        return { path: rec.path, name: basename(rec.path), text: new TextDecoder().decode(bytes) };
       } catch (e) {
-        /* unreadable cache entry: treat as a miss and refetch below */
+        return null; // unreadable cache entry: refetch below
+      }
+    });
+    for (const doc of decoded) {
+      if (doc) {
+        docs.push(doc);
+        fresh.add(doc.path);
       }
     }
 
-    // Download + decrypt only the notes that are new or changed since last sync.
+    // Download + decrypt only the notes that are new or changed since last sync,
+    // running up to INDEX_CONCURRENCY transfers at once.
     const puts = [];
-    for (const entry of wanted) {
-      if (fresh.has(entry.path)) continue;
+    const toFetch = wanted.filter((e) => !fresh.has(e.path));
+    const fetched = await mapPool(toFetch, INDEX_CONCURRENCY, async (entry) => {
       try {
         const res = await fetch(attachmentUrl(entry.path), {
           credentials: 'same-origin',
         });
-        if (!res.ok) continue;
+        if (!res.ok) return null;
         const cipher = new Uint8Array(await res.arrayBuffer());
         const bytes = await window.WOCrypto.decryptBytesMaybe(key, cipher);
         const text = new TextDecoder().decode(bytes);
-        docs.push({ path: entry.path, name: basename(entry.path), text });
         // Re-seal under the vault key so nothing readable sits in IndexedDB.
         const sealed = await window.WOCrypto.encryptBytes(key, bytes);
-        puts.push({ path: entry.path, version: entry.version, cipher: sealed });
+        return {
+          doc: { path: entry.path, name: basename(entry.path), text },
+          put: { path: entry.path, version: entry.version, cipher: sealed },
+        };
       } catch (e) {
-        /* skip unreadable files */
+        return null; // skip unreadable files
+      }
+    });
+    for (const r of fetched) {
+      if (r) {
+        docs.push(r.doc);
+        puts.push(r.put);
       }
     }
 
@@ -2265,15 +2705,92 @@ function searchContent(q) {
   return hits;
 }
 
-const runSearch = debounce(async (q) => {
+// Search runs only on an explicit trigger (Enter or the search button), never
+// while typing — this keeps a single query under the /api rate limit and avoids
+// a slow server walk per keystroke. `searching` guards against double-submits.
+let searching = false;
+
+async function runSearch(q) {
   const box = $('#search-results');
   if (!q.trim()) {
     box.hidden = true;
     box.innerHTML = '';
     return;
   }
-  // Name matches come from the server; content matches are computed locally
-  // over the decrypted index. Merge them, de-duplicating by path.
+  if (searching) return;
+  searching = true;
+  const btn = $('#search-btn');
+  if (btn) btn.disabled = true;
+  // Show a spinner immediately: the server name search plus building/syncing the
+  // local content index can take a moment on a large vault.
+  box.innerHTML =
+    '<div class="search-loading"><span class="search-spinner"></span>' +
+    t('searching') +
+    '</div>';
+  box.hidden = false;
+  try {
+    await runSearchInner(q, box);
+  } finally {
+    searching = false;
+    if (btn) btn.disabled = false;
+  }
+}
+
+/** Merge local content matches for `q` into a list of (name) hits, in place. */
+function mergeContentHits(hits, q) {
+  const byPath = new Set(hits.map((h) => h.path));
+  for (const ch of searchContent(q)) {
+    if (byPath.has(ch.path)) {
+      const existing = hits.find((h) => h.path === ch.path);
+      if (existing && !existing.snippet) existing.snippet = ch.snippet;
+    } else {
+      hits.push(ch);
+      byPath.add(ch.path);
+    }
+  }
+}
+
+/** Render the results dropdown. `indexing` appends a "searching contents" note. */
+function renderResults(box, hits, indexing) {
+  box.innerHTML = '';
+  if (!hits.length && !indexing) {
+    box.innerHTML = '<div class="search-empty">' + t('no_matches') + '</div>';
+    box.hidden = false;
+    return;
+  }
+  for (const hit of hits) {
+    const item = document.createElement('button');
+    item.className = 'search-hit';
+    const title = document.createElement('div');
+    title.className = 'search-hit-name';
+    title.textContent = hit.name;
+    item.appendChild(title);
+    if (hit.snippet) {
+      const sn = document.createElement('div');
+      sn.className = 'search-hit-snippet';
+      sn.textContent = hit.snippet;
+      item.appendChild(sn);
+    }
+    item.addEventListener('click', () => {
+      box.hidden = true;
+      $('#search-input').value = '';
+      openFile(hit.path);
+    });
+    box.appendChild(item);
+  }
+  if (indexing) {
+    const note = document.createElement('div');
+    note.className = 'search-loading';
+    note.innerHTML = '<span class="search-spinner"></span>' + t('searching_contents');
+    box.appendChild(note);
+  }
+  box.hidden = false;
+}
+
+async function runSearchInner(q, box) {
+  // Name matches come from the server (fast) and are shown immediately. Content
+  // matches need the local decrypted index; if it isn't warm yet we render name
+  // hits first, build the index in the background, then fold content hits in.
   let hits = [];
   try {
     const nameHits = await api('GET', '/api/search?q=' + encodeURIComponent(q));
@@ -2281,51 +2798,42 @@ const runSearch = debounce(async (q) => {
   } catch (e) {
     hits = [];
   }
+
+  if (searchIndex.built) {
+    mergeContentHits(hits, q);
+    renderResults(box, hits, false);
+    return;
+  }
+
+  // Index cold: paint name hits now (with an "indexing" note) so the user isn't
+  // staring at a spinner while the vault content index warms up.
+  renderResults(box, hits, true);
   try {
     await buildSearchIndex();
-    const byPath = new Set(hits.map((h) => h.path));
-    for (const ch of searchContent(q)) {
-      if (byPath.has(ch.path)) {
-        // Enrich the existing name hit with a content snippet.
-        const existing = hits.find((h) => h.path === ch.path);
-        if (existing && !existing.snippet) existing.snippet = ch.snippet;
-      } else {
-        hits.push(ch);
-        byPath.add(ch.path);
-      }
-    }
+    mergeContentHits(hits, q);
   } catch (e) {
-    /* content search unavailable; fall back to name hits only */
+    /* content search unavailable; keep name hits only */
   }
-  box.innerHTML = '';
-  if (!hits.length) {
-    box.innerHTML = '<div class="search-empty">' + t('no_matches') + '</div>';
-  } else {
-    for (const hit of hits) {
-      const item = document.createElement('button');
-      item.className = 'search-hit';
-      const title = document.createElement('div');
-      title.className = 'search-hit-name';
-      title.textContent = hit.name;
-      item.appendChild(title);
-      if (hit.snippet) {
-        const sn = document.createElement('div');
-        sn.className = 'search-hit-snippet';
-        sn.textContent = hit.snippet;
-        item.appendChild(sn);
-      }
-      item.addEventListener('click', () => {
-        box.hidden = true;
-        $('#search-input').value = '';
-        openFile(hit.path);
-      });
-      box.appendChild(item);
-    }
-  }
-  box.hidden = false;
-}, 250);
+  renderResults(box, hits, false);
+}
 
-$('#search-input').addEventListener('input', (e) => runSearch(e.target.value));
+$('#search-btn').addEventListener('click', () =>
+  runSearch($('#search-input').value),
+);
+$('#search-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    runSearch(e.target.value);
+  }
+});
+// Clearing the field (native "x" or empty) hides the results without searching.
+$('#search-input').addEventListener('input', (e) => {
+  if (!e.target.value.trim()) {
+    const box = $('#search-results');
+    box.hidden = true;
+    box.innerHTML = '';
+  }
+});
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.search-wrap')) $('#search-results').hidden = true;
 });
@@ -2352,6 +2860,70 @@ function toggleSidebar(force) {
 }
 $('#sidebar-toggle').addEventListener('click', () => toggleSidebar());
 $('#sidebar-backdrop').addEventListener('click', () => toggleSidebar(false));
+
+/* ---------- resizable sidebar ---------- */
+(function setupSidebarResize() {
+  const SIDEBAR_MIN = 180;
+  const SIDEBAR_MAX = 600;
+  const resizer = $('#sidebar-resizer');
+  if (!resizer) return;
+
+  const clamp = (w) => Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, w));
+  const applyWidth = (w) => {
+    document.documentElement.style.setProperty('--sidebar-width', `${w}px`);
+  };
+
+  // Restore the persisted width.
+  try {
+    const saved = parseInt(localStorage.getItem('wo-sidebar-width'), 10);
+    if (Number.isFinite(saved)) applyWidth(clamp(saved));
+  } catch (e) {
+    /* ignore */
+  }
+
+  let dragging = false;
+  const onMove = (e) => {
+    if (!dragging) return;
+    const w = clamp(e.clientX);
+    applyWidth(w);
+  };
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.classList.remove('sidebar-resizing');
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    const cur = parseInt(
+      getComputedStyle($('#sidebar')).width,
+      10,
+    );
+    if (Number.isFinite(cur)) {
+      try {
+        localStorage.setItem('wo-sidebar-width', String(cur));
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  };
+  resizer.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    resizer.classList.add('dragging');
+    document.body.classList.add('sidebar-resizing');
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+  // Double-click resets to the default width.
+  resizer.addEventListener('dblclick', () => {
+    document.documentElement.style.removeProperty('--sidebar-width');
+    try {
+      localStorage.removeItem('wo-sidebar-width');
+    } catch (e) {
+      /* ignore */
+    }
+  });
+})();
 document.querySelectorAll('[data-mobile-back]').forEach((btn) => {
   btn.addEventListener('click', () => toggleSidebar(true));
 });
@@ -3342,6 +3914,542 @@ async function importWeblinksCsv(file) {
   );
 })();
 
+/* ---------- wikilink graph ---------- */
+
+// A force-directed graph of the vault: each markdown note is a node, each
+// `[[wikilink]]` (or `![[embed]]`) between two notes is an edge. Because note
+// contents are end-to-end encrypted, the graph is built client-side by fetching
+// and decrypting every note, then extracting and resolving its links.
+const graphState = {
+  nodes: [],
+  edges: [],
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  alpha: 0,
+  raf: null,
+  dpr: 1,
+  active: null, // node currently hovered (mouse) or tapped (touch)
+  dragNode: null,
+  panning: false,
+  moved: false,
+  startX: 0,
+  startY: 0,
+  pointers: new Map(),
+  pinchDist: 0,
+  pinchScale: 1,
+};
+
+const GRAPH_FORCES = {
+  repulsion: 2600,
+  springLen: 70,
+  springK: 0.02,
+  gravity: 0.025,
+  damping: 0.82,
+};
+
+function clampNum(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+/** Pull every `[[target]]` / `![[target]]` out of note text (alias/anchor stripped). */
+function extractWikiTargets(text) {
+  const out = [];
+  const re = /!?\[\[([^\]\n]+)\]\]/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const inner = m[1].split('|')[0].split('#')[0].trim();
+    if (inner) out.push(inner);
+  }
+  return out;
+}
+
+function buildNoteIndex(paths) {
+  const byPath = new Map();
+  const byName = new Map();
+  for (const p of paths) {
+    byPath.set(p.toLowerCase(), p);
+    const base = p.split('/').pop().replace(/\.(md|markdown)$/i, '').toLowerCase();
+    if (!byName.has(base)) byName.set(base, p);
+  }
+  return { byPath, byName };
+}
+
+/** Resolve a wikilink target to an actual note path (or null for non-notes). */
+function resolveNotePath(target, idx) {
+  const clean = target.replace(/^\.\//, '').trim();
+  const lc = clean.toLowerCase();
+  if (idx.byPath.has(lc)) return idx.byPath.get(lc);
+  if (idx.byPath.has(lc + '.md')) return idx.byPath.get(lc + '.md');
+  if (idx.byPath.has(lc + '.markdown')) return idx.byPath.get(lc + '.markdown');
+  const base = clean.split('/').pop().replace(/\.(md|markdown)$/i, '').toLowerCase();
+  if (idx.byName.has(base)) return idx.byName.get(base);
+  return null;
+}
+
+/** Fetch every note's ciphertext in one request, then build nodes + edges. */
+async function buildGraphData() {
+  // One bulk call (the server streams every note's ciphertext) instead of one
+  // GET per note — fast and avoids tripping the rate limiter on large vaults.
+  const rows = await api('GET', '/api/graph/notes'); // [{ path, content }]
+  const idx = buildNoteIndex(rows.map((r) => r.path));
+  const nodes = rows.map((r) => ({
+    id: r.path,
+    name: r.path.split('/').pop().replace(/\.(md|markdown)$/i, ''),
+    x: 0, y: 0, vx: 0, vy: 0, r: 4, deg: 0,
+  }));
+  const indexOf = new Map(nodes.map((n, i) => [n.id, i]));
+  const edges = [];
+  const seen = new Set();
+
+  for (const row of rows) {
+    const a = indexOf.get(row.path);
+    if (a == null) continue;
+    let text;
+    try {
+      text = await decryptContent(row.content || '');
+    } catch (e) {
+      continue; // unreadable note → still shown as an isolated node
+    }
+    for (const tgt of extractWikiTargets(text)) {
+      const dest = resolveNotePath(tgt, idx);
+      if (!dest || dest === row.path) continue;
+      const b = indexOf.get(dest);
+      if (b == null) continue;
+      const key = a < b ? a + ':' + b : b + ':' + a;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push({ a, b });
+      nodes[a].deg++;
+      nodes[b].deg++;
+    }
+  }
+  for (const n of nodes) n.r = 4 + Math.min(9, Math.sqrt(n.deg) * 2);
+  return { nodes, edges };
+}
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function resizeGraphCanvas() {
+  const canvas = $('#graph-canvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  graphState.dpr = dpr;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+}
+
+function graphCenter() {
+  const canvas = $('#graph-canvas');
+  return {
+    cx: canvas.clientWidth / 2 + graphState.offsetX,
+    cy: canvas.clientHeight / 2 + graphState.offsetY,
+  };
+}
+
+function nodeScreenPos(n) {
+  const { cx, cy } = graphCenter();
+  return { x: cx + n.x * graphState.scale, y: cy + n.y * graphState.scale };
+}
+
+function screenToWorld(px, py) {
+  const { cx, cy } = graphCenter();
+  return { x: (px - cx) / graphState.scale, y: (py - cy) / graphState.scale };
+}
+
+function graphNodeAt(px, py) {
+  // Iterate back-to-front so the topmost (last drawn) node wins.
+  for (let i = graphState.nodes.length - 1; i >= 0; i--) {
+    const n = graphState.nodes[i];
+    const p = nodeScreenPos(n);
+    const r = clampNum(n.r * graphState.scale, 4, 26) + 4;
+    if ((px - p.x) ** 2 + (py - p.y) ** 2 <= r * r) return n;
+  }
+  return null;
+}
+
+function graphSimStep() {
+  const { nodes, edges } = graphState;
+  const f = GRAPH_FORCES;
+  const n = nodes.length;
+  for (let i = 0; i < n; i++) {
+    const a = nodes[i];
+    for (let j = i + 1; j < n; j++) {
+      const b = nodes[j];
+      let dx = a.x - b.x;
+      let dy = a.y - b.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 0.01; }
+      const d = Math.sqrt(d2);
+      const rep = f.repulsion / d2;
+      a.vx += (dx / d) * rep; a.vy += (dy / d) * rep;
+      b.vx -= (dx / d) * rep; b.vy -= (dy / d) * rep;
+    }
+  }
+  for (const e of edges) {
+    const a = nodes[e.a];
+    const b = nodes[e.b];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+    const force = (d - f.springLen) * f.springK;
+    a.vx += (dx / d) * force; a.vy += (dy / d) * force;
+    b.vx -= (dx / d) * force; b.vy -= (dy / d) * force;
+  }
+  for (const nd of nodes) {
+    nd.vx += -nd.x * f.gravity;
+    nd.vy += -nd.y * f.gravity;
+    nd.vx *= f.damping;
+    nd.vy *= f.damping;
+    if (nd !== graphState.dragNode) {
+      nd.x += nd.vx * graphState.alpha;
+      nd.y += nd.vy * graphState.alpha;
+    }
+  }
+}
+
+function drawGraph() {
+  const canvas = $('#graph-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = graphState.dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+
+  const edgeColor = cssVar('--graph-edge') || '#888';
+  const edgeActiveColor = cssVar('--graph-edge-active') || cssVar('--accent') || '#7c6cf6';
+  const nodeColor = cssVar('--accent') || '#7c6cf6';
+  const textColor = cssVar('--text') || '#ddd';
+  const s = graphState.scale;
+  const showLabels = graphState.nodes.length <= 40 || s >= 1.4;
+  const activeIdx = graphState.active ? graphState.nodes.indexOf(graphState.active) : -1;
+
+  // Connection lines are always fully opaque so they stay clearly visible —
+  // including while a node is hovered. The hovered node's own edges are then
+  // redrawn on top in the accent colour so its connections stand out.
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = edgeColor;
+  ctx.lineWidth = 1.2;
+  for (const e of graphState.edges) {
+    if (e.a === activeIdx || e.b === activeIdx) continue; // drawn highlighted below
+    const a = nodeScreenPos(graphState.nodes[e.a]);
+    const b = nodeScreenPos(graphState.nodes[e.b]);
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  if (activeIdx >= 0) {
+    ctx.strokeStyle = edgeActiveColor;
+    ctx.lineWidth = 2;
+    for (const e of graphState.edges) {
+      if (e.a !== activeIdx && e.b !== activeIdx) continue;
+      const a = nodeScreenPos(graphState.nodes[e.a]);
+      const b = nodeScreenPos(graphState.nodes[e.b]);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+  }
+
+  ctx.font = '12px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (const nd of graphState.nodes) {
+    const p = nodeScreenPos(nd);
+    const r = clampNum(nd.r * s, 3, 26);
+    const active = nd === graphState.active;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = nodeColor;
+    ctx.globalAlpha = active ? 1 : 0.92;
+    ctx.fill();
+    if (active) {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = textColor;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    if (showLabels || active) {
+      ctx.fillStyle = textColor;
+      ctx.fillText(nd.name, p.x, p.y + r + 3);
+    }
+  }
+}
+
+function positionGraphTooltip() {
+  const tip = $('#graph-tooltip');
+  if (!tip || !graphState.active) return;
+  const p = nodeScreenPos(graphState.active);
+  tip.style.left = p.x + 'px';
+  tip.style.top = p.y + 'px';
+}
+
+function showGraphTooltip(node) {
+  const tip = $('#graph-tooltip');
+  if (!tip) return;
+  graphState.active = node;
+  if (!node) { tip.hidden = true; return; }
+  tip.innerHTML = '';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = node.name;
+  btn.addEventListener('click', () => openFile(node.id));
+  tip.appendChild(btn);
+  tip.hidden = false;
+  positionGraphTooltip();
+}
+
+function requestGraphDraw() {
+  if (graphState.raf) return;
+  drawGraph();
+  positionGraphTooltip();
+}
+
+function graphLoop() {
+  graphSimStep();
+  graphState.alpha *= 0.985;
+  drawGraph();
+  positionGraphTooltip();
+  if (graphState.alpha > 0.02 || graphState.dragNode) {
+    graphState.raf = requestAnimationFrame(graphLoop);
+  } else {
+    graphState.raf = null;
+  }
+}
+
+function startGraphSim(alpha) {
+  graphState.alpha = Math.max(graphState.alpha, alpha == null ? 1 : alpha);
+  if (!graphState.raf) graphState.raf = requestAnimationFrame(graphLoop);
+}
+
+function stopGraphSim() {
+  if (graphState.raf) cancelAnimationFrame(graphState.raf);
+  graphState.raf = null;
+}
+
+function graphZoomAround(px, py, factor) {
+  const canvas = $('#graph-canvas');
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const s0 = graphState.scale;
+  const s1 = clampNum(s0 * factor, 0.2, 4);
+  const cx0 = w / 2 + graphState.offsetX;
+  const cy0 = h / 2 + graphState.offsetY;
+  const wx = (px - cx0) / s0;
+  const wy = (py - cy0) / s0;
+  graphState.scale = s1;
+  graphState.offsetX = px - w / 2 - wx * s1;
+  graphState.offsetY = py - h / 2 - wy * s1;
+  requestGraphDraw();
+}
+
+// Timestamp of the last successful graph build. The built nodes/edges live in
+// `graphState` (with their settled positions), so reopening the graph within
+// the TTL reuses them — no refetch, no re-simulation. The vault key changes
+// (note saved, created, renamed, deleted) clear this via invalidateGraphCache().
+let graphBuiltAt = 0;
+function graphCacheTtl() {
+  return Number(window.__WO_GRAPH_CACHE_TTL_MS__) || 0;
+}
+function invalidateGraphCache() {
+  graphBuiltAt = 0;
+}
+
+/** Reveal the graph view and (re)draw the current `graphState` layout. */
+function showGraphView(resim) {
+  const n = graphState.nodes.length;
+  graphState.active = null;
+  hideAllViews();
+  state.current = null;
+  $('#graph-view').hidden = false;
+  $('#graph-empty').hidden = n > 0;
+  $('#graph-hint').hidden = n === 0;
+  $('#graph-tooltip').hidden = true;
+  maybeCloseSidebar();
+  // Defer sizing until the view is laid out so clientWidth/Height are correct.
+  requestAnimationFrame(() => {
+    resizeGraphCanvas();
+    if (resim) startGraphSim(1);
+    else requestGraphDraw();
+  });
+}
+
+async function openGraph(force) {
+  const ttl = graphCacheTtl();
+  const fresh =
+    !force && graphBuiltAt && graphState.nodes.length &&
+    Date.now() - graphBuiltAt < ttl;
+  if (fresh) {
+    // Reuse the cached layout (keeps the user's pan/zoom too).
+    showGraphView(false);
+    return;
+  }
+  showLoading(t('graph_building'));
+  try {
+    const data = await buildGraphData();
+    graphState.nodes = data.nodes;
+    graphState.edges = data.edges;
+    graphState.scale = 1;
+    graphState.offsetX = 0;
+    graphState.offsetY = 0;
+    const n = data.nodes.length;
+    const radius = Math.max(80, n * 11);
+    data.nodes.forEach((nd, i) => {
+      const a = (i / Math.max(1, n)) * Math.PI * 2;
+      const jitter = 0.5 + Math.random() * 0.3;
+      nd.x = Math.cos(a) * radius * jitter;
+      nd.y = Math.sin(a) * radius * jitter;
+    });
+    graphBuiltAt = Date.now();
+    showGraphView(true);
+  } catch (err) {
+    await uiAlert(t('open_failed_title'), { message: err.message || t('graph_failed') });
+  } finally {
+    hideLoading();
+  }
+}
+
+(function setupGraph() {
+  const btn = $('#graph-btn');
+  if (btn) btn.addEventListener('click', () => openGraph());
+  const canvas = $('#graph-canvas');
+  if (!canvas) return;
+
+  $('#graph-zoom-in').addEventListener('click', () => {
+    graphZoomAround(canvas.clientWidth / 2, canvas.clientHeight / 2, 1.25);
+  });
+  $('#graph-zoom-out').addEventListener('click', () => {
+    graphZoomAround(canvas.clientWidth / 2, canvas.clientHeight / 2, 0.8);
+  });
+  $('#graph-refresh').addEventListener('click', () => openGraph(true));
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    graphZoomAround(e.clientX - rect.left, e.clientY - rect.top, Math.exp(-e.deltaY * 0.0015));
+  }, { passive: false });
+
+  const localPoint = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  canvas.addEventListener('pointerdown', (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    const pt = localPoint(e);
+    graphState.pointers.set(e.pointerId, pt);
+    if (graphState.pointers.size === 2) {
+      const pts = [...graphState.pointers.values()];
+      graphState.pinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      graphState.pinchScale = graphState.scale;
+      graphState.dragNode = null;
+      graphState.panning = false;
+      return;
+    }
+    graphState.moved = false;
+    graphState.startX = pt.x;
+    graphState.startY = pt.y;
+    const node = graphNodeAt(pt.x, pt.y);
+    if (node) {
+      graphState.dragNode = node;
+      graphState.panning = false;
+    } else {
+      graphState.dragNode = null;
+      graphState.panning = true;
+    }
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    const pt = localPoint(e);
+    if (graphState.pointers.has(e.pointerId)) graphState.pointers.set(e.pointerId, pt);
+
+    // Pinch-to-zoom with two active pointers.
+    if (graphState.pointers.size === 2 && graphState.pinchDist > 0) {
+      const pts = [...graphState.pointers.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      const target = graphState.pinchScale * (dist / graphState.pinchDist);
+      graphZoomAround(mid.x, mid.y, clampNum(target, 0.2, 4) / graphState.scale);
+      return;
+    }
+
+    // Hover (mouse with no button held) → highlight + tooltip.
+    if (e.pointerType === 'mouse' && e.buttons === 0) {
+      const node = graphNodeAt(pt.x, pt.y);
+      if (node !== graphState.active) {
+        showGraphTooltip(node);
+        requestGraphDraw();
+      }
+      return;
+    }
+
+    if (Math.abs(pt.x - graphState.startX) > 4 || Math.abs(pt.y - graphState.startY) > 4) {
+      graphState.moved = true;
+    }
+    if (graphState.dragNode) {
+      const w = screenToWorld(pt.x, pt.y);
+      graphState.dragNode.x = w.x;
+      graphState.dragNode.y = w.y;
+      graphState.dragNode.vx = 0;
+      graphState.dragNode.vy = 0;
+      startGraphSim(0.3);
+    } else if (graphState.panning) {
+      graphState.offsetX += pt.x - graphState.startX;
+      graphState.offsetY += pt.y - graphState.startY;
+      graphState.startX = pt.x;
+      graphState.startY = pt.y;
+      requestGraphDraw();
+    }
+  });
+
+  const endPointer = (e) => {
+    const pt = localPoint(e);
+    const wasNode = graphState.dragNode;
+    const tapped = !graphState.moved;
+    graphState.pointers.delete(e.pointerId);
+    if (graphState.pointers.size < 2) graphState.pinchDist = 0;
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+
+    if (tapped) {
+      const node = graphNodeAt(pt.x, pt.y);
+      if (node) {
+        if (e.pointerType === 'mouse') {
+          openFile(node.id); // desktop: a click opens straight away
+        } else {
+          showGraphTooltip(node); // touch: reveal the name, tap it to open
+          requestGraphDraw();
+        }
+      } else if (e.pointerType !== 'mouse') {
+        showGraphTooltip(null); // tap on empty space dismisses the label
+        requestGraphDraw();
+      }
+    }
+    graphState.dragNode = null;
+    graphState.panning = false;
+    if (wasNode) startGraphSim(0.1);
+  };
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', (e) => {
+    graphState.pointers.delete(e.pointerId);
+    graphState.dragNode = null;
+    graphState.panning = false;
+  });
+
+  window.addEventListener('resize', () => {
+    if ($('#graph-view').hidden) return;
+    resizeGraphCanvas();
+    requestGraphDraw();
+  });
+})();
+
 /* ---------- flash ---------- */
 
 let flashTimer;
@@ -3441,6 +4549,17 @@ setSelectedDir('');
 // dismisses the prompt they are redirected to login.
 ensureVaultKey()
   .then(() => loadTree())
+  .then(() => {
+    // Warm the content index in the background once the UI is up, so the first
+    // search returns content matches immediately instead of waiting on a cold,
+    // full-vault index build. Best effort — failures are handled at search time.
+    const warm = () => buildSearchIndex().catch(() => {});
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(warm, { timeout: 3000 });
+    } else {
+      setTimeout(warm, 1200);
+    }
+  })
   .catch((e) => console.error(e));
 handleCheckoutReturn().catch((e) => console.error(e));
 
