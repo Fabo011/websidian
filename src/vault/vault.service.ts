@@ -880,6 +880,41 @@ export class VaultService {
   }
 
   /**
+   * Read every markdown note's (encrypted) content in a single request so the
+   * client can build the wikilink graph without making one `GET /api/file`
+   * call per note (which is slow and trips the rate limiter on large vaults).
+   * Contents stay end-to-end encrypted — the client decrypts and parses them.
+   */
+  async readNotesContent(
+    username: string,
+  ): Promise<Array<{ path: string; content: string }>> {
+    const storageId = await this.sid(username);
+    const files = await this.searchFileList(username);
+    const notes = files
+      .map((f) => f.relPath)
+      .filter(
+        (p) => p.split('/')[0] !== TRASH_DIR && /\.(md|markdown)$/i.test(p),
+      );
+    const out: Array<{ path: string; content: string }> = [];
+    let i = 0;
+    const worker = async () => {
+      while (i < notes.length) {
+        const p = notes[i++];
+        try {
+          const blob = await this.storage.readBytes(storageId, p);
+          out.push({ path: p, content: blob.toString('base64') });
+        } catch {
+          /* skip unreadable note */
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(16, notes.length || 1) }, worker),
+    );
+    return out;
+  }
+
+  /**
    * Flat list of every vault file, enumerated in a single storage pass (one S3
    * `ListObjectsV2` walk rather than one request per directory). Results are
    * cached per user for {@link searchCacheTtlMs} so a burst of searches reuses

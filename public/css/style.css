@@ -13,6 +13,8 @@
   --row-hover: #2f2f2f;
   --row-selected: #34304d;
   --shadow: rgba(0, 0, 0, 0.4);
+  --graph-edge: #6b7180;
+  --graph-edge-active: #9286f8;
 }
 :root[data-theme='light'] {
   --bg: #ffffff;
@@ -28,6 +30,8 @@
   --row-hover: #e9ebef;
   --row-selected: #e4e0fb;
   --shadow: rgba(0, 0, 0, 0.12);
+  --graph-edge: #9aa1ad;
+  --graph-edge-active: #6c5ce7;
 }
 
 * { box-sizing: border-box; }
@@ -803,6 +807,67 @@ body.sidebar-resizing {
 .viewer-body { flex: 1; overflow: auto; padding: 20px; display: flex; justify-content: center; }
 .viewer-body img { max-width: 100%; height: auto; align-self: flex-start; }
 .pdf-frame { width: 100%; height: 100%; border: none; }
+
+/* ===== Wikilink graph ===== */
+.graph-body { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--bg); }
+#graph-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#graph-canvas:active { cursor: grabbing; }
+.graph-tooltip {
+  position: absolute;
+  z-index: 6;
+  transform: translate(-50%, -150%);
+  pointer-events: auto;
+}
+.graph-tooltip[hidden] { display: none; }
+.graph-tooltip button {
+  max-width: 220px;
+  padding: 6px 12px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+.graph-tooltip button:hover { background: var(--accent-hover); }
+.graph-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.graph-empty[hidden] { display: none; }
+.graph-empty .bi { font-size: 40px; opacity: 0.5; }
+.graph-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  max-width: 90%;
+  padding: 6px 12px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+  text-align: center;
+}
+@media (min-width: 768px) {
+  /* Pointer devices get hover tooltips, so the touch hint is unnecessary. */
+  .graph-hint { display: none; }
+}
 
 .excalidraw-root { flex: 1; min-height: 0; position: relative; }
 .excalidraw-root .excalidraw { height: 100%; }

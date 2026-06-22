@@ -1061,6 +1061,7 @@ $('#context-menu').addEventListener('click', async (e) => {
 function hideAllViews() {
   $('#welcome').hidden = true;
   document.querySelectorAll('.view').forEach((v) => (v.hidden = true));
+  if (typeof stopGraphSim === 'function') stopGraphSim();
 }
 function showWelcome() {
   hideAllViews();
@@ -3908,6 +3909,513 @@ async function importWeblinksCsv(file) {
       renderWeblinks();
     }, 120),
   );
+})();
+
+/* ---------- wikilink graph ---------- */
+
+// A force-directed graph of the vault: each markdown note is a node, each
+// `[[wikilink]]` (or `![[embed]]`) between two notes is an edge. Because note
+// contents are end-to-end encrypted, the graph is built client-side by fetching
+// and decrypting every note, then extracting and resolving its links.
+const graphState = {
+  nodes: [],
+  edges: [],
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  alpha: 0,
+  raf: null,
+  dpr: 1,
+  active: null, // node currently hovered (mouse) or tapped (touch)
+  dragNode: null,
+  panning: false,
+  moved: false,
+  startX: 0,
+  startY: 0,
+  pointers: new Map(),
+  pinchDist: 0,
+  pinchScale: 1,
+};
+
+const GRAPH_FORCES = {
+  repulsion: 2600,
+  springLen: 70,
+  springK: 0.02,
+  gravity: 0.025,
+  damping: 0.82,
+};
+
+function clampNum(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+/** Pull every `[[target]]` / `![[target]]` out of note text (alias/anchor stripped). */
+function extractWikiTargets(text) {
+  const out = [];
+  const re = /!?\[\[([^\]\n]+)\]\]/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const inner = m[1].split('|')[0].split('#')[0].trim();
+    if (inner) out.push(inner);
+  }
+  return out;
+}
+
+function buildNoteIndex(paths) {
+  const byPath = new Map();
+  const byName = new Map();
+  for (const p of paths) {
+    byPath.set(p.toLowerCase(), p);
+    const base = p.split('/').pop().replace(/\.(md|markdown)$/i, '').toLowerCase();
+    if (!byName.has(base)) byName.set(base, p);
+  }
+  return { byPath, byName };
+}
+
+/** Resolve a wikilink target to an actual note path (or null for non-notes). */
+function resolveNotePath(target, idx) {
+  const clean = target.replace(/^\.\//, '').trim();
+  const lc = clean.toLowerCase();
+  if (idx.byPath.has(lc)) return idx.byPath.get(lc);
+  if (idx.byPath.has(lc + '.md')) return idx.byPath.get(lc + '.md');
+  if (idx.byPath.has(lc + '.markdown')) return idx.byPath.get(lc + '.markdown');
+  const base = clean.split('/').pop().replace(/\.(md|markdown)$/i, '').toLowerCase();
+  if (idx.byName.has(base)) return idx.byName.get(base);
+  return null;
+}
+
+/** Fetch every note's ciphertext in one request, then build nodes + edges. */
+async function buildGraphData() {
+  // One bulk call (the server streams every note's ciphertext) instead of one
+  // GET per note — fast and avoids tripping the rate limiter on large vaults.
+  const rows = await api('GET', '/api/graph/notes'); // [{ path, content }]
+  const idx = buildNoteIndex(rows.map((r) => r.path));
+  const nodes = rows.map((r) => ({
+    id: r.path,
+    name: r.path.split('/').pop().replace(/\.(md|markdown)$/i, ''),
+    x: 0, y: 0, vx: 0, vy: 0, r: 4, deg: 0,
+  }));
+  const indexOf = new Map(nodes.map((n, i) => [n.id, i]));
+  const edges = [];
+  const seen = new Set();
+
+  for (const row of rows) {
+    const a = indexOf.get(row.path);
+    if (a == null) continue;
+    let text;
+    try {
+      text = await decryptContent(row.content || '');
+    } catch (e) {
+      continue; // unreadable note → still shown as an isolated node
+    }
+    for (const tgt of extractWikiTargets(text)) {
+      const dest = resolveNotePath(tgt, idx);
+      if (!dest || dest === row.path) continue;
+      const b = indexOf.get(dest);
+      if (b == null) continue;
+      const key = a < b ? a + ':' + b : b + ':' + a;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push({ a, b });
+      nodes[a].deg++;
+      nodes[b].deg++;
+    }
+  }
+  for (const n of nodes) n.r = 4 + Math.min(9, Math.sqrt(n.deg) * 2);
+  return { nodes, edges };
+}
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function resizeGraphCanvas() {
+  const canvas = $('#graph-canvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  graphState.dpr = dpr;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+}
+
+function graphCenter() {
+  const canvas = $('#graph-canvas');
+  return {
+    cx: canvas.clientWidth / 2 + graphState.offsetX,
+    cy: canvas.clientHeight / 2 + graphState.offsetY,
+  };
+}
+
+function nodeScreenPos(n) {
+  const { cx, cy } = graphCenter();
+  return { x: cx + n.x * graphState.scale, y: cy + n.y * graphState.scale };
+}
+
+function screenToWorld(px, py) {
+  const { cx, cy } = graphCenter();
+  return { x: (px - cx) / graphState.scale, y: (py - cy) / graphState.scale };
+}
+
+function graphNodeAt(px, py) {
+  // Iterate back-to-front so the topmost (last drawn) node wins.
+  for (let i = graphState.nodes.length - 1; i >= 0; i--) {
+    const n = graphState.nodes[i];
+    const p = nodeScreenPos(n);
+    const r = clampNum(n.r * graphState.scale, 4, 26) + 4;
+    if ((px - p.x) ** 2 + (py - p.y) ** 2 <= r * r) return n;
+  }
+  return null;
+}
+
+function graphSimStep() {
+  const { nodes, edges } = graphState;
+  const f = GRAPH_FORCES;
+  const n = nodes.length;
+  for (let i = 0; i < n; i++) {
+    const a = nodes[i];
+    for (let j = i + 1; j < n; j++) {
+      const b = nodes[j];
+      let dx = a.x - b.x;
+      let dy = a.y - b.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 0.01; }
+      const d = Math.sqrt(d2);
+      const rep = f.repulsion / d2;
+      a.vx += (dx / d) * rep; a.vy += (dy / d) * rep;
+      b.vx -= (dx / d) * rep; b.vy -= (dy / d) * rep;
+    }
+  }
+  for (const e of edges) {
+    const a = nodes[e.a];
+    const b = nodes[e.b];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+    const force = (d - f.springLen) * f.springK;
+    a.vx += (dx / d) * force; a.vy += (dy / d) * force;
+    b.vx -= (dx / d) * force; b.vy -= (dy / d) * force;
+  }
+  for (const nd of nodes) {
+    nd.vx += -nd.x * f.gravity;
+    nd.vy += -nd.y * f.gravity;
+    nd.vx *= f.damping;
+    nd.vy *= f.damping;
+    if (nd !== graphState.dragNode) {
+      nd.x += nd.vx * graphState.alpha;
+      nd.y += nd.vy * graphState.alpha;
+    }
+  }
+}
+
+function drawGraph() {
+  const canvas = $('#graph-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = graphState.dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+
+  const edgeColor = cssVar('--graph-edge') || '#888';
+  const edgeActiveColor = cssVar('--graph-edge-active') || cssVar('--accent') || '#7c6cf6';
+  const nodeColor = cssVar('--accent') || '#7c6cf6';
+  const textColor = cssVar('--text') || '#ddd';
+  const s = graphState.scale;
+  const showLabels = graphState.nodes.length <= 40 || s >= 1.4;
+  const activeIdx = graphState.active ? graphState.nodes.indexOf(graphState.active) : -1;
+
+  // Connection lines are always fully opaque so they stay clearly visible —
+  // including while a node is hovered. The hovered node's own edges are then
+  // redrawn on top in the accent colour so its connections stand out.
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = edgeColor;
+  ctx.lineWidth = 1.2;
+  for (const e of graphState.edges) {
+    if (e.a === activeIdx || e.b === activeIdx) continue; // drawn highlighted below
+    const a = nodeScreenPos(graphState.nodes[e.a]);
+    const b = nodeScreenPos(graphState.nodes[e.b]);
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  if (activeIdx >= 0) {
+    ctx.strokeStyle = edgeActiveColor;
+    ctx.lineWidth = 2;
+    for (const e of graphState.edges) {
+      if (e.a !== activeIdx && e.b !== activeIdx) continue;
+      const a = nodeScreenPos(graphState.nodes[e.a]);
+      const b = nodeScreenPos(graphState.nodes[e.b]);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+  }
+
+  ctx.font = '12px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (const nd of graphState.nodes) {
+    const p = nodeScreenPos(nd);
+    const r = clampNum(nd.r * s, 3, 26);
+    const active = nd === graphState.active;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = nodeColor;
+    ctx.globalAlpha = active ? 1 : 0.92;
+    ctx.fill();
+    if (active) {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = textColor;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    if (showLabels || active) {
+      ctx.fillStyle = textColor;
+      ctx.fillText(nd.name, p.x, p.y + r + 3);
+    }
+  }
+}
+
+function positionGraphTooltip() {
+  const tip = $('#graph-tooltip');
+  if (!tip || !graphState.active) return;
+  const p = nodeScreenPos(graphState.active);
+  tip.style.left = p.x + 'px';
+  tip.style.top = p.y + 'px';
+}
+
+function showGraphTooltip(node) {
+  const tip = $('#graph-tooltip');
+  if (!tip) return;
+  graphState.active = node;
+  if (!node) { tip.hidden = true; return; }
+  tip.innerHTML = '';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = node.name;
+  btn.addEventListener('click', () => openFile(node.id));
+  tip.appendChild(btn);
+  tip.hidden = false;
+  positionGraphTooltip();
+}
+
+function requestGraphDraw() {
+  if (graphState.raf) return;
+  drawGraph();
+  positionGraphTooltip();
+}
+
+function graphLoop() {
+  graphSimStep();
+  graphState.alpha *= 0.985;
+  drawGraph();
+  positionGraphTooltip();
+  if (graphState.alpha > 0.02 || graphState.dragNode) {
+    graphState.raf = requestAnimationFrame(graphLoop);
+  } else {
+    graphState.raf = null;
+  }
+}
+
+function startGraphSim(alpha) {
+  graphState.alpha = Math.max(graphState.alpha, alpha == null ? 1 : alpha);
+  if (!graphState.raf) graphState.raf = requestAnimationFrame(graphLoop);
+}
+
+function stopGraphSim() {
+  if (graphState.raf) cancelAnimationFrame(graphState.raf);
+  graphState.raf = null;
+}
+
+function graphZoomAround(px, py, factor) {
+  const canvas = $('#graph-canvas');
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const s0 = graphState.scale;
+  const s1 = clampNum(s0 * factor, 0.2, 4);
+  const cx0 = w / 2 + graphState.offsetX;
+  const cy0 = h / 2 + graphState.offsetY;
+  const wx = (px - cx0) / s0;
+  const wy = (py - cy0) / s0;
+  graphState.scale = s1;
+  graphState.offsetX = px - w / 2 - wx * s1;
+  graphState.offsetY = py - h / 2 - wy * s1;
+  requestGraphDraw();
+}
+
+async function openGraph() {
+  showLoading(t('graph_building'));
+  try {
+    const data = await buildGraphData();
+    graphState.nodes = data.nodes;
+    graphState.edges = data.edges;
+    graphState.active = null;
+    graphState.scale = 1;
+    graphState.offsetX = 0;
+    graphState.offsetY = 0;
+    const n = data.nodes.length;
+    const radius = Math.max(80, n * 11);
+    data.nodes.forEach((nd, i) => {
+      const a = (i / Math.max(1, n)) * Math.PI * 2;
+      const jitter = 0.5 + Math.random() * 0.3;
+      nd.x = Math.cos(a) * radius * jitter;
+      nd.y = Math.sin(a) * radius * jitter;
+    });
+    hideAllViews();
+    state.current = null;
+    $('#graph-view').hidden = false;
+    $('#graph-empty').hidden = n > 0;
+    $('#graph-hint').hidden = n === 0;
+    $('#graph-tooltip').hidden = true;
+    maybeCloseSidebar();
+    // Defer sizing until the view is laid out so clientWidth/Height are correct.
+    requestAnimationFrame(() => {
+      resizeGraphCanvas();
+      startGraphSim(1);
+    });
+  } catch (err) {
+    await uiAlert(t('open_failed_title'), { message: err.message || t('graph_failed') });
+  } finally {
+    hideLoading();
+  }
+}
+
+(function setupGraph() {
+  const btn = $('#graph-btn');
+  if (btn) btn.addEventListener('click', openGraph);
+  const canvas = $('#graph-canvas');
+  if (!canvas) return;
+
+  $('#graph-zoom-in').addEventListener('click', () => {
+    graphZoomAround(canvas.clientWidth / 2, canvas.clientHeight / 2, 1.25);
+  });
+  $('#graph-zoom-out').addEventListener('click', () => {
+    graphZoomAround(canvas.clientWidth / 2, canvas.clientHeight / 2, 0.8);
+  });
+  $('#graph-refresh').addEventListener('click', openGraph);
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    graphZoomAround(e.clientX - rect.left, e.clientY - rect.top, Math.exp(-e.deltaY * 0.0015));
+  }, { passive: false });
+
+  const localPoint = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  canvas.addEventListener('pointerdown', (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    const pt = localPoint(e);
+    graphState.pointers.set(e.pointerId, pt);
+    if (graphState.pointers.size === 2) {
+      const pts = [...graphState.pointers.values()];
+      graphState.pinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      graphState.pinchScale = graphState.scale;
+      graphState.dragNode = null;
+      graphState.panning = false;
+      return;
+    }
+    graphState.moved = false;
+    graphState.startX = pt.x;
+    graphState.startY = pt.y;
+    const node = graphNodeAt(pt.x, pt.y);
+    if (node) {
+      graphState.dragNode = node;
+      graphState.panning = false;
+    } else {
+      graphState.dragNode = null;
+      graphState.panning = true;
+    }
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    const pt = localPoint(e);
+    if (graphState.pointers.has(e.pointerId)) graphState.pointers.set(e.pointerId, pt);
+
+    // Pinch-to-zoom with two active pointers.
+    if (graphState.pointers.size === 2 && graphState.pinchDist > 0) {
+      const pts = [...graphState.pointers.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      const target = graphState.pinchScale * (dist / graphState.pinchDist);
+      graphZoomAround(mid.x, mid.y, clampNum(target, 0.2, 4) / graphState.scale);
+      return;
+    }
+
+    // Hover (mouse with no button held) → highlight + tooltip.
+    if (e.pointerType === 'mouse' && e.buttons === 0) {
+      const node = graphNodeAt(pt.x, pt.y);
+      if (node !== graphState.active) {
+        showGraphTooltip(node);
+        requestGraphDraw();
+      }
+      return;
+    }
+
+    if (Math.abs(pt.x - graphState.startX) > 4 || Math.abs(pt.y - graphState.startY) > 4) {
+      graphState.moved = true;
+    }
+    if (graphState.dragNode) {
+      const w = screenToWorld(pt.x, pt.y);
+      graphState.dragNode.x = w.x;
+      graphState.dragNode.y = w.y;
+      graphState.dragNode.vx = 0;
+      graphState.dragNode.vy = 0;
+      startGraphSim(0.3);
+    } else if (graphState.panning) {
+      graphState.offsetX += pt.x - graphState.startX;
+      graphState.offsetY += pt.y - graphState.startY;
+      graphState.startX = pt.x;
+      graphState.startY = pt.y;
+      requestGraphDraw();
+    }
+  });
+
+  const endPointer = (e) => {
+    const pt = localPoint(e);
+    const wasNode = graphState.dragNode;
+    const tapped = !graphState.moved;
+    graphState.pointers.delete(e.pointerId);
+    if (graphState.pointers.size < 2) graphState.pinchDist = 0;
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+
+    if (tapped) {
+      const node = graphNodeAt(pt.x, pt.y);
+      if (node) {
+        if (e.pointerType === 'mouse') {
+          openFile(node.id); // desktop: a click opens straight away
+        } else {
+          showGraphTooltip(node); // touch: reveal the name, tap it to open
+          requestGraphDraw();
+        }
+      } else if (e.pointerType !== 'mouse') {
+        showGraphTooltip(null); // tap on empty space dismisses the label
+        requestGraphDraw();
+      }
+    }
+    graphState.dragNode = null;
+    graphState.panning = false;
+    if (wasNode) startGraphSim(0.1);
+  };
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', (e) => {
+    graphState.pointers.delete(e.pointerId);
+    graphState.dragNode = null;
+    graphState.panning = false;
+  });
+
+  window.addEventListener('resize', () => {
+    if ($('#graph-view').hidden) return;
+    resizeGraphCanvas();
+    requestGraphDraw();
+  });
 })();
 
 /* ---------- flash ---------- */

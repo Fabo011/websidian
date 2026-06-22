@@ -27,6 +27,7 @@
         <button id="new-file" title="Create a new Excalidraw drawing" data-i18n-attr="title:title_new_file"><i class="bi bi-pencil-square"></i> <span data-i18n="tool_file">Drawing</span></button>
         <button id="new-folder" title="Create a new folder" data-i18n-attr="title:title_new_folder"><i class="bi bi-folder-plus"></i> <span data-i18n="tool_folder">Folder</span></button>
         <button id="weblinks-btn" title="Open the web link manager" data-i18n-attr="title:title_weblinks"><i class="bi bi-link-45deg"></i> <span data-i18n="tool_weblinks">Web links</span></button>
+        <button id="graph-btn" title="Open the wikilink graph" data-i18n-attr="title:title_graph"><i class="bi bi-diagram-3"></i> <span data-i18n="tool_graph">Graph</span></button>
         <button id="upload-btn" title="Upload files from your computer" data-i18n-attr="title:title_upload"><i class="bi bi-file-earmark-arrow-up"></i> <span data-i18n="tool_upload">Upload files</span></button>
         <button id="import-btn" title="Import folders or a whole vault (.zip)" data-i18n-attr="title:title_import"><i class="bi bi-folder-symlink"></i> <span data-i18n="tool_import">Import folder</span></button>
         <button id="export-btn" title="Download the whole vault as a .zip" data-i18n-attr="title:title_export"><i class="bi bi-download"></i> <span data-i18n="tool_export">Export</span></button>
@@ -148,6 +149,27 @@
             <i class="bi bi-link-45deg"></i>
             <p data-i18n="weblinks_none">No web links yet. Add one or import a CSV.</p>
           </div>
+        </div>
+      </section>
+
+      <section id="graph-view" class="view graph-view" hidden>
+        <div class="view-header">
+          <button class="icon-btn mobile-back" data-mobile-back title="Show files" aria-label="Show files" data-i18n-attr="title:open_files_title;aria-label:open_files"><i class="bi bi-list"></i></button>
+          <span class="current-path breadcrumb"><i class="bi bi-diagram-3"></i> <span data-i18n="graph_title">Graph</span></span>
+          <div class="view-actions">
+            <button id="graph-zoom-out" class="icon-btn" type="button" title="Zoom out" aria-label="Zoom out" data-i18n-attr="title:graph_zoom_out;aria-label:graph_zoom_out"><i class="bi bi-dash-lg"></i></button>
+            <button id="graph-zoom-in" class="icon-btn" type="button" title="Zoom in" aria-label="Zoom in" data-i18n-attr="title:graph_zoom_in;aria-label:graph_zoom_in"><i class="bi bi-plus-lg"></i></button>
+            <button id="graph-refresh" class="icon-btn" type="button" title="Rebuild the graph" aria-label="Rebuild the graph" data-i18n-attr="title:graph_refresh;aria-label:graph_refresh"><i class="bi bi-arrow-clockwise"></i></button>
+          </div>
+        </div>
+        <div class="graph-body" id="graph-body">
+          <canvas id="graph-canvas"></canvas>
+          <div id="graph-tooltip" class="graph-tooltip" hidden></div>
+          <div id="graph-empty" class="graph-empty" hidden>
+            <i class="bi bi-diagram-3"></i>
+            <p data-i18n="graph_empty">No notes to graph yet. Create notes and connect them with [[wikilinks]].</p>
+          </div>
+          <div id="graph-hint" class="graph-hint" data-i18n="graph_hint">Tap a dot to see its name, then tap the name to open it.</div>
         </div>
       </section>
     </main>
