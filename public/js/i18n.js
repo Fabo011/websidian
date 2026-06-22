@@ -27,6 +27,7 @@
       account_storage: 'Account & storage',
       logout: 'Logout',
       toggle_sidebar: 'Toggle sidebar',
+      resize_sidebar: 'Resize sidebar',
 
       /* sidebar tools */
       tool_note: 'Note',
@@ -590,6 +591,7 @@
       account_storage: 'Konto & Speicher',
       logout: 'Abmelden',
       toggle_sidebar: 'Seitenleiste umschalten',
+      resize_sidebar: 'Seitenleiste anpassen',
 
       tool_note: 'Notiz',
       tool_file: 'Zeichnung',

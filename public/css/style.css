@@ -324,13 +324,29 @@ a { color: var(--accent); }
 .layout { display: flex; flex: 1; min-height: 0; position: relative; }
 
 .sidebar {
-  width: 280px;
+  width: var(--sidebar-width, 280px);
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   min-height: 0;
+}
+.sidebar-resizer {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+  position: relative;
+  z-index: 5;
+}
+.sidebar-resizer:hover,
+.sidebar-resizer.dragging {
+  background: var(--accent, var(--border));
+}
+body.sidebar-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 .sidebar-tools {
   display: flex;
@@ -773,12 +789,14 @@ a { color: var(--accent); }
     left: 0;
     top: 0;
     bottom: 0;
+    width: min(280px, 85vw);
     z-index: 30;
     transform: translateX(-100%);
     transition: transform 0.2s ease;
     box-shadow: 4px 0 20px var(--shadow);
   }
   .sidebar.open { transform: translateX(0); }
+  .sidebar-resizer { display: none; }
   .btn-label { display: none; }
   /* Give the drawing canvas a guaranteed height so it stays editable on mobile. */
   .excalidraw-root { min-height: 70vh; min-height: 70dvh; }

@@ -2456,6 +2456,70 @@ function toggleSidebar(force) {
 }
 $('#sidebar-toggle').addEventListener('click', () => toggleSidebar());
 $('#sidebar-backdrop').addEventListener('click', () => toggleSidebar(false));
+
+/* ---------- resizable sidebar ---------- */
+(function setupSidebarResize() {
+  const SIDEBAR_MIN = 180;
+  const SIDEBAR_MAX = 600;
+  const resizer = $('#sidebar-resizer');
+  if (!resizer) return;
+
+  const clamp = (w) => Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, w));
+  const applyWidth = (w) => {
+    document.documentElement.style.setProperty('--sidebar-width', `${w}px`);
+  };
+
+  // Restore the persisted width.
+  try {
+    const saved = parseInt(localStorage.getItem('wo-sidebar-width'), 10);
+    if (Number.isFinite(saved)) applyWidth(clamp(saved));
+  } catch (e) {
+    /* ignore */
+  }
+
+  let dragging = false;
+  const onMove = (e) => {
+    if (!dragging) return;
+    const w = clamp(e.clientX);
+    applyWidth(w);
+  };
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.classList.remove('sidebar-resizing');
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    const cur = parseInt(
+      getComputedStyle($('#sidebar')).width,
+      10,
+    );
+    if (Number.isFinite(cur)) {
+      try {
+        localStorage.setItem('wo-sidebar-width', String(cur));
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  };
+  resizer.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    resizer.classList.add('dragging');
+    document.body.classList.add('sidebar-resizing');
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+  // Double-click resets to the default width.
+  resizer.addEventListener('dblclick', () => {
+    document.documentElement.style.removeProperty('--sidebar-width');
+    try {
+      localStorage.removeItem('wo-sidebar-width');
+    } catch (e) {
+      /* ignore */
+    }
+  });
+})();
 document.querySelectorAll('[data-mobile-back]').forEach((btn) => {
   btn.addEventListener('click', () => toggleSidebar(true));
 });
