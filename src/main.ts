@@ -12,6 +12,7 @@ import { AppModule } from './app.module';
 import { AUTH_COOKIE } from './auth/auth.constants';
 import { AuthService } from './auth/auth.service';
 import { AppConfig } from './config/configuration';
+import { parseUploadExcludePatterns } from './common/upload-exclude';
 import { registerColumnEncryptor } from './storage/encrypted-column.transformer';
 import { EncryptionService } from './storage/encryption.service';
 import { setupTus, TUS_HEADERS } from './upload/tus.setup';
@@ -110,6 +111,12 @@ async function bootstrap() {
   // wikilink graph within the window reuses the built layout instead of
   // refetching + re-simulating. Driven by GRAPH_CACHE_TTL_MS.
   expressInstance.locals.graphCacheTtlMs = appConfig.graphCacheTtlMs;
+  // Junk-file patterns (macOS ._*, .DS_Store, …), surfaced to the client so the
+  // folder uploader can skip them before queueing instead of letting them fail
+  // server-side. Mirrors the guard in tus.setup. Driven by UPLOAD_EXCLUDE_PATTERNS.
+  expressInstance.locals.uploadExcludePatterns = parseUploadExcludePatterns(
+    process.env.UPLOAD_EXCLUDE_PATTERNS,
+  );
   // Import limits, surfaced to the client (head partial) so the Import dialog can
   // tell the user the real caps. Mirror the defaults used in VaultController.
   expressInstance.locals.maxUploadFileMb = Math.max(

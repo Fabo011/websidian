@@ -48,5 +48,8 @@
   // How long (ms) the client reuses a built wikilink graph before rebuilding,
   // set by the server from GRAPH_CACHE_TTL_MS. app.js reads this.
   window.__WO_GRAPH_CACHE_TTL_MS__ = <%= typeof graphCacheTtlMs !== 'undefined' ? graphCacheTtlMs : 0 %>;
+  // Junk-file glob patterns (macOS ._*, .DS_Store, …), set by the server from
+  // UPLOAD_EXCLUDE_PATTERNS. The folder uploader skips matching files.
+  window.__WO_UPLOAD_EXCLUDE__ = <%- JSON.stringify(typeof uploadExcludePatterns !== 'undefined' ? uploadExcludePatterns : []) %>;
 </script>
 <script src="/public/js/i18n.js?v=<%= v %>"></script>

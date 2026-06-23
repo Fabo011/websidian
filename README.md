@@ -47,6 +47,8 @@ Copy `.env.example` to `.env` and adjust:
 | `MAX_IMPORT_FILES`   | `20000`              | Max files accepted in one folder/zip import      |
 | `MAX_IMPORT_TOTAL_MB`| `2048`               | Max total size of a single import (MB)           |
 | `UPLOAD_REQUEST_TIMEOUT_MIN` | `30`         | How long (min) the server keeps an upload request open |
+| `UPLOAD_EXCLUDE_PATTERNS` | `._*,.DS_Store,…` | Junk files excluded from uploads — comma-separated, case-insensitive globs (`*` wildcard) matched on the filename; empty to disable |
+| `TUS_TMP_DIR`        | `<os-tmp>/websidian-tus` | Scratch dir where the tus server assembles incomplete chunked uploads |
 | `TRASH_RETENTION_DAYS` | `7`                | Days deleted items stay in trash (`0` = immediate delete) |
 
 **Rate limiting**
@@ -275,6 +277,16 @@ Folder uploads run over the [tus](https://tus.io) resumable protocol
 - **Concurrency & retries.** Up to 3 files upload in parallel; network errors
   auto-retry with backoff. The browser keeps only a few encrypted files in
   memory at once regardless of folder size.
+- **Junk-file exclusion.** OS metadata sidecars (macOS `._*` AppleDouble forks,
+  `.DS_Store`, Windows `Thumbs.db`/`desktop.ini`, …) are skipped before queueing
+  and also rejected server-side, so they never silently consume vault storage.
+  The list is configurable via `UPLOAD_EXCLUDE_PATTERNS` (see the env table);
+  the upload panel reports how many files were skipped.
+
+Anything that *does* land in your vault is **fully visible** in the file tree —
+including dotfiles such as `.obsidian` or stray junk left over from older
+uploads — so you can always see and delete what occupies your storage. Only the
+internal `.keep` folder placeholders and the `.trash` recycle area stay hidden.
 
 ### Migration away from `.zip` uploads
 

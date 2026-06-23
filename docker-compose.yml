@@ -33,6 +33,7 @@ services:
       MAX_REGISTRATIONS: "${MAX_REGISTRATIONS}"
       MAX_UPLOAD_SIZE_MB: "${MAX_UPLOAD_SIZE_MB:-20}"
       MAX_UPLOAD_FILE_MB: "${MAX_UPLOAD_FILE_MB:-2048}"
+      UPLOAD_EXCLUDE_PATTERNS: "${UPLOAD_EXCLUDE_PATTERNS:-._*,.DS_Store,.AppleDouble,.LSOverride,.Spotlight-V100,.Trashes,.fseventsd,.apdisk,Thumbs.db,ehthumbs.db,desktop.ini,.localized}"
       MAX_IMPORT_FILES: "${MAX_IMPORT_FILES:-20000}"
       MAX_IMPORT_TOTAL_MB: "${MAX_IMPORT_TOTAL_MB:-2048}"
       UPLOAD_REQUEST_TIMEOUT_MIN: "${UPLOAD_REQUEST_TIMEOUT_MIN:-30}"
