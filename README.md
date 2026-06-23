@@ -63,6 +63,7 @@ Copy `.env.example` to `.env` and adjust:
 | `RATE_LIMIT_DASH_MAX` | `60`                | Max dashboard API requests per window, per user/IP |
 | `SEARCH_CACHE_TTL_MS` | `15000`             | How long (ms) the server caches a user's flat file list for name search; `0` disables. New/renamed files may take up to this long to appear in name search |
 | `GRAPH_CACHE_TTL_MS` | `300000`             | How long (ms) the client reuses an already-built wikilink graph before rebuilding; `0` disables |
+| `MAX_OPEN_TABS`      | `8`                  | Max files open as tabs at once. Open tabs are cached in the browser so switching never reloads; opening more is refused until a tab is closed (minimum `1`) |
 
 **Encryption (DB columns at rest)**
 

@@ -300,6 +300,15 @@
       open_failed_msg: 'Something went wrong while opening this file. Please try again.',
       no_matches: 'No matches',
 
+      /* tabs */
+      tabs_aria: 'Open files',
+      close_tab: 'Close tab',
+      tab_unsaved: 'Unsaved changes',
+      tabs_limit: 'Tab limit reached ({max}). Close a tab to open another.',
+      tab_unsaved_title: 'Close without saving?',
+      tab_unsaved_msg: '“{name}” has unsaved changes. Close it anyway?',
+      discard: 'Discard',
+
       prompt_new_note_title: 'New note',
       prompt_new_note_ph: 'Note name',
       prompt_new_file_title: 'New drawing',
@@ -875,6 +884,15 @@
       open_failed_title: 'Datei konnte nicht geöffnet werden',
       open_failed_msg: 'Beim Öffnen dieser Datei ist etwas schiefgelaufen. Bitte versuche es erneut.',
       no_matches: 'Keine Treffer',
+
+      /* tabs */
+      tabs_aria: 'Geöffnete Dateien',
+      close_tab: 'Tab schließen',
+      tab_unsaved: 'Nicht gespeicherte Änderungen',
+      tabs_limit: 'Tab-Limit erreicht ({max}). Schließe einen Tab, um einen weiteren zu öffnen.',
+      tab_unsaved_title: 'Ohne Speichern schließen?',
+      tab_unsaved_msg: '„{name}“ hat nicht gespeicherte Änderungen. Trotzdem schließen?',
+      discard: 'Verwerfen',
 
       prompt_new_note_title: 'Neue Notiz',
       prompt_new_note_ph: 'Name der Notiz',

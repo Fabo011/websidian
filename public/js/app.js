@@ -504,6 +504,7 @@ async function loadTree() {
   const container = $('#tree');
   container.innerHTML = '';
   container.appendChild(buildList(tree));
+  if (typeof markTreeActive === 'function') markTreeActive();
   // The vault changed shape; drop the cached full-text index so the next search
   // rebuilds it from the current files, and the graph so it reflects new/removed
   // notes and links.
@@ -742,14 +743,8 @@ async function moveEntry(fromPath, targetDir) {
     flash(err.message || t('could_not_move'));
     return;
   }
-  // Keep an open file in sync if it (or its folder) was moved.
-  if (state.current && state.current.path) {
-    if (state.current.path === fromPath) {
-      state.current.path = to;
-    } else if (state.current.path.startsWith(fromPath + '/')) {
-      state.current.path = to + state.current.path.slice(fromPath.length);
-    }
-  }
+  // Keep any open tabs in sync if they (or their folder) were moved.
+  renameTabPaths(fromPath, to);
   // Keep the destination folder expanded so the moved item stays visible.
   expandAncestors(targetDir);
   await loadTree();
@@ -1002,10 +997,7 @@ $('#context-menu').addEventListener('click', async (e) => {
       false,
       MUTATION_TIMEOUT_MS,
     );
-    if (state.current && state.current.path === node.path) {
-      state.current.path = to;
-      $('#current-path').textContent = to;
-    }
+    renameTabPaths(node.path, to);
     await loadTree();
   } else if (action === 'new-note') {
     await createNoteIn(node.path);
@@ -1044,9 +1036,7 @@ $('#context-menu').addEventListener('click', async (e) => {
       await apiDeleteStream(node.path, (done, total) => {
         updateProgress(done, total, t('progress_files', { done, total }));
       });
-      if (state.current && state.current.path.startsWith(node.path)) {
-        showWelcome();
-      }
+      await closeTabsUnder(node.path);
       await loadTree();
       hideProgress();
     } catch (err) {
@@ -1066,61 +1056,449 @@ function hideAllViews() {
   if (typeof stopGraphSim === 'function') stopGraphSim();
 }
 function showWelcome() {
+  if (typeof deactivateTabs === 'function') deactivateTabs();
   hideAllViews();
   state.current = null;
   $('#welcome').hidden = false;
 }
 
+/* ---------- tabs ---------- */
+
+// Open files are kept as tabs (Obsidian-style). Each tab holds everything
+// needed to restore its view from memory, so switching tabs never refetches or
+// re-decrypts. Live DOM for viewers (image/pdf/office) and Excalidraw stays
+// mounted in per-tab panes; the shared markdown/text editor is restored from a
+// cached string. At most MAX_OPEN_TABS files can be open at once.
+const TABS = {
+  list: [], // tab objects, in tab-bar order
+  activeId: null,
+};
+const MAX_OPEN_TABS = Math.max(1, Number(window.__WO_MAX_OPEN_TABS__) || 8);
+let tabSeq = 0;
+
+function activeTab() {
+  return TABS.list.find((tb) => tb.id === TABS.activeId) || null;
+}
+
+function tabKindFor(ext) {
+  if (ext === 'excalidraw') return 'excalidraw';
+  if (TEXT_EXTS.includes(ext)) return 'editor';
+  return 'viewer';
+}
+
+function renderTabbar() {
+  const bar = $('#tabbar');
+  bar.hidden = TABS.list.length === 0;
+  bar.innerHTML = '';
+  for (const tab of TABS.list) {
+    const el = document.createElement('div');
+    el.className = 'tab' + (tab.id === TABS.activeId ? ' active' : '');
+    el.dataset.tabId = tab.id;
+    el.setAttribute('role', 'tab');
+    el.title = tab.path;
+
+    const icon = document.createElement('i');
+    icon.className = 'bi ' + fileIcon(tab.ext) + ' tab-icon';
+    el.appendChild(icon);
+
+    const title = document.createElement('span');
+    title.className = 'tab-title';
+    title.textContent = tab.title;
+    el.appendChild(title);
+
+    if (tab.dirty) {
+      const dot = document.createElement('span');
+      dot.className = 'tab-dirty';
+      dot.title = t('tab_unsaved');
+      el.appendChild(dot);
+    }
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'tab-close';
+    close.setAttribute('aria-label', t('close_tab'));
+    close.title = t('close_tab');
+    close.innerHTML = '<i class="bi bi-x"></i>';
+    el.appendChild(close);
+
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.tab-close')) return;
+      activateTab(tab.id);
+    });
+    // Middle-click closes the tab, like a browser.
+    el.addEventListener('auxclick', (e) => {
+      if (e.button === 1) {
+        e.preventDefault();
+        closeTab(tab.id);
+      }
+    });
+    close.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeTab(tab.id);
+    });
+    bar.appendChild(el);
+  }
+}
+
+// Highlight tree rows that are open as tabs, and the active one.
+function markTreeActive() {
+  const open = new Set(TABS.list.map((tb) => tb.path));
+  const active = activeTab() ? activeTab().path : null;
+  document.querySelectorAll('#tree .tree-row').forEach((row) => {
+    if (row.dataset.type === 'dir') return;
+    const p = row.dataset.path;
+    row.classList.toggle('tab-open', open.has(p));
+    row.classList.toggle('tab-active', p === active);
+  });
+}
+
+// Flip the active editor tab to "unsaved" without re-rendering the whole bar
+// (this runs on every keystroke, so it stays cheap).
+function markActiveDirty() {
+  const tab = activeTab();
+  if (!tab || tab.dirty) return;
+  tab.dirty = true;
+  const el = $('#tabbar').querySelector('.tab[data-tab-id="' + tab.id + '"]');
+  if (el && !el.querySelector('.tab-dirty')) {
+    const dot = document.createElement('span');
+    dot.className = 'tab-dirty';
+    el.insertBefore(dot, el.querySelector('.tab-close'));
+  }
+}
+
+// Save the active editor tab's live state into its cache before switching away.
+// Viewer / Excalidraw tabs keep their own live DOM, so nothing to capture there.
+function snapshotActive() {
+  const tab = activeTab();
+  if (!tab || tab.kind !== 'editor') return;
+  tab.content = $('#editor').value;
+  tab.dirty = state.dirty;
+  tab.viewing = state.viewing;
+  tab.scrollTop = state.viewing
+    ? $('#preview').scrollTop
+    : $('#editor').scrollTop;
+}
+
 async function openFile(path) {
+  const existing = TABS.list.find((tb) => tb.path === path);
+  if (existing) {
+    await activateTab(existing.id);
+    maybeCloseSidebar();
+    return;
+  }
+  if (TABS.list.length >= MAX_OPEN_TABS) {
+    flash(t('tabs_limit', { max: MAX_OPEN_TABS }));
+    return;
+  }
   const ext = extOf(path);
+  const tab = {
+    id: 't' + ++tabSeq,
+    path,
+    ext,
+    kind: tabKindFor(ext),
+    title: basename(path),
+    version: null,
+    dirty: false,
+    content: '',
+    viewing: false,
+    scrollTop: 0,
+    pane: null,
+    blobUrl: null,
+    excalidraw: null,
+  };
+  TABS.list.push(tab);
+  renderTabbar();
   showLoading(t('opening_file'));
   try {
-    if (ext === 'excalidraw') {
-      return await openExcalidraw(path);
-    }
-    if (TEXT_EXTS.includes(ext)) {
-      return await openEditor(path, ext);
-    }
-    return openViewer(path, ext);
+    await loadTabContent(tab);
   } catch (err) {
+    TABS.list = TABS.list.filter((x) => x !== tab);
+    renderTabbar();
+    hideLoading();
     await uiAlert(t('open_failed_title'), {
       message: err.message || t('open_failed_msg'),
     });
-  } finally {
-    hideLoading();
+    return;
   }
+  hideLoading();
+  await activateTab(tab.id);
+  maybeCloseSidebar();
+}
+
+// Fetch + decrypt a freshly opened file once, building any persistent pane.
+async function loadTabContent(tab) {
+  if (tab.kind === 'editor') {
+    const data = await api(
+      'GET',
+      '/api/file?path=' + encodeURIComponent(tab.path),
+    );
+    tab.content = await decryptContent(data.content);
+    tab.version = data.version;
+    const isMarkdown = tab.ext === 'md' || tab.ext === 'markdown';
+    const isCode = CODE_EXTS.includes(tab.ext);
+    // Markdown/code open in reading mode; plain text opens straight in edit.
+    tab.viewing = isMarkdown || isCode;
+  } else if (tab.kind === 'excalidraw') {
+    let initial = null;
+    try {
+      const data = await api(
+        'GET',
+        '/api/file?path=' + encodeURIComponent(tab.path),
+      );
+      tab.version = data.version;
+      const content = await decryptContent(data.content);
+      initial = content ? JSON.parse(content) : null;
+    } catch (e) {
+      initial = null;
+    }
+    await ensureExcalidraw();
+    const pane = document.createElement('div');
+    pane.className = 'excalidraw-pane';
+    pane.hidden = true;
+    $('#excalidraw-root').appendChild(pane);
+    tab.pane = pane;
+    tab.excalidraw = window.ExcalidrawEditor.mount(pane, initial);
+  } else {
+    await buildViewerPane(tab);
+  }
+}
+
+// Build the persistent viewer pane (image / pdf / office) for a tab. Kept
+// mounted so switching back never reloads the iframe or re-renders the doc.
+async function buildViewerPane(tab) {
+  const pane = document.createElement('div');
+  pane.className = 'viewer-pane';
+  pane.hidden = true;
+  $('#viewer-body').appendChild(pane);
+  tab.pane = pane;
+  const ext = tab.ext;
+  if (IMAGE_EXTS.includes(ext)) {
+    const img = document.createElement('img');
+    img.alt = tab.title;
+    pane.appendChild(img);
+    tab.blobUrl = await attachmentBlobUrl(tab.path);
+    img.src = tab.blobUrl;
+  } else if (ext === 'pdf') {
+    const frame = document.createElement('iframe');
+    frame.className = 'pdf-frame';
+    pane.appendChild(frame);
+    tab.blobUrl = await attachmentBlobUrl(tab.path);
+    frame.src = tab.blobUrl;
+  } else if (OFFICE_EXTS.includes(ext)) {
+    await renderOffice(tab.path, ext, pane);
+  } else {
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = t('no_preview');
+    pane.appendChild(p);
+  }
+}
+
+async function activateTab(id) {
+  const tab = TABS.list.find((tb) => tb.id === id);
+  if (!tab) return;
+  snapshotActive();
+  TABS.activeId = id;
+  hideAllViews();
+  state.current = { path: tab.path, ext: tab.ext, version: tab.version };
+  state.dirty = tab.dirty;
+  state.excalidraw = tab.kind === 'excalidraw' ? tab.excalidraw : null;
+  if (tab.kind === 'editor') activateEditorTab(tab);
+  else if (tab.kind === 'excalidraw') activateExcalidrawTab(tab);
+  else activateViewerTab(tab);
+  renderTabbar();
+  markTreeActive();
+}
+
+function activateEditorTab(tab) {
+  $('#editor-view').hidden = false;
+  renderBreadcrumb($('#current-path'), tab.path);
+  const editor = $('#editor');
+  editor.value = tab.content;
+  const isMarkdown = tab.ext === 'md' || tab.ext === 'markdown';
+  const isCode = CODE_EXTS.includes(tab.ext);
+  // Markdown and code/config files offer a reading view; plain .txt has none.
+  $('#toggle-preview').style.display = isMarkdown || isCode ? '' : 'none';
+  setViewMode(tab.viewing);
+  const scroll = tab.scrollTop || 0;
+  requestAnimationFrame(() => {
+    (tab.viewing ? $('#preview') : editor).scrollTop = scroll;
+  });
+  if (!tab.viewing) editor.focus();
+}
+
+function activateViewerTab(tab) {
+  $('#viewer-view').hidden = false;
+  renderBreadcrumb($('#viewer-path'), tab.path);
+  $('#viewer-body')
+    .querySelectorAll('.viewer-pane')
+    .forEach((p) => (p.hidden = p !== tab.pane));
+  const dl = $('#viewer-download');
+  if (tab.blobUrl) {
+    dl.href = tab.blobUrl;
+    dl.setAttribute('download', tab.title);
+  } else {
+    dl.removeAttribute('href');
+  }
+}
+
+function activateExcalidrawTab(tab) {
+  $('#excalidraw-view').hidden = false;
+  renderBreadcrumb($('#excalidraw-path'), tab.path);
+  $('#excalidraw-root')
+    .querySelectorAll('.excalidraw-pane')
+    .forEach((p) => (p.hidden = p !== tab.pane));
+}
+
+async function closeTab(id) {
+  const idx = TABS.list.findIndex((tb) => tb.id === id);
+  if (idx < 0) return;
+  const tab = TABS.list[idx];
+  if (tab.id === TABS.activeId) snapshotActive();
+  if (tab.dirty) {
+    const discard = await uiConfirm(t('tab_unsaved_title'), {
+      message: t('tab_unsaved_msg', { name: tab.title }),
+      okText: t('discard'),
+      cancelText: t('cancel'),
+      danger: true,
+    });
+    if (!discard) return;
+  }
+  // Note: the decrypted attachment blob URL is intentionally NOT revoked — the
+  // blob cache is shared (e.g. with markdown image embeds), so other views may
+  // still reference it.
+  if (tab.excalidraw && window.ExcalidrawEditor.unmount) {
+    try {
+      window.ExcalidrawEditor.unmount(tab.excalidraw);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  if (tab.pane && tab.pane.parentNode) tab.pane.parentNode.removeChild(tab.pane);
+  const wasActive = tab.id === TABS.activeId;
+  TABS.list.splice(idx, 1);
+  if (wasActive) {
+    TABS.activeId = null;
+    const next = TABS.list[idx] || TABS.list[idx - 1];
+    if (next) {
+      await activateTab(next.id);
+    } else {
+      hideAllViews();
+      state.current = null;
+      state.excalidraw = null;
+      $('#welcome').hidden = false;
+      renderTabbar();
+      markTreeActive();
+    }
+  } else {
+    renderTabbar();
+    markTreeActive();
+  }
+}
+
+// Re-fetch the active editor tab from the server (used after a save conflict
+// when the user chooses to reload the latest instead of overwriting).
+async function reloadActiveEditor() {
+  const tab = activeTab();
+  if (!tab || tab.kind !== 'editor') return;
+  const data = await api(
+    'GET',
+    '/api/file?path=' + encodeURIComponent(tab.path),
+  );
+  tab.content = await decryptContent(data.content);
+  tab.version = data.version;
+  tab.dirty = false;
+  $('#editor').value = tab.content;
+  state.current.version = data.version;
+  state.dirty = false;
+  if (state.viewing) renderPreviewNow();
+  renderTabbar();
+}
+
+// Keep open tabs in sync when a file/folder is renamed or moved. `from`/`to`
+// are vault-relative paths; any tab at or under `from` is repointed to `to`.
+function renameTabPaths(from, to) {
+  let changed = false;
+  for (const tab of TABS.list) {
+    if (tab.path === from) {
+      tab.path = to;
+    } else if (tab.path.startsWith(from + '/')) {
+      tab.path = to + tab.path.slice(from.length);
+    } else {
+      continue;
+    }
+    tab.title = basename(tab.path);
+    tab.ext = extOf(tab.path);
+    changed = true;
+  }
+  if (!changed) return;
+  const active = activeTab();
+  if (active) {
+    state.current.path = active.path;
+    const headerSel =
+      active.kind === 'editor'
+        ? '#current-path'
+        : active.kind === 'viewer'
+          ? '#viewer-path'
+          : '#excalidraw-path';
+    renderBreadcrumb($(headerSel), active.path);
+  }
+  renderTabbar();
+  markTreeActive();
+}
+
+// Detach a tab's live DOM and drop it from the list without any prompt (used
+// when its underlying file was deleted, so there is nothing left to save).
+function forceCloseTab(tab) {
+  if (tab.excalidraw && window.ExcalidrawEditor.unmount) {
+    try {
+      window.ExcalidrawEditor.unmount(tab.excalidraw);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  if (tab.pane && tab.pane.parentNode) tab.pane.parentNode.removeChild(tab.pane);
+  TABS.list = TABS.list.filter((x) => x !== tab);
+}
+
+// Close every tab at or under `path` (file or folder was deleted).
+async function closeTabsUnder(path) {
+  const doomed = TABS.list.filter(
+    (tab) => tab.path === path || tab.path.startsWith(path + '/'),
+  );
+  if (!doomed.length) return;
+  const closingActive = doomed.some((tab) => tab.id === TABS.activeId);
+  for (const tab of doomed) forceCloseTab(tab);
+  if (closingActive) {
+    TABS.activeId = null;
+    const next = TABS.list[0];
+    if (next) {
+      await activateTab(next.id);
+      return;
+    }
+    hideAllViews();
+    state.current = null;
+    state.excalidraw = null;
+    $('#welcome').hidden = false;
+  }
+  renderTabbar();
+  markTreeActive();
+}
+
+// Leave the active file tab to show a non-file view (welcome, web links, graph)
+// without closing any tabs: snapshot the editor and clear the active highlight.
+function deactivateTabs() {
+  snapshotActive();
+  TABS.activeId = null;
+  renderTabbar();
+  markTreeActive();
 }
 
 /* ---------- text editor + preview ---------- */
 
-async function openEditor(path, ext) {
-  const data = await api('GET', '/api/file?path=' + encodeURIComponent(path));
-  const content = await decryptContent(data.content);
-  hideAllViews();
-  state.current = { path, ext, version: data.version };
-  state.dirty = false;
-  $('#editor-view').hidden = false;
-  renderBreadcrumb($('#current-path'), path);
-  const editor = $('#editor');
-  editor.value = content;
-  const isMarkdown = ext === 'md' || ext === 'markdown';
-  const isCode = CODE_EXTS.includes(ext);
-  // Markdown and code/config files offer a reading view (rendered preview or
-  // syntax-highlighted code); plain .txt has no preview.
-  $('#toggle-preview').style.display = isMarkdown || isCode ? '' : 'none';
-  // Every file that has a reading view (markdown or code/config) opens in view
-  // mode by default — the user browses the vault read-only and clicks "Edit" to
-  // make changes. Plain text without a preview opens straight in edit mode.
-  if (isMarkdown || isCode) {
-    setViewMode(true);
-  } else {
-    setViewMode(false);
-    editor.focus();
-  }
-}
-
 $('#editor').addEventListener('input', () => {
   state.dirty = true;
+  markActiveDirty();
 });
 
 /** Switch the editor between edit mode (textarea) and reading mode (preview). */
@@ -1849,7 +2227,7 @@ async function saveCurrent() {
         delete payload.baseVersion;
         result = await api('PUT', '/api/file', payload);
       } else {
-        await openFile(state.current.path);
+        await reloadActiveEditor();
         flash(t('reloaded_latest'));
         return;
       }
@@ -1859,6 +2237,13 @@ async function saveCurrent() {
   }
   if (result && result.version) state.current.version = result.version;
   state.dirty = false;
+  const tab = activeTab();
+  if (tab) {
+    tab.version = state.current.version;
+    tab.dirty = false;
+    tab.content = $('#editor').value;
+  }
+  renderTabbar();
   invalidateSearchIndex();
   invalidateGraphCache(); // note content (and thus its links) changed
   flash(t('saved'));
@@ -1868,60 +2253,11 @@ $('#save-btn').addEventListener('click', saveCurrent);
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
     e.preventDefault();
-    if (state.current && state.current.ext !== 'excalidraw') saveCurrent();
-    else if (state.excalidraw) saveExcalidraw();
+    const tab = activeTab();
+    if (tab && tab.kind === 'editor') saveCurrent();
+    else if (tab && tab.kind === 'excalidraw' && state.excalidraw) saveExcalidraw();
   }
 });
-
-/* ---------- attachment viewer ---------- */
-
-function openViewer(path, ext) {
-  hideAllViews();
-  state.current = { path, ext };
-  $('#viewer-view').hidden = false;
-  renderBreadcrumb($('#viewer-path'), path);
-  const body = $('#viewer-body');
-  body.innerHTML = '';
-  const downloadLink = $('#viewer-download');
-  downloadLink.removeAttribute('href');
-
-  if (IMAGE_EXTS.includes(ext)) {
-    const img = document.createElement('img');
-    img.alt = basename(path);
-    body.appendChild(img);
-    setViewerSources(path, [img], downloadLink);
-  } else if (ext === 'pdf') {
-    const frame = document.createElement('iframe');
-    frame.className = 'pdf-frame';
-    body.appendChild(frame);
-    setViewerSources(path, [frame], downloadLink);
-  } else if (OFFICE_EXTS.includes(ext)) {
-    renderOffice(path, ext, body);
-  } else {
-    const p = document.createElement('p');
-    p.className = 'muted';
-    p.textContent = t('no_preview');
-    body.appendChild(p);
-  }
-}
-
-/**
- * Decrypt an attachment once and point the given preview elements (and the
- * download link) at the resulting blob: URL.
- */
-async function setViewerSources(path, elements, downloadLink) {
-  try {
-    const url = await attachmentBlobUrl(path);
-    if (!state.current || state.current.path !== path) return;
-    for (const el of elements) el.src = url;
-    if (downloadLink) {
-      downloadLink.href = url;
-      downloadLink.setAttribute('download', basename(path));
-    }
-  } catch (e) {
-    /* leave the viewer empty if decryption fails */
-  }
-}
 
 /* ---------- office document viewer (Word / Excel / OpenDocument) ---------- */
 
@@ -1957,8 +2293,8 @@ async function renderOffice(path, ext, body) {
       plain.byteOffset + plain.byteLength,
     );
     await ensureOffice();
-    // Guard against the user navigating away while loading.
-    if (!state.current || state.current.path !== path) return;
+    // Guard against the tab being closed (its pane detached) while loading.
+    if (!body.isConnected) return;
     body.innerHTML = '';
     const container = document.createElement('div');
     container.className = 'office-doc';
@@ -1996,31 +2332,6 @@ function ensureExcalidraw() {
   return excalidrawLoading;
 }
 
-async function openExcalidraw(path) {
-  hideAllViews();
-  $('#excalidraw-view').hidden = false;
-  renderBreadcrumb($('#excalidraw-path'), path);
-  state.current = { path, ext: 'excalidraw', version: null };
-  const root = $('#excalidraw-root');
-  root.innerHTML = t('loading_editor');
-  let initial = null;
-  try {
-    const data = await api('GET', '/api/file?path=' + encodeURIComponent(path));
-    state.current.version = data.version;
-    const content = await decryptContent(data.content);
-    initial = content ? JSON.parse(content) : null;
-  } catch (e) {
-    initial = null;
-  }
-  try {
-    await ensureExcalidraw();
-    root.innerHTML = '';
-    state.excalidraw = window.ExcalidrawEditor.mount(root, initial);
-  } catch (e) {
-    root.textContent = e.message;
-  }
-}
-
 async function saveExcalidraw() {
   if (!state.excalidraw || !state.current) return;
   const json = window.ExcalidrawEditor.serialize(state.excalidraw);
@@ -2050,6 +2361,8 @@ async function saveExcalidraw() {
     }
   }
   if (result && result.version) state.current.version = result.version;
+  const tab = activeTab();
+  if (tab) tab.version = state.current.version;
   flash(t('saved'));
 }
 $('#excalidraw-save').addEventListener('click', saveExcalidraw);
@@ -2936,6 +3249,7 @@ document.querySelectorAll('[data-mobile-back]').forEach((btn) => {
     if (state.current && state.current.ext !== 'excalidraw' && !$('#editor-view').hidden) {
       setViewMode(!!state.viewing);
     }
+    if (typeof renderTabbar === 'function') renderTabbar();
   });
 })();
 
@@ -3490,11 +3804,6 @@ document.addEventListener('keydown', (e) => {
 function maybeCloseSidebar() {
   if (window.innerWidth <= 800) toggleSidebar(false);
 }
-const _openFile = openFile;
-openFile = async function (path) {
-  await _openFile(path);
-  maybeCloseSidebar();
-};
 
 /* ---------- web link manager ---------- */
 
@@ -3670,6 +3979,7 @@ async function openWebLinks() {
     weblinksState.filter = '';
     const search = $('#weblinks-search');
     if (search) search.value = '';
+    deactivateTabs();
     hideAllViews();
     state.current = null;
     $('#weblinks-view').hidden = false;
@@ -4267,6 +4577,7 @@ function invalidateGraphCache() {
 function showGraphView(resim) {
   const n = graphState.nodes.length;
   graphState.active = null;
+  deactivateTabs();
   hideAllViews();
   state.current = null;
   $('#graph-view').hidden = false;

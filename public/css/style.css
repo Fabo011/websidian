@@ -428,6 +428,10 @@ body.sidebar-resizing {
 }
 .tree-row:hover { background: var(--row-hover); }
 .tree-row.selected { background: var(--row-selected); }
+/* Files that are open as tabs get a subtle accent; the active tab is bolder. */
+.tree-row.tab-open .tree-name { color: var(--text); }
+.tree-row.tab-active { background: var(--row-selected); }
+.tree-row.tab-active .tree-name { color: var(--accent); font-weight: 600; }
 .tree-label {
   flex: 1;
   display: flex;
@@ -512,7 +516,88 @@ body.sidebar-resizing {
 /* ===== Content area ===== */
 .content { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .welcome { margin: auto; text-align: center; color: var(--text-muted); }
-.view { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.view { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+
+/* ---------- open-file tabs (Obsidian-style) ---------- */
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 6px 8px 0;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.tabbar[hidden] { display: none; }
+.tabbar::-webkit-scrollbar { height: 6px; }
+.tabbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 200px;
+  padding: 7px 8px 7px 11px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.tab:hover { background: var(--bg-alt); color: var(--text); }
+.tab.active {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+.tab .tab-icon { flex-shrink: 0; font-size: 14px; }
+.tab .tab-title { overflow: hidden; text-overflow: ellipsis; }
+.tab .tab-dirty {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.tab .tab-close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.65;
+}
+.tab .tab-close:hover { background: var(--border); opacity: 1; }
+
+/* Per-tab panes that persist live DOM (viewer / excalidraw) so switching tabs
+   never rebuilds them — iframes/canvases stay mounted, inactive panes hidden. */
+.viewer-pane {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+}
+.viewer-pane[hidden] { display: none; }
+.viewer-pane img { max-width: 100%; height: auto; align-self: flex-start; }
+.excalidraw-pane { position: absolute; inset: 0; }
+.excalidraw-pane[hidden] { display: none; }
+.excalidraw-pane .excalidraw { height: 100%; }
 .view[hidden] { display: none; }
 .view-header {
   display: flex;
@@ -804,8 +889,7 @@ body.sidebar-resizing {
   accent-color: var(--accent);
 }
 
-.viewer-body { flex: 1; overflow: auto; padding: 20px; display: flex; justify-content: center; }
-.viewer-body img { max-width: 100%; height: auto; align-self: flex-start; }
+.viewer-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .pdf-frame { width: 100%; height: 100%; border: none; }
 
 /* ===== Wikilink graph ===== */
@@ -912,6 +996,20 @@ body.sidebar-resizing {
   .btn-label { display: none; }
   /* Give the drawing canvas a guaranteed height so it stays editable on mobile. */
   .excalidraw-root { min-height: 70vh; min-height: 70dvh; }
+
+  /* Tabs: momentum scroll, hide the scrollbar, finger-friendly hit targets. */
+  .tabbar {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 5px 6px 0;
+  }
+  .tabbar::-webkit-scrollbar { display: none; }
+  .tab {
+    max-width: 60vw;
+    padding: 9px 8px 9px 12px;
+    font-size: 14px;
+  }
+  .tab .tab-close { width: 26px; height: 26px; }
 
   /* Centered, finger-friendly context menu on phones. */
   .context-menu.context-menu-centered {
@@ -1543,7 +1641,7 @@ pre.hljs code { background: transparent; padding: 0; }
 :root[data-theme='light'] .hljs-deletion { color: #e45649; }
 
 /* ===== Office document viewer (Word / Excel / OpenDocument) ===== */
-.viewer-body .office-doc { width: 100%; max-width: 900px; }
+.viewer-pane .office-doc { width: 100%; max-width: 900px; }
 .office-doc .wo-docx,
 .office-doc .wo-odt {
   background: #ffffff;
@@ -1668,6 +1766,8 @@ pre.hljs.has-copy:hover .code-copy,
 .code-copy.copied { color: #2ecc71; border-color: #2ecc71; opacity: 1; }
 @media (hover: none) {
   .code-copy { opacity: 1; }
+  /* No hover on touch — keep the tab close button fully visible. */
+  .tab .tab-close { opacity: 1; }
 }
 
 /* ===== Drop target highlight on the markdown editor ===== */

@@ -127,6 +127,13 @@ export interface AppConfig {
    * rebuilds). Configured via GRAPH_CACHE_TTL_MS.
    */
   graphCacheTtlMs: number;
+  /**
+   * Maximum number of file tabs the client keeps open at once. Opening more is
+   * refused until a tab is closed. Open tabs are held in the browser's memory so
+   * switching between them does not refetch/re-decrypt. Configured via
+   * MAX_OPEN_TABS. Default 8.
+   */
+  maxOpenTabs: number;
   /** Marketing/pricing copy surfaced on the public landing page. */
   pricing: PricingConfig;
   /** Whether the AGB (terms) page and its footer link are shown. */
@@ -366,6 +373,8 @@ export default (): { app: AppConfig } => {
         0,
         parseNumber(process.env.GRAPH_CACHE_TTL_MS, 300000),
       ),
+      // Max file tabs the client keeps open at once. Default 8; floor of 1.
+      maxOpenTabs: Math.max(1, parseNumber(process.env.MAX_OPEN_TABS, 8)),
       pricing: {
         pricePlus:
           process.env.PRICE_PLUS?.trim() || process.env.PRICE_5GB?.trim() || '',

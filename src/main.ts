@@ -111,6 +111,9 @@ async function bootstrap() {
   // wikilink graph within the window reuses the built layout instead of
   // refetching + re-simulating. Driven by GRAPH_CACHE_TTL_MS.
   expressInstance.locals.graphCacheTtlMs = appConfig.graphCacheTtlMs;
+  // Max file tabs the client keeps open at once, surfaced to the client so the
+  // tab bar can refuse to open more than this. Driven by MAX_OPEN_TABS.
+  expressInstance.locals.maxOpenTabs = appConfig.maxOpenTabs;
   // Junk-file patterns (macOS ._*, .DS_Store, …), surfaced to the client so the
   // folder uploader can skip them before queueing instead of letting them fail
   // server-side. Mirrors the guard in tus.setup. Driven by UPLOAD_EXCLUDE_PATTERNS.
