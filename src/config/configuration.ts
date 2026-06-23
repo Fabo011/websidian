@@ -104,8 +104,16 @@ export interface AppConfig {
   storage: { driver: StorageDriver; s3: S3Config };
   /** At-rest encryption of vault contents (AES-256-GCM in Node.js). */
   encryption: { enabled: boolean; key: string };
-  /** API request rate limiting (protects storage/S3 from abuse + reload storms). */
+  /**
+   * Auth-endpoint rate limiting (`/auth/*`: login, register, 2fa). Throttles
+   * credential-guessing / enumeration attempts. Enabled by default.
+   */
   rateLimit: RateLimitConfig;
+  /**
+   * Dashboard data-API rate limiting (`/api/*`: protects storage/S3 from abuse
+   * + reload storms). Disabled by default.
+   */
+  rateLimitDash: RateLimitConfig;
   /**
    * How long (ms) the server caches a user's flat file list to answer repeated
    * name searches without re-listing the whole vault from storage. 0 disables
@@ -130,9 +138,10 @@ export interface AppConfig {
 }
 
 /**
- * Per-user (or per-IP for anonymous callers) rate limit applied to the `/api`
- * routes. Keeps a single account from hammering the storage backend (e.g.
- * constant page reloads), which directly caps S3 request costs and blunts DDoS.
+ * Per-user (or per-IP for anonymous callers) rate limit. Two independent
+ * instances exist: one for the auth endpoints (`/auth/*`) and one for the
+ * dashboard data API (`/api/*`). Keys per-user so one abusive client cannot
+ * lock out everyone behind a NAT.
  */
 export interface RateLimitConfig {
   /** Whether the limiter is active. */
@@ -332,6 +341,18 @@ export default (): { app: AppConfig } => {
           1000,
         // Max requests per window, per user (default 60/min ≈ 1 req/sec).
         max: Math.max(1, parseNumber(process.env.RATE_LIMIT_MAX, 60)),
+      },
+      rateLimitDash: {
+        // Disabled by default; opt in via RATE_LIMIT_DASH_ENABLED.
+        enabled: parseBool(process.env.RATE_LIMIT_DASH_ENABLED, false),
+        // Window length in seconds (default 60s = "per minute").
+        windowMs:
+          Math.max(
+            1,
+            parseNumber(process.env.RATE_LIMIT_DASH_WINDOW_SECONDS, 60),
+          ) * 1000,
+        // Max requests per window, per user (default 60/min ≈ 1 req/sec).
+        max: Math.max(1, parseNumber(process.env.RATE_LIMIT_DASH_MAX, 60)),
       },
       // Server-side flat file-list cache TTL for name search. Default 15s; set
       // to 0 to disable (every search re-lists the vault from storage).

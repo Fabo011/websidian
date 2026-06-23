@@ -53,10 +53,14 @@ Copy `.env.example` to `.env` and adjust:
 
 | Variable             | Default              | Purpose                                          |
 | -------------------- | -------------------- | ------------------------------------------------ |
-| `RATE_LIMIT_ENABLED` | `true`               | Throttle the `/api` data routes per user (`false` to disable) |
-| `RATE_LIMIT_WINDOW_SECONDS` | `60`          | Length of the rate-limit window in seconds       |
-| `RATE_LIMIT_MAX`     | `60`                 | Max API requests per window, per user/IP         |
+| `RATE_LIMIT_ENABLED` | `true`               | Throttle the `/auth` routes (login, register, 2fa) per user (`false` to disable) |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60`          | Length of the auth rate-limit window in seconds  |
+| `RATE_LIMIT_MAX`     | `60`                 | Max auth requests per window, per user/IP        |
+| `RATE_LIMIT_DASH_ENABLED` | `false`         | Throttle the `/api` dashboard data routes per user (`true` to enable) |
+| `RATE_LIMIT_DASH_WINDOW_SECONDS` | `60`     | Length of the dashboard rate-limit window in seconds |
+| `RATE_LIMIT_DASH_MAX` | `60`                | Max dashboard API requests per window, per user/IP |
 | `SEARCH_CACHE_TTL_MS` | `15000`             | How long (ms) the server caches a user's flat file list for name search; `0` disables. New/renamed files may take up to this long to appear in name search |
+| `GRAPH_CACHE_TTL_MS` | `300000`             | How long (ms) the client reuses an already-built wikilink graph before rebuilding; `0` disables |
 
 **Encryption (DB columns at rest)**
 
@@ -143,19 +147,24 @@ uploads and imports that would exceed the quota are rejected. Set
 `STORAGE_QUOTA_GB=0` for unlimited storage. (Paid upgrades for more storage are
 planned.)
 
-### API rate limiting
+### Rate limiting
 
-The data API (`/api/*`) is rate limited **per user** (per IP for anonymous
-callers) so a single account cannot hammer the storage backend — for example by
-reloading the page in a loop. This directly caps S3/Mega S3 request costs and
-blunts trivial DDoS attempts. When the limit is exceeded the API responds with
-HTTP `429` and the UI shows a clear toast asking the user to slow down.
+Two independent limiters guard the app, both keyed **per user** (per IP for
+anonymous callers behind a NAT). When a limit is exceeded the endpoint responds
+with HTTP `429` and the UI shows a clear toast asking the user to slow down.
 
-Tune it with `RATE_LIMIT_WINDOW_SECONDS` (default **60s** = "per minute") and
-`RATE_LIMIT_MAX` (default **60** requests per window). Set
-`RATE_LIMIT_ENABLED=false` to turn it off. Note that one page load fires several
-API calls (file tree + the opened note, etc.), so keep `RATE_LIMIT_MAX`
-comfortably above the number of page reloads per minute you want to allow.
+**Auth limiter** (`/auth/*`: login, register, 2fa) throttles credential
+guessing and account enumeration. It is **enabled by default**. Tune it with
+`RATE_LIMIT_WINDOW_SECONDS` (default **60s** = "per minute") and `RATE_LIMIT_MAX`
+(default **60** requests per window); set `RATE_LIMIT_ENABLED=false` to disable.
+
+**Dashboard limiter** (`/api/*`: vault data routes) stops a single account from
+hammering the storage backend — for example by reloading the page in a loop —
+which caps S3/Mega S3 request costs and blunts trivial DDoS attempts. It is
+**disabled by default**; set `RATE_LIMIT_DASH_ENABLED=true` to enable, then tune
+with `RATE_LIMIT_DASH_WINDOW_SECONDS` and `RATE_LIMIT_DASH_MAX`. Note that one
+page load fires several API calls (file tree + the opened note, etc.), so keep
+`RATE_LIMIT_DASH_MAX` comfortably above the page reloads per minute you allow.
 
 ### Zero-knowledge end-to-end encryption
 
