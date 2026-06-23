@@ -103,6 +103,14 @@ export interface QuotaUsage {
  */
 export const TRASH_DIR = '.trash';
 
+/**
+ * Zero-byte folder placeholder written by object stores to keep an empty folder
+ * listable. Hidden from the tree (its parent folder is materialised anyway), but
+ * unlike other dotfiles it is the only one we hide — real junk files (macOS
+ * `._*` / `.DS_Store`, `.obsidian`, …) stay visible so the user can delete them.
+ */
+export const KEEP_MARKER = '.keep';
+
 // Marker file written inside each trash batch (`.trash/<stamp>/.origin`) holding
 // the deleted entry's original path + type, so the trash UI can list and restore
 // it unambiguously. Batches created before this existed fall back to inferring
@@ -261,9 +269,10 @@ export class VaultService {
   }
 
   /**
-   * Build the sorted directory tree from a flat list of file paths. Dotfiles
-   * (including '.keep' folder markers) are hidden but still materialise their
-   * parent folders, matching the recursive {@link walk} behaviour.
+   * Build the sorted directory tree from a flat list of file paths. Only the
+   * internal '.keep' folder markers are hidden (they still materialise their
+   * parent folders); every other file — including OS junk dotfiles — is shown so
+   * the user can see and delete anything occupying their vault.
    */
   private buildTreeFromFlat(files: Array<{ relPath: string }>): TreeNode[] {
     const root: TreeNode[] = [];
@@ -296,8 +305,8 @@ export class VaultService {
       const leaf = segments[segments.length - 1];
       const dirPath = segments.slice(0, -1).join('/');
       const parent = ensureDir(dirPath);
-      if (leaf.startsWith('.')) {
-        continue; // hidden dotfile / folder marker — folder already created
+      if (leaf === KEEP_MARKER) {
+        continue; // folder placeholder — its parent dir is already materialised
       }
       parent.push({
         name: leaf,

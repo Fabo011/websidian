@@ -9,6 +9,10 @@ import { join } from 'path';
 import { AUTH_COOKIE } from '../auth/auth.constants';
 import { AuthService } from '../auth/auth.service';
 import { resolveUploadPath } from '../common/path-safety';
+import {
+  buildUploadExcludeMatcher,
+  parseUploadExcludePatterns,
+} from '../common/upload-exclude';
 import { VaultService } from '../vault/vault.service';
 
 // tus endpoint path. Kept off `/api` on purpose so the per-user API rate limiter
@@ -71,6 +75,13 @@ export function setupTus(app: NestExpressApplication): void {
   const auth = app.get(AuthService, { strict: false });
   const vault = app.get(VaultService, { strict: false });
 
+  // Junk-file filter (macOS ._*, .DS_Store, Thumbs.db, …). Authoritative guard:
+  // rejects an excluded file before any bytes are stored, even if the browser
+  // filter is bypassed. Configurable via UPLOAD_EXCLUDE_PATTERNS.
+  const isExcludedUpload = buildUploadExcludeMatcher(
+    parseUploadExcludePatterns(process.env.UPLOAD_EXCLUDE_PATTERNS),
+  );
+
   const datastore = new FileStore({ directory: TUS_TMP_DIR });
 
   const server = new Server({
@@ -89,6 +100,23 @@ export function setupTus(app: NestExpressApplication): void {
     // If an absolute URL is ever built, trust the proxy's forwarded proto/host so
     // it is https, not the origin's http.
     respectForwardedHeaders: true,
+
+    // Reject OS junk files at creation, before any chunk is stored. The leaf
+    // filename travels in plaintext tus metadata (only the bytes are encrypted),
+    // so we can match it here.
+    onUploadCreate: async (_req, res, upload) => {
+      const filename = upload.metadata?.filename || '';
+      if (isExcludedUpload(filename)) {
+        throw Object.assign(
+          new Error('This file type is excluded from uploads.'),
+          {
+            status_code: 400,
+            body: 'This file type is excluded from uploads.',
+          },
+        );
+      }
+      return res;
+    },
 
     // Authenticate every tus request from the auth cookie (httpOnly JWT). A bad
     // or missing token aborts the request with 401 before any bytes are stored.

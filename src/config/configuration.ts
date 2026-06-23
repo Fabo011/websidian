@@ -104,8 +104,16 @@ export interface AppConfig {
   storage: { driver: StorageDriver; s3: S3Config };
   /** At-rest encryption of vault contents (AES-256-GCM in Node.js). */
   encryption: { enabled: boolean; key: string };
-  /** API request rate limiting (protects storage/S3 from abuse + reload storms). */
+  /**
+   * Auth-endpoint rate limiting (`/auth/*`: login, register, 2fa). Throttles
+   * credential-guessing / enumeration attempts. Enabled by default.
+   */
   rateLimit: RateLimitConfig;
+  /**
+   * Dashboard data-API rate limiting (`/api/*`: protects storage/S3 from abuse
+   * + reload storms). Disabled by default.
+   */
+  rateLimitDash: RateLimitConfig;
   /**
    * How long (ms) the server caches a user's flat file list to answer repeated
    * name searches without re-listing the whole vault from storage. 0 disables
@@ -119,6 +127,13 @@ export interface AppConfig {
    * rebuilds). Configured via GRAPH_CACHE_TTL_MS.
    */
   graphCacheTtlMs: number;
+  /**
+   * Maximum number of file tabs the client keeps open at once. Opening more is
+   * refused until a tab is closed. Open tabs are held in the browser's memory so
+   * switching between them does not refetch/re-decrypt. Configured via
+   * MAX_OPEN_TABS. Default 8.
+   */
+  maxOpenTabs: number;
   /** Marketing/pricing copy surfaced on the public landing page. */
   pricing: PricingConfig;
   /** Whether the AGB (terms) page and its footer link are shown. */
@@ -130,9 +145,10 @@ export interface AppConfig {
 }
 
 /**
- * Per-user (or per-IP for anonymous callers) rate limit applied to the `/api`
- * routes. Keeps a single account from hammering the storage backend (e.g.
- * constant page reloads), which directly caps S3 request costs and blunts DDoS.
+ * Per-user (or per-IP for anonymous callers) rate limit. Two independent
+ * instances exist: one for the auth endpoints (`/auth/*`) and one for the
+ * dashboard data API (`/api/*`). Keys per-user so one abusive client cannot
+ * lock out everyone behind a NAT.
  */
 export interface RateLimitConfig {
   /** Whether the limiter is active. */
@@ -333,6 +349,18 @@ export default (): { app: AppConfig } => {
         // Max requests per window, per user (default 60/min ≈ 1 req/sec).
         max: Math.max(1, parseNumber(process.env.RATE_LIMIT_MAX, 60)),
       },
+      rateLimitDash: {
+        // Disabled by default; opt in via RATE_LIMIT_DASH_ENABLED.
+        enabled: parseBool(process.env.RATE_LIMIT_DASH_ENABLED, false),
+        // Window length in seconds (default 60s = "per minute").
+        windowMs:
+          Math.max(
+            1,
+            parseNumber(process.env.RATE_LIMIT_DASH_WINDOW_SECONDS, 60),
+          ) * 1000,
+        // Max requests per window, per user (default 60/min ≈ 1 req/sec).
+        max: Math.max(1, parseNumber(process.env.RATE_LIMIT_DASH_MAX, 60)),
+      },
       // Server-side flat file-list cache TTL for name search. Default 15s; set
       // to 0 to disable (every search re-lists the vault from storage).
       searchCacheTtlMs: Math.max(
@@ -345,6 +373,8 @@ export default (): { app: AppConfig } => {
         0,
         parseNumber(process.env.GRAPH_CACHE_TTL_MS, 300000),
       ),
+      // Max file tabs the client keeps open at once. Default 8; floor of 1.
+      maxOpenTabs: Math.max(1, parseNumber(process.env.MAX_OPEN_TABS, 8)),
       pricing: {
         pricePlus:
           process.env.PRICE_PLUS?.trim() || process.env.PRICE_5GB?.trim() || '',

@@ -20,6 +20,25 @@
 const Uppy = require('@uppy/core').default || require('@uppy/core').Uppy;
 const Tus = require('@uppy/tus').default || require('@uppy/tus');
 
+/* --------------------------- junk-file filter -------------------------- */
+
+// Build a matcher from the server-provided glob patterns (window.__WO_UPLOAD_EXCLUDE__,
+// set from UPLOAD_EXCLUDE_PATTERNS). Mirrors src/common/upload-exclude.ts so the
+// browser skips OS junk (macOS ._*, .DS_Store, Thumbs.db, …) before queueing;
+// the server enforces the same list as the authoritative guard.
+function buildExcludeMatcher(patterns) {
+  const regexps = (patterns || []).map((p) => {
+    const escaped = String(p)
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*');
+    return new RegExp(`^${escaped}$`, 'i');
+  });
+  return (path) => {
+    const leaf = String(path).split('/').pop() || '';
+    return regexps.some((re) => re.test(leaf));
+  };
+}
+
 const CHUNK_SIZE = 50 * 1024 * 1024; // 50 MB — one chunk per request, < 100 MB.
 const CONCURRENCY = 3; // parallel files, so we don't hammer the proxy.
 const RETRY_DELAYS = [0, 1000, 3000, 5000, 10000]; // auto-retry network errors.
@@ -309,6 +328,17 @@ async function start(opts) {
   const { entries, baseDir = '', getKey, t, onComplete, onFileComplete } = opts;
   if (!entries || !entries.length) return;
 
+  // Drop OS junk (macOS ._*, .DS_Store, …) before queueing so the user never
+  // sees a failed-upload row for files they did not knowingly add.
+  const isExcluded = buildExcludeMatcher(window.__WO_UPLOAD_EXCLUDE__);
+  const kept = [];
+  let skipped = 0;
+  for (const en of entries) {
+    if (isExcluded(en.relativePath || '')) skipped++;
+    else kept.push(en);
+  }
+  if (!kept.length) return;
+
   const key = await getKey();
 
   const uppy = new Uppy({
@@ -324,8 +354,8 @@ async function start(opts) {
     removeFingerprintOnSuccess: true,
   });
 
-  // One UI item per selected file (shown immediately as "queued").
-  const items = entries.map((en) => ({
+  // One UI item per kept file (shown immediately as "queued").
+  const items = kept.map((en) => ({
     rel: en.relativePath,
     file: en.file,
     size: en.file.size,
@@ -377,6 +407,11 @@ async function start(opts) {
     },
   });
   panel.setItems(items);
+  // Tell the user up front that some OS junk files were left out.
+  if (skipped) {
+    const tr = (k, p) => (typeof t === 'function' ? t(k, p) : k);
+    panel.setFooter(tr('up_skipped_note', { n: skipped }), false);
+  }
 
   function retryAllFailed() {
     let any = false;
@@ -479,14 +514,13 @@ async function start(opts) {
     const failed = items.filter((it) => it.status === 'error');
     const ok = items.length - failed.length;
     const tr = (k, p) => (typeof t === 'function' ? t(k, p) : k);
-    if (failed.length) {
-      panel.setFooter(
-        tr('up_done_partial', { ok, failed: failed.length }),
-        true,
-      );
-    } else {
-      panel.setFooter(tr('up_done_all', { n: ok }), false);
+    let msg = failed.length
+      ? tr('up_done_partial', { ok, failed: failed.length })
+      : tr('up_done_all', { n: ok });
+    if (skipped) {
+      msg += ` · ${tr('up_skipped_note', { n: skipped })}`;
     }
+    panel.setFooter(msg, failed.length > 0);
     panel.setControlEnabled('pause', false);
     panel.setControlEnabled('resume', false);
     panel.setControlEnabled('retry', failed.length > 0);

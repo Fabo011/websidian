@@ -24,6 +24,9 @@ import {
  */
 const TRASH_DIR = '.trash';
 
+/** Zero-byte folder placeholder; hidden from listings like the S3 backend. */
+const KEEP_MARKER = '.keep';
+
 /**
  * Stores vault data on the server's local filesystem under
  * `dataRoot/<username>/`. This is the default provider.
@@ -54,8 +57,11 @@ export class LocalStorageProvider implements StorageProvider {
     const entries = await fs.readdir(abs, { withFileTypes: true });
     const out: StorageEntry[] = [];
     for (const entry of entries) {
-      if (entry.name.startsWith('.')) {
-        continue; // hide dotfiles (e.g. .obsidian)
+      // Hide only internal markers (folder placeholder + trash root). Other
+      // dotfiles — macOS ._* / .DS_Store junk, .obsidian, … — stay visible so
+      // the user can see and delete anything occupying their vault.
+      if (entry.name === KEEP_MARKER || entry.name === TRASH_DIR) {
+        continue;
       }
       if (entry.isDirectory()) {
         out.push({ name: entry.name, type: 'dir' });
