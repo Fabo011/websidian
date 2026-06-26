@@ -97,3 +97,4 @@ services:
 
 volumes:
   postgres-data:
+  portainer-data:

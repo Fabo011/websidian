@@ -1,0 +1,117 @@
+networks:
+  websidian-net:
+    driver: overlay
+    attachable: true
+
+volumes:
+  postgres-data:
+    external: true
+    name: server_postgres-data
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
+    networks:
+      - websidian-net
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+
+  websidian:
+    image: ghcr.io/fabo011/websidian:latest
+    networks:
+      - websidian-net
+    ports:
+      - target: 3065
+        published: 3065
+        protocol: tcp
+        mode: host
+    environment:
+      ALLOW_REGISTRATION: "${ALLOW_REGISTRATION}"
+      PORT: 3065
+      COOKIE_SECURE: "${COOKIE_SECURE:-true}"
+      CORS_ORIGINS: "${CORS_ORIGINS}"
+      TRASH_RETENTION_DAYS: "${TRASH_RETENTION_DAYS}"
+      RATE_LIMIT_ENABLED: "${RATE_LIMIT_ENABLED:-true}"
+      RATE_LIMIT_WINDOW_SECONDS: "${RATE_LIMIT_WINDOW_SECONDS}"
+      RATE_LIMIT_MAX: "${RATE_LIMIT_MAX}"
+      RATE_LIMIT_DASH_ENABLED: "${RATE_LIMIT_DASH_ENABLED}"
+      RATE_LIMIT_DASH_WINDOW_SECONDS: "${RATE_LIMIT_DASH_WINDOW_SECONDS}"
+      RATE_LIMIT_DASH_MAX: "${RATE_LIMIT_DASH_MAX}"
+      VAULT_TREE_CACHE_SECONDS: "${VAULT_TREE_CACHE_SECONDS}"
+      MAX_REGISTRATIONS: "${MAX_REGISTRATIONS}"
+      MAX_UPLOAD_SIZE_MB: "${MAX_UPLOAD_SIZE_MB:-20}"
+      MAX_UPLOAD_FILE_MB: "${MAX_UPLOAD_FILE_MB:-200}"
+      MAX_IMPORT_FILES: "${MAX_IMPORT_FILES:-10000}"
+      MAX_IMPORT_TOTAL_MB: "${MAX_IMPORT_TOTAL_MB:-200}"
+      UPLOAD_REQUEST_TIMEOUT_MIN: "${UPLOAD_REQUEST_TIMEOUT_MIN:-15}"
+      IMPRINT: "${IMPRINT}"
+      LEGAL_NOTICE: "${LEGAL_NOTICE}"
+      AGB: "${AGB}"
+      PRIVILEGED_USERS: "${PRIVILEGED_USERS}"
+      STORAGE_PRIVILEGED_USERS_GB: "${STORAGE_PRIVILEGED_USERS_GB}"
+      SEARCH_CACHE_TTL_MS: "${SEARCH_CACHE_TTL_MS}"
+      GRAPH_CACHE_TTL_MS: "${GRAPH_CACHE_TTL_MS}"
+      UPLOAD_EXCLUDE_PATTERNS: "${UPLOAD_EXCLUDE_PATTERNS}"
+      MAX_OPEN_TABS: "${MAX_OPEN_TABS:-8}"
+      STORAGE_QUOTA_GB: "${STORAGE_QUOTA_GB}"
+      STORAGE_DRIVER: "${STORAGE_DRIVER}"
+      S3_ENDPOINT: "${S3_ENDPOINT}"
+      S3_REGION: "${S3_REGION}"
+      S3_BUCKET: "${S3_BUCKET}"
+      S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID}"
+      S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY}"
+      S3_FORCE_PATH_STYLE: "${S3_FORCE_PATH_STYLE:-true}"
+      JWT_SECRET: "${JWT_SECRET}"
+      JWT_EXPIRES_IN: "7d"
+      ENCRYPTION_ENABLED: "${ENCRYPTION_ENABLED:-true}"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY}"
+      DATA_ROOT: "/app/data"
+      DB_TYPE: "${DB_TYPE}"
+      DB_HOST: "${DB_HOST}"
+      DB_PORT: "${DB_PORT:-5432}"
+      DB_USERNAME: "${DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      DB_DATABASE: "${DB_DATABASE}"
+      DB_SSL: "${DB_SSL}"
+      BILLING_ENABLED: "${BILLING_ENABLED}"
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY}"
+      STRIPE_PRICE_5GB: "${STRIPE_PRICE_5GB}"
+      STRIPE_PRICE_20GB: "${STRIPE_PRICE_20GB}"
+      APP_URL: "${APP_URL}"
+      STORAGE_PLUS_GB: "${STORAGE_PLUS_GB}"
+      PRICE_PLUS: "${PRICE_PLUS}"
+      CONTACT_EMAIL: "${CONTACT_EMAIL}"
+    deploy:
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+
+  postgres:
+    image: postgres:18-alpine
+    command: postgres -c unix_socket_directories=''
+    networks:
+      - websidian-net
+    environment:
+      POSTGRES_USER: "${DB_USERNAME}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      POSTGRES_DB: "${DB_DATABASE}"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    deploy:
+      replicas: 1          # NEVER more than 1 unless we store the postgres mount in a shared volume e.g. S3
+      endpoint_mode: dnsrr
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
