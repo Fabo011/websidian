@@ -15,7 +15,7 @@ services:
     networks:
       - websidian-net
     deploy:
-      replicas: 1
+      replicas: 2
       restart_policy:
         condition: any
 
@@ -85,7 +85,7 @@ services:
       PRICE_PLUS: "${PRICE_PLUS}"
       CONTACT_EMAIL: "${CONTACT_EMAIL}"
     deploy:
-      replicas: 1
+      replicas: 2
       endpoint_mode: dnsrr
       restart_policy:
         condition: any
