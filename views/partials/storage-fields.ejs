@@ -1,0 +1,96 @@
+<%# Reusable storage-provider chooser + credential fields.
+    Locals: prefix (string) — id namespace so the same markup can appear on the
+    register page and in the dashboard without id collisions. %>
+<div class="storage-form" data-storage-form data-prefix="<%= prefix %>" data-contact="<%= typeof contactEmail !== 'undefined' ? contactEmail : '' %>">
+  <p class="muted" data-i18n="storage_intro">
+    Your notes are end-to-end encrypted before they leave your device, so the
+    provider only ever sees ciphertext — the choice is not critical, pick one you
+    trust most. websidian is tested end-to-end with Nextcloud (WebDAV) and
+    Mega S4 (S3).
+  </p>
+
+  <div class="storage-type">
+    <label class="storage-type-opt">
+      <input type="radio" name="<%= prefix %>-driver" value="webdav" checked />
+      <span data-i18n="storage_type_webdav">WebDAV (Nextcloud &amp; similar)</span>
+    </label>
+    <label class="storage-type-opt">
+      <input type="radio" name="<%= prefix %>-driver" value="s3" />
+      <span data-i18n="storage_type_s3">S3-compatible object storage</span>
+    </label>
+  </div>
+
+  <!-- WebDAV -->
+  <div class="storage-driver-fields" data-driver="webdav">
+    <p class="muted small" data-i18n="storage_webdav_help">
+      Enter your WebDAV server URL and login. For Nextcloud use the WebDAV URL
+      from Settings → "WebDAV" and an app password.
+    </p>
+    <p class="muted small">
+      <span data-i18n="storage_providers_label">Providers:</span>
+      Nextcloud · <a href="https://www.box.com/" target="_blank" rel="noopener noreferrer">Box</a> ·
+      <a href="https://koofr.eu/" target="_blank" rel="noopener noreferrer">Koofr</a> ·
+      <a href="https://www.cloudme.com" target="_blank" rel="noopener noreferrer">CloudMe</a>
+    </p>
+    <label class="modal-label" data-i18n="storage_url">Server URL</label>
+    <input class="modal-input" data-field="url" type="url" autocomplete="off"
+           placeholder="https://cloud.example.com/remote.php/dav/files/USERNAME" />
+    <label class="modal-label" data-i18n="storage_username">Username</label>
+    <input class="modal-input" data-field="username" type="text" autocomplete="off" />
+    <label class="modal-label" data-i18n="storage_password">Password / app password</label>
+    <input class="modal-input" data-field="password" type="password" autocomplete="new-password" />
+    <label class="modal-label" data-i18n="storage_authtype">Authentication</label>
+    <select class="modal-input" data-field="authType">
+      <option value="auto" data-i18n="storage_auth_auto">Auto-detect</option>
+      <option value="password" data-i18n="storage_auth_password">Basic (password)</option>
+      <option value="digest" data-i18n="storage_auth_digest">Digest</option>
+      <option value="none" data-i18n="storage_auth_none">None</option>
+    </select>
+    <label class="modal-label" data-i18n="storage_basepath">Sub-folder (optional)</label>
+    <input class="modal-input" data-field="basePath" type="text" autocomplete="off"
+           placeholder="websidian" />
+  </div>
+
+  <!-- S3 -->
+  <div class="storage-driver-fields" data-driver="s3" hidden>
+    <p class="muted small" data-i18n="storage_s3_help">
+      Enter your bucket and access keys. For Mega S4 use your S4 endpoint and its
+      region (e.g. https://s3.eu-central-2.s4.mega.io / eu-central-2).
+    </p>
+    <p class="muted small">
+      <span data-i18n="storage_providers_label">Providers:</span>
+      <a href="https://www.hetzner.com/storage/storage-box/" target="_blank" rel="noopener noreferrer">Hetzner Object Storage</a> ·
+      <a href="https://mega.io/objectstorage" target="_blank" rel="noopener noreferrer">Mega S4</a>
+    </p>
+    <label class="modal-label" data-i18n="storage_endpoint">Endpoint</label>
+    <input class="modal-input" data-field="endpoint" type="url" autocomplete="off"
+           placeholder="https://s3.eu-central-2.s4.mega.io" />
+    <label class="modal-label" data-i18n="storage_region">Region</label>
+    <input class="modal-input" data-field="region" type="text" autocomplete="off"
+           placeholder="eu-central-2" />
+    <label class="modal-label" data-i18n="storage_bucket">Bucket</label>
+    <input class="modal-input" data-field="bucket" type="text" autocomplete="off"
+           placeholder="my-vault" />
+    <label class="modal-label" data-i18n="storage_accesskey">Access key ID</label>
+    <input class="modal-input" data-field="accessKeyId" type="text" autocomplete="off" />
+    <label class="modal-label" data-i18n="storage_secretkey">Secret access key</label>
+    <input class="modal-input" data-field="secretAccessKey" type="password" autocomplete="new-password" />
+    <label class="modal-checkbox">
+      <input type="checkbox" data-field="forcePathStyle" checked />
+      <span data-i18n="storage_pathstyle">Use path-style addressing (needed by most S3-compatibles)</span>
+    </label>
+    <label class="modal-label" data-i18n="storage_prefix">Key prefix (optional)</label>
+    <input class="modal-input" data-field="prefix" type="text" autocomplete="off"
+           placeholder="websidian" />
+  </div>
+
+  <label class="modal-label" data-i18n="storage_quota">Storage limit in GB (optional)</label>
+  <input class="modal-input" data-field="quotaGb" type="number" min="0" step="0.1"
+         placeholder="0" />
+  <small class="muted" data-i18n="storage_quota_hint">It is your own storage, so this is just a self-imposed cap. Leave at 0 for unlimited.</small>
+
+  <div class="storage-test-row">
+    <button type="button" class="btn-ghost" data-action="test" data-i18n="storage_test">Test connection</button>
+    <span class="storage-test-status" data-role="status" hidden></span>
+  </div>
+</div>

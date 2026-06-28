@@ -8,15 +8,9 @@ import {
   S3Client,
   _Object,
 } from '@aws-sdk/client-s3';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { Readable } from 'stream';
-import { AppConfig, S3Config } from '../config/configuration';
+import { S3Config } from '../config/configuration';
 import {
   StorageEntry,
   StorageFile,
@@ -60,33 +54,17 @@ interface UsageCacheEntry {
  *    one paginated request instead of one request per directory.
  *  - {@link usage} is cached briefly so repeated saves do not each trigger a
  *    full prefix scan.
+ *
+ * Instances are built directly with a resolved {@link S3Config} (the global env
+ * in default mode, or a user's saved credentials when USER_STORAGE_ENABLED is
+ * on), so the class is not a DI-managed singleton.
  */
-@Injectable()
 export class S3StorageProvider implements StorageProvider {
   private readonly logger = new Logger(S3StorageProvider.name);
-  private readonly s3Config?: S3Config;
   private _client?: S3Client;
   private readonly usageCache = new Map<string, UsageCacheEntry>();
 
-  constructor(private readonly config: ConfigService) {
-    const storage = this.config.get<AppConfig>('app').storage;
-    this.s3Config = storage.driver === 's3' ? storage.s3 : undefined;
-  }
-
-  /**
-   * The active S3 settings. Throws if the provider was instantiated while a
-   * non-S3 driver is selected — every real operation goes through {@link client}
-   * first, so this is only hit on genuine misconfiguration.
-   */
-  private get cfg(): S3Config {
-    if (!this.s3Config) {
-      throw new Error(
-        'S3 storage selected but no S3 configuration is present. Set the ' +
-          'STORAGE_DRIVER=s3 and the S3_* environment variables (see .env.example).',
-      );
-    }
-    return this.s3Config;
-  }
+  constructor(private readonly cfg: S3Config) {}
 
   /**
    * Lazily build the S3 client on first use. This keeps construction side-effect

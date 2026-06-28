@@ -248,6 +248,14 @@ function initRegister() {
       try {
         const res = await postJSON('/auth/2fa', { code });
         await unlockAfter2fa(res);
+        // Bring-your-own storage takes priority: the account isn't usable until
+        // a provider is connected, so make it a mandatory final step.
+        const storageStep = document.getElementById('storage-step');
+        if (storageStep) {
+          enrollStepEl.hidden = true;
+          storageStep.hidden = false;
+          return;
+        }
         const billingOn = planStep && (await isBillingEnabled());
         if (billingOn) {
           enrollStepEl.hidden = true;
@@ -262,6 +270,54 @@ function initRegister() {
   }
 
   initPlanStep();
+  initStorageStep();
+}
+
+/**
+ * Final register step when USER_STORAGE_ENABLED is on: the user connects their
+ * own storage. Saving re-tests the connection server-side; only a successful
+ * save lets them into the app.
+ */
+function initStorageStep() {
+  const step = document.getElementById('storage-step');
+  if (!step) return;
+  const finish = document.getElementById('storage-finish');
+  const err = document.getElementById('storage-error');
+  if (!finish) return;
+  finish.addEventListener('click', async () => {
+    const form = window.StorageForm && window.StorageForm.get('reg');
+    if (!form) return;
+    clearError(err);
+    finish.disabled = true;
+    try {
+      const res = await fetch('/api/account/storage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(form.collect()),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        window.location.href = '/';
+        return;
+      }
+      if (data && data.code) {
+        form.showStatus('fail', form.errMessage(data.code));
+      } else {
+        const msg = Array.isArray(data.message)
+          ? data.message.join(' ')
+          : data.message ||
+            translate('storage_save_failed', 'Could not save your storage.');
+        showError(err, msg);
+      }
+    } catch (e) {
+      showError(
+        err,
+        translate('storage_save_failed', 'Could not save your storage.'),
+      );
+    }
+    finish.disabled = false;
+  });
 }
 
 /** Render the one-time recovery key into the recovery step. */

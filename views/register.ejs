@@ -86,6 +86,19 @@
       </form>
     </section>
 
+    <% if (typeof userStorageEnabled !== 'undefined' && userStorageEnabled) { %>
+    <section id="storage-step" class="auth-form" hidden>
+      <h2 data-i18n="storage_choose_provider">Connect your storage</h2>
+      <p class="muted" data-i18n="storage_choose_hint">
+        websidian does not host your files — connect your own storage to finish.
+        You can change it anytime in your dashboard.
+      </p>
+      <%- include('partials/storage-fields', { prefix: 'reg', contactEmail: contactEmail }) %>
+      <p class="form-error" id="storage-error" hidden></p>
+      <button type="button" id="storage-finish" class="btn-primary" data-i18n="storage_finish">Connect &amp; finish</button>
+    </section>
+    <% } %>
+
     <section id="plan-step" class="auth-form" hidden>
       <h2 data-i18n="choose_plan">Choose your plan</h2>
       <p class="muted" data-i18n="choose_plan_hint">
@@ -111,6 +124,7 @@
   </main>
 
   <script src="/public/js/crypto.js?v=<%= v %>"></script>
+  <script src="/public/js/storage-form.js?v=<%= v %>"></script>
   <script src="/public/js/auth.js?v=<%= v %>"></script>
 </body>
 </html>

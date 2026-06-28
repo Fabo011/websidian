@@ -4,7 +4,7 @@ const DRIVERS = ['local', 's3', 'webdav'] as const;
 const WEBDAV_AUTH_TYPES = ['auto', 'password', 'digest', 'none'] as const;
 
 export type DatabaseType = 'sqlite' | 'postgres';
-export type StorageDriver = typeof DRIVERS[number];
+export type StorageDriver = (typeof DRIVERS)[number];
 
 /**
  * The storage plans a user can be on. There is a single paid tier ("plus")
@@ -43,8 +43,8 @@ export interface PostgresConfig {
   ssl: boolean;
 }
 
-export type StorageConfig = 
-  | { driver: 'local' } 
+export type StorageConfig =
+  | { driver: 'local' }
   | { driver: 's3'; s3: S3Config }
   | { driver: 'webdav'; webdav: WebdavConfig };
 
@@ -132,6 +132,15 @@ export interface AppConfig {
   stripe: StripeConfig;
   database: { type: DatabaseType; postgres: PostgresConfig };
   storage: StorageConfig;
+  /**
+   * When true, the server hosts NO default storage: each user connects their
+   * own S3-compatible or WebDAV storage (chosen at registration, editable in the
+   * dashboard) and their encrypted credentials are stored per-account. The
+   * global {@link AppConfig.storage} block is then ignored for vault data.
+   * When false (default), the single env-configured backend is used for all
+   * users — the original behaviour. Configured via USER_STORAGE_ENABLED.
+   */
+  userStorageEnabled: boolean;
   /** At-rest encryption of vault contents (AES-256-GCM in Node.js). */
   encryption: { enabled: boolean; key: string };
   /**
@@ -407,6 +416,7 @@ export default (): { app: AppConfig } => {
         key: process.env.ENCRYPTION_KEY?.trim() || '',
       },
       storage: buildStorageConfig(storageDriver),
+      userStorageEnabled: parseBool(process.env.USER_STORAGE_ENABLED, false),
       rateLimit: {
         enabled: parseBool(process.env.RATE_LIMIT_ENABLED, true),
         // Window length in seconds (default 60s = "per minute").

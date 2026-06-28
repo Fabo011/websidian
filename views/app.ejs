@@ -4,7 +4,10 @@
   <%- include('partials/head', { title: 'websidian' }) %>
   <link rel="stylesheet" href="/public/js/excalidraw-bundle.css?v=<%= v %>" />
 </head>
-<body class="app" data-username="<%= username %>">
+<body class="app" data-username="<%= username %>"
+      data-user-storage="<%= typeof userStorageEnabled !== 'undefined' && userStorageEnabled ? '1' : '' %>"
+      data-storage-configured="<%= typeof storageConfigured !== 'undefined' && storageConfigured ? '1' : '' %>"
+      data-contact="<%= typeof contactEmail !== 'undefined' ? contactEmail : '' %>">
   <header class="topbar">
     <button id="sidebar-toggle" class="icon-btn" aria-label="Toggle sidebar" data-i18n-attr="aria-label:toggle_sidebar"><i class="bi bi-list"></i></button>
     <span class="brand"><i class="bi bi-journal-text"></i> websidian</span>
@@ -303,6 +306,20 @@
         <div class="usage-text"><span id="usage-text" data-i18n="loading">Loading…</span></div>
       </div>
 
+      <% if (typeof userStorageEnabled !== 'undefined' && userStorageEnabled) { %>
+      <div class="dashboard-section" id="storage-provider-section">
+        <h4 class="dashboard-subtitle"><i class="bi bi-hdd-network"></i> <span data-i18n="storage_provider">Storage provider</span></h4>
+        <p class="dashboard-hint" data-i18n="storage_provider_hint">Connect or change the storage your encrypted vault is saved to. websidian never hosts your files.</p>
+        <div class="dashboard-row">
+          <span class="dashboard-label" data-i18n="storage_current">Current</span>
+          <span id="dash-storage-current" class="dashboard-value">—</span>
+        </div>
+        <%- include('partials/storage-fields', { prefix: 'dash', contactEmail: contactEmail }) %>
+        <p id="dash-storage-error" class="dashboard-hint form-error" hidden></p>
+        <button id="dash-storage-save" class="btn-primary" type="button" data-i18n="storage_save">Save storage settings</button>
+      </div>
+      <% } %>
+
       <div class="dashboard-section" id="plan-section" hidden>
         <h4 class="dashboard-subtitle"><i class="bi bi-stars"></i> <span data-i18n="plan">Plan</span></h4>
         <div id="plan-warning" class="plan-warning" hidden></div>
@@ -403,7 +420,20 @@
     </div>
   </div>
 
+  <% if (typeof userStorageEnabled !== 'undefined' && userStorageEnabled && !storageConfigured) { %>
+  <div id="storage-setup-overlay" class="modal-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="storage-setup-title">
+      <h3 id="storage-setup-title" class="modal-title"><i class="bi bi-hdd-network"></i> <span data-i18n="storage_setup_title">Connect your storage</span></h3>
+      <p class="modal-message" data-i18n="storage_setup_msg">You haven't connected a storage provider yet. Connect one to start saving your encrypted notes — you don't need to register again.</p>
+      <div class="modal-actions">
+        <button id="storage-setup-btn" class="btn-primary" type="button" data-i18n="storage_setup_btn">Set up storage</button>
+      </div>
+    </div>
+  </div>
+  <% } %>
+
   <script src="/public/js/crypto.js?v=<%= v %>"></script>
+  <script src="/public/js/storage-form.js?v=<%= v %>"></script>
   <script src="/public/js/markdown-bundle.js?v=<%= v %>"></script>
   <script src="/public/js/zip-bundle.js?v=<%= v %>"></script>
   <script src="/public/js/upload-bundle.js?v=<%= v %>"></script>

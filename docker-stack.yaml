@@ -57,6 +57,9 @@ services:
       UPLOAD_EXCLUDE_PATTERNS: "${UPLOAD_EXCLUDE_PATTERNS}"
       MAX_OPEN_TABS: "${MAX_OPEN_TABS:-8}"
       STORAGE_QUOTA_GB: "${STORAGE_QUOTA_GB}"
+      # Bring-your-own storage: when true, each user connects their own
+      # S3/WebDAV storage and the shared backend below is ignored.
+      USER_STORAGE_ENABLED: "${USER_STORAGE_ENABLED:-false}"
       STORAGE_DRIVER: "${STORAGE_DRIVER}"
       S3_ENDPOINT: "${S3_ENDPOINT}"
       S3_REGION: "${S3_REGION}"

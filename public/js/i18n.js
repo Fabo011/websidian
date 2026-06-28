@@ -176,6 +176,64 @@
       usage_of: '{used} of {total} used ({pct}%)',
       usage_error: 'Could not load storage usage.',
 
+      /* bring-your-own storage */
+      storage_provider: 'Storage provider',
+      storage_provider_hint:
+        'Connect or change the storage your encrypted vault is saved to. websidian never hosts your files.',
+      storage_current: 'Current',
+      storage_not_connected: 'Not connected',
+      storage_choose_provider: 'Connect your storage',
+      storage_choose_hint:
+        'websidian does not host your files — connect your own storage to finish. You can change it anytime in your dashboard.',
+      storage_intro:
+        'Your notes are end-to-end encrypted before they leave your device, so the provider only ever sees ciphertext — the choice is not critical, pick one you trust most. websidian is tested end-to-end with Nextcloud (WebDAV) and Mega S4 (S3).',
+      storage_type_webdav: 'WebDAV (Nextcloud & similar)',
+      storage_type_s3: 'S3-compatible object storage',
+      storage_webdav_help:
+        'Enter your WebDAV server URL and login. For Nextcloud use the WebDAV URL from Settings → "WebDAV" and an app password.',
+      storage_s3_help:
+        'Enter your bucket and access keys. For Mega S4 use your S4 endpoint and its region (e.g. https://s3.eu-central-2.s4.mega.io / eu-central-2).',
+      storage_providers_label: 'Providers:',
+      storage_url: 'Server URL',
+      storage_username: 'Username',
+      storage_password: 'Password / app password',
+      storage_authtype: 'Authentication',
+      storage_auth_auto: 'Auto-detect',
+      storage_auth_password: 'Basic (password)',
+      storage_auth_digest: 'Digest',
+      storage_auth_none: 'None',
+      storage_basepath: 'Sub-folder (optional)',
+      storage_endpoint: 'Endpoint',
+      storage_region: 'Region',
+      storage_bucket: 'Bucket',
+      storage_accesskey: 'Access key ID',
+      storage_secretkey: 'Secret access key',
+      storage_pathstyle: 'Use path-style addressing (needed by most S3-compatibles)',
+      storage_prefix: 'Key prefix (optional)',
+      storage_quota: 'Storage limit in GB (optional)',
+      storage_quota_hint:
+        'It is your own storage, so this is just a self-imposed cap. Leave at 0 for unlimited.',
+      storage_test: 'Test connection',
+      storage_testing: 'Testing connection…',
+      storage_test_ok: 'Connected successfully.',
+      storage_save: 'Save storage settings',
+      storage_saved: 'Storage settings saved.',
+      storage_finish: 'Connect & finish',
+      storage_save_failed: 'Could not save your storage settings.',
+      storage_setup_title: 'Connect your storage',
+      storage_setup_msg:
+        "You haven't connected a storage provider yet. Connect one to start saving your encrypted notes — you don't need to register again.",
+      storage_setup_btn: 'Set up storage',
+      storage_err_auth: 'Authentication failed — check your credentials/keys.',
+      storage_err_unreachable:
+        'Could not reach the server — check the URL/endpoint and your connection.',
+      storage_err_notfound:
+        'Bucket or path not found — check the bucket/URL and sub-folder.',
+      storage_err_tls: 'TLS/certificate error — check the server certificate.',
+      storage_err_config: 'The configuration is incomplete or invalid.',
+      storage_err_unknown: 'Could not connect to the storage.',
+      storage_contact: 'If this keeps failing, contact {email}.',
+
       /* plans & billing */
       plan: 'Plan',
       current_plan: 'Current plan',
@@ -761,6 +819,66 @@
       usage_unlimited: '{used} belegt (unbegrenzt)',
       usage_of: '{used} von {total} belegt ({pct}%)',
       usage_error: 'Speichernutzung konnte nicht geladen werden.',
+
+      /* Eigener Speicher */
+      storage_provider: 'Speicheranbieter',
+      storage_provider_hint:
+        'Verbinde oder ändere den Speicher, in dem dein verschlüsselter Tresor abgelegt wird. websidian hostet deine Dateien nie selbst.',
+      storage_current: 'Aktuell',
+      storage_not_connected: 'Nicht verbunden',
+      storage_choose_provider: 'Speicher verbinden',
+      storage_choose_hint:
+        'websidian hostet deine Dateien nicht — verbinde deinen eigenen Speicher, um abzuschließen. Du kannst ihn jederzeit im Dashboard ändern.',
+      storage_intro:
+        'Deine Notizen werden Ende-zu-Ende verschlüsselt, bevor sie dein Gerät verlassen — der Anbieter sieht nur Chiffretext. Die Wahl ist daher unkritisch, nimm den, dem du am meisten vertraust. websidian ist mit Nextcloud (WebDAV) und Mega S4 (S3) vollständig getestet.',
+      storage_type_webdav: 'WebDAV (Nextcloud & ähnliche)',
+      storage_type_s3: 'S3-kompatibler Objektspeicher',
+      storage_webdav_help:
+        'Gib die URL und den Login deines WebDAV-Servers ein. Bei Nextcloud die WebDAV-URL aus Einstellungen → „WebDAV“ und ein App-Passwort verwenden.',
+      storage_s3_help:
+        'Gib Bucket und Zugangsschlüssel ein. Für Mega S4 den S4-Endpunkt und seine Region nutzen (z. B. https://s3.eu-central-2.s4.mega.io / eu-central-2).',
+      storage_providers_label: 'Anbieter:',
+      storage_url: 'Server-URL',
+      storage_username: 'Benutzername',
+      storage_password: 'Passwort / App-Passwort',
+      storage_authtype: 'Authentifizierung',
+      storage_auth_auto: 'Automatisch erkennen',
+      storage_auth_password: 'Basic (Passwort)',
+      storage_auth_digest: 'Digest',
+      storage_auth_none: 'Keine',
+      storage_basepath: 'Unterordner (optional)',
+      storage_endpoint: 'Endpunkt',
+      storage_region: 'Region',
+      storage_bucket: 'Bucket',
+      storage_accesskey: 'Access Key ID',
+      storage_secretkey: 'Secret Access Key',
+      storage_pathstyle:
+        'Path-Style-Adressierung verwenden (von den meisten S3-Kompatiblen benötigt)',
+      storage_prefix: 'Schlüssel-Präfix (optional)',
+      storage_quota: 'Speicherlimit in GB (optional)',
+      storage_quota_hint:
+        'Es ist dein eigener Speicher — dies ist nur eine selbst gesetzte Obergrenze. 0 = unbegrenzt.',
+      storage_test: 'Verbindung testen',
+      storage_testing: 'Verbindung wird getestet…',
+      storage_test_ok: 'Erfolgreich verbunden.',
+      storage_save: 'Speichereinstellungen sichern',
+      storage_saved: 'Speichereinstellungen gesichert.',
+      storage_finish: 'Verbinden & abschließen',
+      storage_save_failed: 'Speichereinstellungen konnten nicht gesichert werden.',
+      storage_setup_title: 'Speicher verbinden',
+      storage_setup_msg:
+        'Du hast noch keinen Speicheranbieter verbunden. Verbinde einen, um deine verschlüsselten Notizen zu speichern — eine erneute Registrierung ist nicht nötig.',
+      storage_setup_btn: 'Speicher einrichten',
+      storage_err_auth:
+        'Authentifizierung fehlgeschlagen — prüfe deine Zugangsdaten/Schlüssel.',
+      storage_err_unreachable:
+        'Server nicht erreichbar — prüfe URL/Endpunkt und deine Verbindung.',
+      storage_err_notfound:
+        'Bucket oder Pfad nicht gefunden — prüfe Bucket/URL und Unterordner.',
+      storage_err_tls: 'TLS-/Zertifikatsfehler — prüfe das Server-Zertifikat.',
+      storage_err_config: 'Die Konfiguration ist unvollständig oder ungültig.',
+      storage_err_unknown: 'Verbindung zum Speicher nicht möglich.',
+      storage_contact: 'Wenn es weiterhin fehlschlägt, kontaktiere {email}.',
 
       /* Tarife & Abrechnung */
       plan: 'Tarif',

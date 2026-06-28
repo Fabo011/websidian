@@ -40,6 +40,9 @@ services:
       UPLOAD_REQUEST_TIMEOUT_MIN: "${UPLOAD_REQUEST_TIMEOUT_MIN:-30}"
       # S3 Storage
       STORAGE_QUOTA_GB: "${STORAGE_QUOTA_GB}"
+      # Bring-your-own storage: when true, each user connects their own
+      # S3/WebDAV storage and the shared backend below is ignored.
+      USER_STORAGE_ENABLED: "${USER_STORAGE_ENABLED:-false}"
       STORAGE_DRIVER: "${STORAGE_DRIVER}"
       S3_ENDPOINT: "${S3_ENDPOINT}"
       S3_REGION: "${S3_REGION}"
