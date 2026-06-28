@@ -4,6 +4,7 @@ import { AppConfig } from '../config/configuration';
 import { EncryptionService } from './encryption.service';
 import { LocalStorageProvider } from './local-storage.provider';
 import { S3StorageProvider } from './s3-storage.provider';
+import { WebdavStorageProvider } from './webdav-storage.provider';
 import { STORAGE_PROVIDER, StorageProvider } from './storage.interface';
 
 /**
@@ -20,25 +21,39 @@ import { STORAGE_PROVIDER, StorageProvider } from './storage.interface';
   providers: [
     LocalStorageProvider,
     S3StorageProvider,
+    WebdavStorageProvider,
     EncryptionService,
     {
       provide: STORAGE_PROVIDER,
-      inject: [ConfigService, LocalStorageProvider, S3StorageProvider],
+      inject: [
+        ConfigService,
+        LocalStorageProvider,
+        S3StorageProvider,
+        WebdavStorageProvider,
+      ],
       useFactory: (
         config: ConfigService,
         local: LocalStorageProvider,
         s3: S3StorageProvider,
+        webdav: WebdavStorageProvider,
       ): StorageProvider => {
         const app = config.get<AppConfig>('app');
         const logger = new Logger('StorageModule');
-        if (app.storage.driver === 's3') {
-          logger.log(
-            `Using S3 object storage (bucket "${app.storage.s3.bucket}"` +
-              `${app.storage.s3.endpoint ? `, endpoint ${app.storage.s3.endpoint}` : ''}).`,
-          );
-          return s3;
-        }
-        return local;
+        switch (app.storage.driver) {
+          case 's3':
+            logger.log(
+              `Using S3 object storage (bucket "${app.storage.s3.bucket}"` +
+                `${app.storage.s3.endpoint ? `, endpoint ${app.storage.s3.endpoint}` : ''}).`,
+            );
+            return s3;
+          case 'webdav':
+            logger.log(
+              `Using WebDAV storage (endpoint "${app.storage.webdav.url}")`,
+            );
+            return webdav;
+          default:
+            return local;
+        } 
       },
     },
   ],

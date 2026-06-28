@@ -1,7 +1,10 @@
 import { isAbsolute, join, resolve } from 'path';
 
+const DRIVERS = ['local', 's3', 'webdav'] as const;
+const WEBDAV_AUTH_TYPES = ['auto', 'password', 'digest', 'none'] as const;
+
 export type DatabaseType = 'sqlite' | 'postgres';
-export type StorageDriver = 'local' | 's3';
+export type StorageDriver = typeof DRIVERS[number];
 
 /**
  * The storage plans a user can be on. There is a single paid tier ("plus")
@@ -40,6 +43,11 @@ export interface PostgresConfig {
   ssl: boolean;
 }
 
+export type StorageConfig = 
+  | { driver: 'local' } 
+  | { driver: 's3'; s3: S3Config }
+  | { driver: 'webdav'; webdav: WebdavConfig };
+
 export interface S3Config {
   endpoint: string;
   region: string;
@@ -50,6 +58,28 @@ export interface S3Config {
   forcePathStyle: boolean;
   /** Optional key prefix so multiple apps can share one bucket. */
   prefix: string;
+}
+
+/** WebDAV auth scheme, mirrors the lib's AuthType (token/ha1 left out for now). */
+export type WebdavAuthType = 'auto' | 'password' | 'digest' | 'none';
+
+export interface WebdavConfig {
+  /** Server base URL — passed as createClient(remoteURL). */
+  url: string;
+  /** Basic/Digest username. Empty = unauthenticated connection. */
+  username: string;
+  /** Basic/Digest password. */
+  password: string;
+  /**
+   * Authentication scheme. The client auto-detects None vs Password when
+   * 'auto'; 'digest' must be explicit. Maps to the lib's AuthType.
+   */
+  authType: WebdavAuthType;
+  /**
+   * Optional path prefix under the server root for namespacing, so multiple
+   * apps can share one WebDAV account. Analogous to S3Config.prefix.
+   */
+  basePath: string;
 }
 
 export interface AppConfig {
@@ -101,7 +131,7 @@ export interface AppConfig {
   /** Stripe billing settings. */
   stripe: StripeConfig;
   database: { type: DatabaseType; postgres: PostgresConfig };
-  storage: { driver: StorageDriver; s3: S3Config };
+  storage: StorageConfig;
   /** At-rest encryption of vault contents (AES-256-GCM in Node.js). */
   encryption: { enabled: boolean; key: string };
   /**
@@ -209,7 +239,56 @@ function parseDatabaseType(value: string | undefined): DatabaseType {
 
 function parseStorageDriver(value: string | undefined): StorageDriver {
   const v = (value ?? 'local').trim().toLowerCase();
-  return v === 's3' ? 's3' : 'local';
+  return (DRIVERS as readonly string[]).includes(v)
+    ? (v as StorageDriver)
+    : 'local';
+}
+
+function parseWebdavAuthType(value: string | undefined): WebdavAuthType {
+  const v = (value ?? 'auto').trim().toLowerCase();
+  return (WEBDAV_AUTH_TYPES as readonly string[]).includes(v)
+    ? (v as WebdavAuthType)
+    : 'auto';
+}
+
+/** Strip leading/trailing slashes from a path prefix (S3 prefix / WebDAV base). */
+function trimPrefix(value: string | undefined): string {
+  return (value?.trim() || '').replace(/^\/+|\/+$/g, '');
+}
+
+/**
+ * Build the active storage configuration as a discriminated union keyed on the
+ * driver. Only the selected driver's settings are read from the environment, so
+ * e.g. an S3 deployment never needs WEBDAV_* set and vice versa.
+ */
+function buildStorageConfig(driver: StorageDriver): StorageConfig {
+  if (driver === 's3') {
+    return {
+      driver,
+      s3: {
+        endpoint: process.env.S3_ENDPOINT?.trim() || '',
+        region: process.env.S3_REGION?.trim() || 'us-east-1',
+        bucket: process.env.S3_BUCKET?.trim() || '',
+        accessKeyId: process.env.S3_ACCESS_KEY_ID?.trim() || '',
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
+        forcePathStyle: parseBool(process.env.S3_FORCE_PATH_STYLE, true),
+        prefix: trimPrefix(process.env.S3_PREFIX),
+      },
+    };
+  }
+  if (driver === 'webdav') {
+    return {
+      driver,
+      webdav: {
+        url: process.env.WEBDAV_URL?.trim() || '',
+        username: process.env.WEBDAV_USERNAME?.trim() || '',
+        password: process.env.WEBDAV_PASSWORD ?? '',
+        authType: parseWebdavAuthType(process.env.WEBDAV_AUTH_TYPE),
+        basePath: trimPrefix(process.env.WEBDAV_BASE_PATH),
+      },
+    };
+  }
+  return { driver: 'local' };
 }
 
 export default (): { app: AppConfig } => {
@@ -263,6 +342,8 @@ export default (): { app: AppConfig } => {
   // only this domain can call the backend from a browser.
   const corsOrigins = parseList(process.env.CORS_ORIGINS);
   const resolvedCorsOrigins = corsOrigins.length > 0 ? corsOrigins : [appUrl];
+
+  const storageDriver = parseStorageDriver(process.env.STORAGE_DRIVER);
 
   return {
     app: {
@@ -325,21 +406,7 @@ export default (): { app: AppConfig } => {
         enabled: parseBool(process.env.ENCRYPTION_ENABLED, true),
         key: process.env.ENCRYPTION_KEY?.trim() || '',
       },
-      storage: {
-        driver: parseStorageDriver(process.env.STORAGE_DRIVER),
-        s3: {
-          endpoint: process.env.S3_ENDPOINT?.trim() || '',
-          region: process.env.S3_REGION?.trim() || 'us-east-1',
-          bucket: process.env.S3_BUCKET?.trim() || '',
-          accessKeyId: process.env.S3_ACCESS_KEY_ID?.trim() || '',
-          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
-          forcePathStyle: parseBool(process.env.S3_FORCE_PATH_STYLE, true),
-          prefix: (process.env.S3_PREFIX?.trim() || '').replace(
-            /^\/+|\/+$/g,
-            '',
-          ),
-        },
-      },
+      storage: buildStorageConfig(storageDriver),
       rateLimit: {
         enabled: parseBool(process.env.RATE_LIMIT_ENABLED, true),
         // Window length in seconds (default 60s = "per minute").

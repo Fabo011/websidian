@@ -36,6 +36,7 @@
         <a href="#password">Recovery key &amp; no reset</a>
         <a href="#weblinks">Web links</a>
         <a href="#files">Supported files</a>
+        <a href="#storage">Where your vault is stored</a>
         <a href="#architecture">Architecture</a>
       </nav>
 
@@ -233,6 +234,40 @@
         </p>
       </section>
 
+      <section class="legal-section" id="storage">
+        <h2>Where your vault is stored</h2>
+        <p>
+          By default your vault lives on the server's own disk. Self-hosters can instead point
+          websidian at <strong>S3-compatible object storage</strong> or at any
+          <strong>WebDAV server</strong> &mdash; set <code>STORAGE_DRIVER</code> to
+          <code>s3</code> or <code>webdav</code> in the server configuration. Whatever you choose,
+          the storage is a <strong>blind blob store</strong>: only end-to-end encrypted ciphertext
+          is ever written, so the host cannot read your notes.
+        </p>
+        <p>
+          <strong>Which services work with WebDAV?</strong> Anything that speaks standard WebDAV.
+          Popular options include:
+        </p>
+        <ul>
+          <li><strong>Nextcloud</strong> and <strong>ownCloud</strong> &mdash; the most common choice.</li>
+          <li><strong>Seafile</strong> (with its WebDAV extension enabled).</li>
+          <li><strong>NAS devices</strong> &mdash; <strong>Synology</strong> (WebDAV Server package),
+              <strong>QNAP</strong> and <strong>TrueNAS</strong>.</li>
+          <li><strong>Your own server</strong> &mdash; <strong>Apache</strong> (<code>mod_dav</code>)
+              or <strong>Nginx</strong> with the WebDAV module.</li>
+          <li><strong>Hosted drives</strong> &mdash; <strong>Infomaniak kDrive</strong>,
+              <strong>IONOS / Strato HiDrive</strong>, <strong>Koofr</strong>, <strong>pCloud</strong>,
+              <strong>Yandex Disk</strong>, <strong>mailbox.org</strong> and <strong>Fastmail</strong>.</li>
+          <li><strong>Almost anything else</strong> via <code>rclone serve webdav</code>, which
+              bridges Google Drive, Dropbox, OneDrive, Backblaze B2 and many more to a WebDAV endpoint.</li>
+        </ul>
+        <p>
+          Because websidian already encrypts everything in your browser, you do not need a
+          provider that offers its own &ldquo;client-side encryption&rdquo; &mdash; your content is
+          unreadable to the storage host either way.
+        </p>
+      </section>
+
       <section class="legal-section" id="architecture">
         <h2>Architecture (for technical users)</h2>
         <img class="docs-architecture" src="/public/websidian-architecture.png"
@@ -244,7 +279,7 @@
           <li><strong>Docker Swarm</strong> for container orchestration.</li>
           <li><strong>PostgreSQL</strong> database for user data; sensitive columns (TOTP, billing) encrypted at rest.</li>
           <li><strong>Browser WebCrypto</strong> for end-to-end encryption &mdash; all file contents are encrypted client-side (AES-256-GCM) before upload.</li>
-          <li><strong>S3-compatible storage</strong> as a blind blob store for the encrypted vault contents (keyed by a random per-account ID).</li>
+          <li><strong>S3-compatible storage</strong> (or local disk / WebDAV) as a blind blob store for the encrypted vault contents (keyed by a random per-account ID).</li>
           <li><strong>Encrypted backups</strong> to MEGA object storage.</li>
         </ul>
       </section>
