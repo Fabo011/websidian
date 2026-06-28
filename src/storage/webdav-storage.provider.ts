@@ -1,17 +1,11 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { Readable } from 'stream';
 import type {
   AuthType as WebdavAuthTypeEnum,
   FileStat,
   WebDAVClient,
 } from 'webdav';
-import { AppConfig, WebdavConfig } from '../config/configuration';
+import { WebdavConfig } from '../config/configuration';
 import {
   StorageEntry,
   StorageFile,
@@ -46,39 +40,18 @@ interface UsageCacheEntry {
  * `${basePath}/${storageId}/${relPath}` on the remote server, where `storageId`
  * is the account's immutable random namespace
  *
- * The {@link WebDAVClient} is created lazily on first use (and memoized) so the
- * provider can be instantiated by Nest's DI container even when a different
- * driver is active and no WebDAV settings are configured.
+ * The {@link WebDAVClient} is created lazily on first use (and memoized).
+ *
+ * Instances are built directly with a resolved {@link WebdavConfig} (the global
+ * env in default mode, or a user's saved credentials when USER_STORAGE_ENABLED
+ * is on), so the class is not a DI-managed singleton.
  */
-@Injectable()
 export class WebdavStorageProvider implements StorageProvider {
   private readonly logger = new Logger(WebdavStorageProvider.name);
-  private readonly webdavConfig?: WebdavConfig;
   private clientPromise?: Promise<WebDAVClient>;
   private readonly usageCache = new Map<string, UsageCacheEntry>();
 
-  constructor(private readonly config: ConfigService) {
-    const storage = this.config.get<AppConfig>('app').storage;
-    // Narrow the discriminated union: `webdav` only exists on the 'webdav' variant.
-    this.webdavConfig =
-      storage.driver === 'webdav' ? storage.webdav : undefined;
-  }
-
-  /**
-   * The active WebDAV settings. Throws if the provider was instantiated while a
-   * non-WebDAV driver is selected — every real operation goes through
-   * {@link client} first, so this is only hit on genuine misconfiguration.
-   */
-  private get cfg(): WebdavConfig {
-    if (!this.webdavConfig) {
-      throw new Error(
-        'WebDAV storage selected but no WebDAV configuration is present. Set ' +
-          'STORAGE_DRIVER=webdav and the WEBDAV_* environment variables ' +
-          '(see .env.example).',
-      );
-    }
-    return this.webdavConfig;
-  }
+  constructor(private readonly cfg: WebdavConfig) {}
 
   /** Lazily build (and memoize) the WebDAV client on first use. */
   private client(): Promise<WebDAVClient> {
@@ -95,8 +68,7 @@ export class WebdavStorageProvider implements StorageProvider {
           'WEBDAV_* environment variables (see .env.example).',
       );
     }
-    const { createClient, AuthType } =
-      await import('webdav');
+    const { createClient, AuthType } = await import('webdav');
     const authType = this.mapAuthType(AuthType);
     const useAuth = this.cfg.authType !== 'none';
     return createClient(this.cfg.url, {
@@ -106,9 +78,7 @@ export class WebdavStorageProvider implements StorageProvider {
     });
   }
 
-  private mapAuthType(
-    AuthType: typeof WebdavAuthTypeEnum,
-  ): WebdavAuthTypeEnum {
+  private mapAuthType(AuthType: typeof WebdavAuthTypeEnum): WebdavAuthTypeEnum {
     switch (this.cfg.authType) {
       case 'password':
         return AuthType.Password;
@@ -343,7 +313,9 @@ export class WebdavStorageProvider implements StorageProvider {
     const client = await this.client();
     let stat: FileStat;
     try {
-      stat = (await client.stat(this.remotePath(username, relPath))) as FileStat;
+      stat = (await client.stat(
+        this.remotePath(username, relPath),
+      )) as FileStat;
     } catch (err) {
       throw this.mapError(err);
     }
@@ -388,9 +360,12 @@ export class WebdavStorageProvider implements StorageProvider {
     const client = await this.client();
     let total = 0;
     try {
-      const items = (await client.getDirectoryContents(this.userRoot(username), {
-        deep: true,
-      })) as FileStat[];
+      const items = (await client.getDirectoryContents(
+        this.userRoot(username),
+        {
+          deep: true,
+        },
+      )) as FileStat[];
       for (const item of items) {
         if (item.type === 'file') {
           total += item.size ?? 0;

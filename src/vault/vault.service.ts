@@ -171,6 +171,12 @@ export class VaultService {
     if (!user) {
       return this.entitlements.freeBytes;
     }
+    // Bring-your-own storage: the quota is the user's own self-set cap (in their
+    // own storage), independent of plans/billing. Null or 0 means unlimited.
+    if (this.config.get<AppConfig>('app')?.userStorageEnabled) {
+      const n = user.storageQuotaBytes ? Number(user.storageQuotaBytes) : 0;
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    }
     const ent = await this.entitlements.forUser(user);
     return ent.quotaBytes;
   }

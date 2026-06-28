@@ -97,9 +97,10 @@ export interface StorageProvider {
    * paths in a single efficient operation. Providers backed by object storage
    * implement this to avoid one network round-trip per directory when building
    * the tree or exporting. Callers must fall back to recursive {@link list}
-   * when a provider does not implement it.
+   * when a provider does not implement it (or when it resolves to undefined,
+   * e.g. the routing provider forwarding to a backend without a fast path).
    */
-  walkFiles?(username: string): Promise<StorageFile[]>;
+  walkFiles?(username: string): Promise<StorageFile[] | undefined>;
 }
 
 /** DI token for the active storage provider. */

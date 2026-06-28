@@ -166,32 +166,25 @@
       </div>
     </section>
 
-    <section class="landing-section pricing-section" id="pricing">
-      <h2 data-i18n="pricing_title">Simple, encrypted storage</h2>
-      <p class="section-lead" data-i18n="pricing_lead">
-        Start free with 1 GB. Upgrade when you need more room — every plan is encrypted at rest.
+    <section class="landing-section support-section" id="storage">
+      <h2 data-i18n="byo_title">Bring your own storage</h2>
+      <p class="section-lead" data-i18n="byo_lead">
+        websidian does not host your files. When you sign up you connect your own
+        storage — an S3-compatible bucket (e.g. Mega S4) or a WebDAV server
+        (e.g. Nextcloud). Everything is end-to-end encrypted before it leaves
+        your browser, so the provider only ever stores ciphertext it cannot read.
       </p>
-      <div class="pricing-grid pricing-grid-two">
-        <div class="pricing-card">
-          <h3 data-i18n="pricing_free_name">Free</h3>
-          <p class="pricing-amount" data-i18n="pricing_free_amount">1 GB</p>
-          <p class="pricing-desc" data-i18n="pricing_free_desc">Encrypted storage. No payment required.</p>
-        </div>
-        <div class="pricing-card featured">
-          <h3><%= (typeof pricing !== 'undefined' && pricing.planGb) ? pricing.planGb : 3 %> GB</h3>
-          <p class="pricing-amount"><%= (typeof pricing !== 'undefined' && pricing.pricePlus) ? pricing.pricePlus : '—' %><span class="pricing-period" data-i18n="pricing_per_year"> / year</span></p>
-          <p class="pricing-desc" data-i18n="pricing_plus_desc">Encrypted storage. A voluntary donation toward storage &amp; server costs.</p>
-        </div>
+      <div class="support-actions">
+        <% if (typeof pricing !== 'undefined' && pricing.contactEmail) { %>
+        <a class="btn-ghost" href="mailto:<%= pricing.contactEmail %>"><i class="bi bi-envelope"></i> <span data-i18n="support_contact">Need help? Contact us</span></a>
+        <% } %>
+        <% if (typeof pricing !== 'undefined' && pricing.donationLink) { %>
+        <a class="btn-primary btn-inline" href="<%= pricing.donationLink %>" target="_blank" rel="noopener noreferrer"><i class="bi bi-heart"></i> <span data-i18n="support_donate">Donate via PayPal</span></a>
+        <% } %>
       </div>
-      <p class="pricing-note" data-i18n="pricing_donation_note">
-        websidian is a non-profit open-source project. The contribution is a voluntary donation to help cover storage and server costs — not a commercial purchase.
+      <p class="pricing-note" data-i18n="support_note">
+        websidian is a non-profit open-source project. Donations are voluntary and only help cover server costs — there is nothing to buy.
       </p>
-      <% if (typeof pricing !== 'undefined' && pricing.contactEmail) { %>
-      <p class="section-lead pricing-contact">
-        <span data-i18n="pricing_more">Need more storage?</span>
-        <a class="text-link" href="mailto:<%= pricing.contactEmail %>"><%= pricing.contactEmail %></a>
-      </p>
-      <% } %>
     </section>
 
     <section class="landing-cta">

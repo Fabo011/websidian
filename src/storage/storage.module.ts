@@ -1,62 +1,36 @@
-import { Global, Logger, Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { AppConfig } from '../config/configuration';
+import { Global, Module } from '@nestjs/common';
+import { UsersModule } from '../users/users.module';
 import { EncryptionService } from './encryption.service';
 import { LocalStorageProvider } from './local-storage.provider';
-import { S3StorageProvider } from './s3-storage.provider';
-import { WebdavStorageProvider } from './webdav-storage.provider';
-import { STORAGE_PROVIDER, StorageProvider } from './storage.interface';
+import { RoutingStorageProvider } from './routing-storage.provider';
+import { StorageResolver } from './storage-resolver.service';
+import { STORAGE_PROVIDER } from './storage.interface';
 
 /**
- * Provides the active {@link StorageProvider} (local filesystem by default,
- * or S3-compatible object storage when `STORAGE_DRIVER=s3`).
+ * Wires up vault storage. The {@link STORAGE_PROVIDER} token resolves to the
+ * {@link RoutingStorageProvider}, which forwards each call to the right backend
+ * for the namespace: the single env-configured provider in the default mode, or
+ * a per-user provider built from that user's saved credentials when
+ * USER_STORAGE_ENABLED is on (see {@link StorageResolver}).
  *
  * File *contents* are end-to-end encrypted on the client (zero-knowledge), so
  * the server stores opaque ciphertext blobs and performs no file encryption of
  * its own. {@link EncryptionService} is still provided here because it encrypts
- * sensitive *database columns* (TOTP secrets, Stripe ids) at rest.
+ * sensitive *database columns* (TOTP secrets, Stripe ids, storage credentials)
+ * at rest.
  */
 @Global()
 @Module({
+  imports: [UsersModule],
   providers: [
     LocalStorageProvider,
-    S3StorageProvider,
-    WebdavStorageProvider,
+    StorageResolver,
     EncryptionService,
     {
       provide: STORAGE_PROVIDER,
-      inject: [
-        ConfigService,
-        LocalStorageProvider,
-        S3StorageProvider,
-        WebdavStorageProvider,
-      ],
-      useFactory: (
-        config: ConfigService,
-        local: LocalStorageProvider,
-        s3: S3StorageProvider,
-        webdav: WebdavStorageProvider,
-      ): StorageProvider => {
-        const app = config.get<AppConfig>('app');
-        const logger = new Logger('StorageModule');
-        switch (app.storage.driver) {
-          case 's3':
-            logger.log(
-              `Using S3 object storage (bucket "${app.storage.s3.bucket}"` +
-                `${app.storage.s3.endpoint ? `, endpoint ${app.storage.s3.endpoint}` : ''}).`,
-            );
-            return s3;
-          case 'webdav':
-            logger.log(
-              `Using WebDAV storage (endpoint "${app.storage.webdav.url}")`,
-            );
-            return webdav;
-          default:
-            return local;
-        } 
-      },
+      useClass: RoutingStorageProvider,
     },
   ],
-  exports: [STORAGE_PROVIDER, EncryptionService],
+  exports: [STORAGE_PROVIDER, StorageResolver, EncryptionService],
 })
 export class StorageModule {}

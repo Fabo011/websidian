@@ -3310,9 +3310,69 @@ async function loadAccount() {
       });
     }
     await renderPlan(info);
+    await loadStorageSection();
   } catch (e) {
     text.textContent = t('usage_error');
   }
+}
+
+/** Whether this deployment runs in bring-your-own-storage mode. */
+const USER_STORAGE = document.body.getAttribute('data-user-storage') === '1';
+
+/** Load and prefill the dashboard storage-provider section (user-storage mode). */
+async function loadStorageSection() {
+  if (!USER_STORAGE) return;
+  const cur = $('#dash-storage-current');
+  try {
+    const cfg = await api('GET', '/api/account/storage');
+    const form = window.StorageForm && window.StorageForm.get('dash');
+    if (form) form.prefill(cfg);
+    if (cur) {
+      cur.textContent = cfg.configured
+        ? cfg.driver === 's3'
+          ? t('storage_type_s3')
+          : t('storage_type_webdav')
+        : t('storage_not_connected');
+    }
+  } catch (e) {
+    /* ignore; the section just stays at defaults */
+  }
+}
+
+/** Re-test and save the storage credentials entered in the dashboard. */
+async function saveStorageSection() {
+  const form = window.StorageForm && window.StorageForm.get('dash');
+  const btn = $('#dash-storage-save');
+  const err = $('#dash-storage-error');
+  if (!form) return;
+  if (err) err.hidden = true;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch('/api/account/storage', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(form.collect()),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.ok) {
+      form.showStatus('ok', t('storage_saved'));
+      await loadAccount();
+    } else if (data && data.code) {
+      form.showStatus('fail', form.errMessage(data.code));
+    } else if (err) {
+      err.textContent = Array.isArray(data.message)
+        ? data.message.join(' ')
+        : data.message || t('storage_save_failed');
+      err.hidden = false;
+    }
+  } catch (e) {
+    if (err) {
+      err.textContent = t('storage_save_failed');
+      err.hidden = false;
+    }
+  }
+  if (btn) btn.disabled = false;
 }
 
 function planLabel(tier) {
@@ -3347,6 +3407,11 @@ async function billingEnabled() {
 
 async function renderPlan(info) {
   const section = $('#plan-section');
+  // Bring-your-own storage mode hosts no plans/billing at all.
+  if (info && info.userStorageEnabled) {
+    if (section) section.hidden = true;
+    return;
+  }
   const warning = $('#plan-warning');
   const planValue = $('#plan-value');
   const validRow = $('#plan-valid-row');
@@ -3748,6 +3813,25 @@ async function submitResetTotpConfirm(e) {
 
 $('#account-btn').addEventListener('click', openDashboard);
 $('#dashboard-close').addEventListener('click', closeDashboard);
+
+// Bring-your-own storage: dashboard save button + the "connect storage" nudge
+// shown to existing accounts that have not set a provider yet.
+(function () {
+  const saveBtn = document.getElementById('dash-storage-save');
+  if (saveBtn) saveBtn.addEventListener('click', saveStorageSection);
+  const setupBtn = document.getElementById('storage-setup-btn');
+  if (setupBtn) {
+    setupBtn.addEventListener('click', () => {
+      const ov = document.getElementById('storage-setup-overlay');
+      if (ov) ov.hidden = true;
+      openDashboard();
+      setTimeout(() => {
+        const s = document.getElementById('storage-provider-section');
+        if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 120);
+    });
+  }
+})();
 $('#dashboard-overlay').addEventListener('click', (e) => {
   if (e.target === $('#dashboard-overlay')) closeDashboard();
 });

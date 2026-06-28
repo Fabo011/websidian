@@ -176,6 +176,113 @@
       usage_of: '{used} of {total} used ({pct}%)',
       usage_error: 'Could not load storage usage.',
 
+      /* bring-your-own storage */
+      storage_provider: 'Storage provider',
+      storage_provider_hint:
+        'Connect or change the storage your encrypted vault is saved to. websidian never hosts your files.',
+      storage_current: 'Current',
+      storage_not_connected: 'Not connected',
+      storage_choose_provider: 'Connect your storage',
+      storage_choose_hint:
+        'websidian does not host your files — connect your own storage to finish. You can change it anytime in your dashboard.',
+      storage_intro:
+        'Your notes are end-to-end encrypted before they leave your device, so the provider only ever sees ciphertext — the choice is not critical, pick one you trust most. websidian is tested end-to-end with Nextcloud (WebDAV) and Mega S4 (S3).',
+      storage_encrypted_note:
+        'The credentials you enter here are stored encrypted at rest — they are never saved in plaintext.',
+      storage_type_webdav: 'WebDAV (Nextcloud & similar)',
+      storage_type_s3: 'S3-compatible object storage',
+      storage_webdav_help:
+        'Enter your WebDAV server URL and login. For Nextcloud use the WebDAV URL from Settings → "WebDAV" and an app password.',
+      storage_s3_help:
+        'Enter your bucket and access keys. For Mega S4 use your S4 endpoint and its region (e.g. https://s3.eu-central-2.s4.mega.io / eu-central-2).',
+      storage_providers_label: 'Providers:',
+      storage_url: 'Server URL',
+      storage_username: 'Username',
+      storage_password: 'Password / app password',
+      storage_authtype: 'Authentication',
+      storage_auth_auto: 'Auto-detect',
+      storage_auth_password: 'Basic (password)',
+      storage_auth_digest: 'Digest',
+      storage_auth_none: 'None',
+      storage_basepath: 'Sub-folder (optional)',
+      storage_endpoint: 'Endpoint',
+      storage_region: 'Region',
+      storage_bucket: 'Bucket',
+      storage_accesskey: 'Access key ID',
+      storage_secretkey: 'Secret access key',
+      storage_pathstyle: 'Use path-style addressing (needed by most S3-compatibles)',
+      storage_prefix: 'Key prefix (optional)',
+      storage_quota: 'Storage limit in GB (optional)',
+      storage_quota_hint:
+        'It is your own storage, so this is just a self-imposed cap. Leave at 0 for unlimited.',
+      storage_test: 'Test connection',
+      storage_testing: 'Testing connection…',
+      storage_test_ok: 'Connected successfully.',
+      storage_save: 'Save storage settings',
+      storage_saved: 'Storage settings saved.',
+      storage_finish: 'Connect & finish',
+      storage_save_failed: 'Could not save your storage settings.',
+      storage_setup_title: 'Connect your storage',
+      storage_setup_msg:
+        "You haven't connected a storage provider yet. Connect one to start saving your encrypted notes — you don't need to register again.",
+      storage_setup_btn: 'Set up storage',
+      storage_err_auth: 'Authentication failed — check your credentials/keys.',
+      storage_err_unreachable:
+        'Could not reach the server — check the URL/endpoint and your connection.',
+      storage_err_notfound:
+        'Bucket or path not found — check the bucket/URL and sub-folder.',
+      storage_err_tls: 'TLS/certificate error — check the server certificate.',
+      storage_err_config: 'The configuration is incomplete or invalid.',
+      storage_err_unknown: 'Could not connect to the storage.',
+      storage_contact: 'If this keeps failing, contact {email}.',
+      storage_help_link: 'How to connect (with screenshots)',
+      storage_need_help: 'Need help? Contact',
+
+      /* landing: bring-your-own storage + support */
+      byo_title: 'Bring your own storage',
+      byo_lead:
+        'websidian does not host your files. When you sign up you connect your own storage — an S3-compatible bucket (e.g. Mega S4) or a WebDAV server (e.g. Nextcloud). Everything is end-to-end encrypted before it leaves your browser, so the provider only ever stores ciphertext it cannot read.',
+      support_contact: 'Need help? Contact us',
+      support_donate: 'Donate via PayPal',
+      support_note:
+        'websidian is a non-profit open-source project. Donations are voluntary and only help cover server costs — there is nothing to buy.',
+
+      /* docs: storage + connect guide + architecture */
+      toc_storage: 'Where your vault is stored',
+      toc_connect: 'Connecting your storage',
+      toc_architecture: 'Architecture',
+      storage_h: 'Where your vault is stored',
+      storage_p1:
+        'websidian does not host your files. You connect your own storage when you sign up (and can change it any time in the dashboard), so your encrypted vault lives on a backend you control. Whatever you pick is a blind blob store: only end-to-end encrypted ciphertext is ever written, so the host cannot read your notes. Because everything is already encrypted in your browser, you do not need a provider with its own “client-side encryption”.',
+      storage_p2:
+        'Two kinds of storage are supported, and the provider choice is not critical (it only ever sees ciphertext) — pick one you trust:',
+      storage_li_s3:
+        'S3-compatible object storage — e.g. Mega S4 (very inexpensive) or Hetzner Object Storage (Germany), also AWS S3, MinIO, …',
+      storage_li_webdav:
+        'WebDAV — e.g. Nextcloud (self-hosting), Box, Koofr (Europe) or CloudMe (Europe).',
+      storage_tested:
+        'websidian is tested end-to-end with Nextcloud (WebDAV) and Mega S4 (S3). See the next section for how to connect.',
+      connect_h: 'Connecting your storage',
+      connect_webdav_h: 'WebDAV (Nextcloud)',
+      connect_webdav_url:
+        'In Nextcloud open Files, then click "Files settings" at the bottom-left of the file list. Copy the WebDAV URL shown there and paste it into the "Server URL" field when connecting.',
+      connect_apppw_h: 'Use an app password',
+      connect_apppw_body:
+        'In Nextcloud go to Settings → Security and create a dedicated app password, then use it instead of your normal account password.',
+      connect_apppw_why:
+        'Why an app password? When your account has two-factor authentication (2FA) enabled, your normal password does not work over WebDAV — an app password is required. It is also safer in general: you can revoke it at any time without changing your main password.',
+      connect_s3_h: 'S3 (Mega S4 & similar)',
+      connect_s3_body:
+        'Create a bucket and an access key pair in your provider. For Mega S4 use the S4 endpoint and its region — for example https://s3.eu-central-2.s4.mega.io and eu-central-2 — then enter the bucket, access key ID and secret access key when connecting.',
+      connect_help_contact:
+        'Stuck? Your credentials are stored encrypted and the connection test shows a precise error if something is wrong. If you cannot resolve it, contact support.',
+      arch_h: 'Architecture (for technical users)',
+      arch_storage_li:
+        'Bring-your-own storage — each account connects its own S3-compatible or WebDAV backend as a blind blob store for the encrypted vault contents (keyed by a random per-account ID). websidian itself stores no vault files.',
+      arch_scale_h: 'Scaling with Docker Swarm',
+      arch_scale_p:
+        "websidian is stateless at the app layer — the encrypted vault lives in each user's own storage and all shared state is in PostgreSQL — so it scales horizontally with Docker Swarm mode. The app service runs as multiple replicas across swarm nodes (load-balanced via the swarm routing mesh / DNS round-robin); to handle more load you simply raise the replica count or add nodes. Cloudflare tunnel replicas front the cluster, and a single PostgreSQL instance (on a manager node) holds accounts and the encrypted storage credentials.",
+
       /* plans & billing */
       plan: 'Plan',
       current_plan: 'Current plan',
@@ -487,6 +594,8 @@
       pp_s2_li1: 'freely chosen username',
       pp_s2_li2: 'password hash (no plaintext password)',
       pp_s2_li3: 'mandatory two-factor authentication data',
+      pp_s2_li4:
+        'encrypted connection details for the storage you connect (host, keys) — stored encrypted, never in plaintext',
       pp_s2_p3: 'Registration with an email address or real name is not required.',
 
       pp_s3_h: '3. Content and Encryption',
@@ -494,6 +603,8 @@
         'All user data is encrypted by default using end-to-end encryption (E2E).',
       pp_s3_p2: 'The operator has no access to unencrypted user content.',
       pp_s3_p3: 'Decryption takes place exclusively on the users’ devices.',
+      pp_s3_p4:
+        'Your files are stored on the storage provider you connect yourself (e.g. your own S3 bucket or WebDAV/Nextcloud server) — not by websidian. websidian holds no copy of your files; it only stores the connection credentials for that storage, encrypted at rest.',
 
       pp_s4_h: '4. Technical Data',
       pp_s4_p1:
@@ -501,11 +612,12 @@
       pp_s4_p2:
         'No permanent storage of IP addresses or similar access data takes place.',
 
-      pp_s5_h: '5. Payment Processing',
-      pp_s5_p1: 'Voluntary support payments are processed via Stripe.',
+      pp_s5_h: '5. Donations',
+      pp_s5_p1:
+        'websidian is a non-profit project. Voluntary donations are optional and handled entirely by an external provider (e.g. PayPal).',
       pp_s5_p2:
-        'Payment processing is handled directly by Stripe. Websidian does not store any payment or credit card data.',
-      pp_s5_p3: 'Stripe’s own privacy policy applies in addition.',
+        'websidian does not process or store any payment or credit-card data.',
+      pp_s5_p3: 'The donation provider’s own privacy policy applies.',
 
       pp_s6_h: '6. Data Security',
       pp_s6_p1:
@@ -761,6 +873,115 @@
       usage_unlimited: '{used} belegt (unbegrenzt)',
       usage_of: '{used} von {total} belegt ({pct}%)',
       usage_error: 'Speichernutzung konnte nicht geladen werden.',
+
+      /* Eigener Speicher */
+      storage_provider: 'Speicheranbieter',
+      storage_provider_hint:
+        'Verbinde oder ändere den Speicher, in dem dein verschlüsselter Tresor abgelegt wird. websidian hostet deine Dateien nie selbst.',
+      storage_current: 'Aktuell',
+      storage_not_connected: 'Nicht verbunden',
+      storage_choose_provider: 'Speicher verbinden',
+      storage_choose_hint:
+        'websidian hostet deine Dateien nicht — verbinde deinen eigenen Speicher, um abzuschließen. Du kannst ihn jederzeit im Dashboard ändern.',
+      storage_intro:
+        'Deine Notizen werden Ende-zu-Ende verschlüsselt, bevor sie dein Gerät verlassen — der Anbieter sieht nur Chiffretext. Die Wahl ist daher unkritisch, nimm den, dem du am meisten vertraust. websidian ist mit Nextcloud (WebDAV) und Mega S4 (S3) vollständig getestet.',
+      storage_encrypted_note:
+        'Die hier eingegebenen Zugangsdaten werden verschlüsselt gespeichert — niemals im Klartext.',
+      storage_type_webdav: 'WebDAV (Nextcloud & ähnliche)',
+      storage_type_s3: 'S3-kompatibler Objektspeicher',
+      storage_webdav_help:
+        'Gib die URL und den Login deines WebDAV-Servers ein. Bei Nextcloud die WebDAV-URL aus Einstellungen → „WebDAV“ und ein App-Passwort verwenden.',
+      storage_s3_help:
+        'Gib Bucket und Zugangsschlüssel ein. Für Mega S4 den S4-Endpunkt und seine Region nutzen (z. B. https://s3.eu-central-2.s4.mega.io / eu-central-2).',
+      storage_providers_label: 'Anbieter:',
+      storage_url: 'Server-URL',
+      storage_username: 'Benutzername',
+      storage_password: 'Passwort / App-Passwort',
+      storage_authtype: 'Authentifizierung',
+      storage_auth_auto: 'Automatisch erkennen',
+      storage_auth_password: 'Basic (Passwort)',
+      storage_auth_digest: 'Digest',
+      storage_auth_none: 'Keine',
+      storage_basepath: 'Unterordner (optional)',
+      storage_endpoint: 'Endpunkt',
+      storage_region: 'Region',
+      storage_bucket: 'Bucket',
+      storage_accesskey: 'Access Key ID',
+      storage_secretkey: 'Secret Access Key',
+      storage_pathstyle:
+        'Path-Style-Adressierung verwenden (von den meisten S3-Kompatiblen benötigt)',
+      storage_prefix: 'Schlüssel-Präfix (optional)',
+      storage_quota: 'Speicherlimit in GB (optional)',
+      storage_quota_hint:
+        'Es ist dein eigener Speicher — dies ist nur eine selbst gesetzte Obergrenze. 0 = unbegrenzt.',
+      storage_test: 'Verbindung testen',
+      storage_testing: 'Verbindung wird getestet…',
+      storage_test_ok: 'Erfolgreich verbunden.',
+      storage_save: 'Speichereinstellungen sichern',
+      storage_saved: 'Speichereinstellungen gesichert.',
+      storage_finish: 'Verbinden & abschließen',
+      storage_save_failed: 'Speichereinstellungen konnten nicht gesichert werden.',
+      storage_setup_title: 'Speicher verbinden',
+      storage_setup_msg:
+        'Du hast noch keinen Speicheranbieter verbunden. Verbinde einen, um deine verschlüsselten Notizen zu speichern — eine erneute Registrierung ist nicht nötig.',
+      storage_setup_btn: 'Speicher einrichten',
+      storage_err_auth:
+        'Authentifizierung fehlgeschlagen — prüfe deine Zugangsdaten/Schlüssel.',
+      storage_err_unreachable:
+        'Server nicht erreichbar — prüfe URL/Endpunkt und deine Verbindung.',
+      storage_err_notfound:
+        'Bucket oder Pfad nicht gefunden — prüfe Bucket/URL und Unterordner.',
+      storage_err_tls: 'TLS-/Zertifikatsfehler — prüfe das Server-Zertifikat.',
+      storage_err_config: 'Die Konfiguration ist unvollständig oder ungültig.',
+      storage_err_unknown: 'Verbindung zum Speicher nicht möglich.',
+      storage_contact: 'Wenn es weiterhin fehlschlägt, kontaktiere {email}.',
+      storage_help_link: 'So verbindest du (mit Screenshots)',
+      storage_need_help: 'Brauchst du Hilfe? Kontakt',
+
+      /* Startseite: eigener Speicher + Unterstützung */
+      byo_title: 'Eigenen Speicher verbinden',
+      byo_lead:
+        'websidian hostet deine Dateien nicht. Bei der Registrierung verbindest du deinen eigenen Speicher — einen S3-kompatiblen Bucket (z. B. Mega S4) oder einen WebDAV-Server (z. B. Nextcloud). Alles wird Ende-zu-Ende verschlüsselt, bevor es deinen Browser verlässt — der Anbieter speichert nur Chiffretext, den er nicht lesen kann.',
+      support_contact: 'Brauchst du Hilfe? Kontaktiere uns',
+      support_donate: 'Per PayPal spenden',
+      support_note:
+        'websidian ist ein gemeinnütziges Open-Source-Projekt. Spenden sind freiwillig und decken nur Serverkosten — es gibt nichts zu kaufen.',
+
+      /* Doku: Speicher + Verbindungsanleitung + Architektur */
+      toc_storage: 'Wo dein Tresor gespeichert wird',
+      toc_connect: 'Speicher verbinden',
+      toc_architecture: 'Architektur',
+      storage_h: 'Wo dein Tresor gespeichert wird',
+      storage_p1:
+        'websidian hostet deine Dateien nicht. Du verbindest deinen eigenen Speicher bei der Registrierung (und kannst ihn jederzeit im Dashboard ändern) — dein verschlüsselter Tresor liegt also auf einem Backend, das du kontrollierst. Egal was du wählst: Es ist ein blinder Blob-Speicher, in den nur Ende-zu-Ende-verschlüsselter Chiffretext geschrieben wird, sodass der Host deine Notizen nicht lesen kann. Da im Browser bereits alles verschlüsselt wird, brauchst du keinen Anbieter mit eigener „clientseitiger Verschlüsselung“.',
+      storage_p2:
+        'Zwei Arten von Speicher werden unterstützt; die Wahl des Anbieters ist unkritisch (er sieht nur Chiffretext) — nimm einen, dem du vertraust:',
+      storage_li_s3:
+        'S3-kompatibler Objektspeicher — z. B. Mega S4 (sehr günstig) oder Hetzner Object Storage (Deutschland), auch AWS S3, MinIO, …',
+      storage_li_webdav:
+        'WebDAV — z. B. Nextcloud (Self-Hosting), Box, Koofr (Europa) oder CloudMe (Europa).',
+      storage_tested:
+        'websidian ist mit Nextcloud (WebDAV) und Mega S4 (S3) vollständig getestet. Im nächsten Abschnitt steht, wie du verbindest.',
+      connect_h: 'Speicher verbinden',
+      connect_webdav_h: 'WebDAV (Nextcloud)',
+      connect_webdav_url:
+        'Öffne in Nextcloud „Dateien“ und klicke unten links auf „Dateieinstellungen“. Kopiere die dort angezeigte WebDAV-URL und füge sie beim Verbinden in das Feld „Server-URL“ ein.',
+      connect_apppw_h: 'App-Passwort verwenden',
+      connect_apppw_body:
+        'Gehe in Nextcloud zu Einstellungen → Sicherheit und erstelle ein eigenes App-Passwort; verwende es statt deines normalen Kontopassworts.',
+      connect_apppw_why:
+        'Warum ein App-Passwort? Wenn dein Konto Zwei-Faktor-Authentifizierung (2FA) aktiviert hat, funktioniert dein normales Passwort über WebDAV nicht — ein App-Passwort ist erforderlich. Es ist generell sicherer: Du kannst es jederzeit widerrufen, ohne dein Hauptpasswort zu ändern.',
+      connect_s3_h: 'S3 (Mega S4 & ähnliche)',
+      connect_s3_body:
+        'Erstelle bei deinem Anbieter einen Bucket und ein Zugangsschlüssel-Paar. Für Mega S4 den S4-Endpunkt und seine Region verwenden — z. B. https://s3.eu-central-2.s4.mega.io und eu-central-2 — und beim Verbinden Bucket, Access Key ID und Secret Access Key eingeben.',
+      connect_help_contact:
+        'Hängst du fest? Deine Zugangsdaten werden verschlüsselt gespeichert und der Verbindungstest zeigt eine genaue Fehlermeldung. Wenn du es nicht lösen kannst, kontaktiere den Support.',
+      arch_h: 'Architektur (für technische Nutzer)',
+      arch_storage_li:
+        'Eigener Speicher — jedes Konto verbindet sein eigenes S3-kompatibles oder WebDAV-Backend als blinden Blob-Speicher für die verschlüsselten Tresorinhalte (per zufälliger Konto-ID adressiert). websidian selbst speichert keine Tresordateien.',
+      arch_scale_h: 'Skalierung mit Docker Swarm',
+      arch_scale_p:
+        'websidian ist auf App-Ebene zustandslos — der verschlüsselte Tresor liegt im eigenen Speicher jedes Nutzers und der gesamte gemeinsame Zustand in PostgreSQL — und skaliert daher horizontal mit dem Docker-Swarm-Modus. Der App-Dienst läuft als mehrere Replikas über Swarm-Knoten (lastverteilt über das Swarm-Routing-Mesh / DNS-Round-Robin); für mehr Last erhöhst du einfach die Replika-Anzahl oder fügst Knoten hinzu. Cloudflare-Tunnel-Replikas stehen vor dem Cluster, und eine einzelne PostgreSQL-Instanz (auf einem Manager-Knoten) hält Konten und die verschlüsselten Speicher-Zugangsdaten.',
 
       /* Tarife & Abrechnung */
       plan: 'Tarif',
@@ -1072,6 +1293,8 @@
       pp_s2_li1: 'frei wählbarer Benutzername',
       pp_s2_li2: 'Passwort-Hash (kein Klartext-Passwort)',
       pp_s2_li3: 'verpflichtende Zwei-Faktor-Authentifizierungsdaten',
+      pp_s2_li4:
+        'verschlüsselte Verbindungsdaten für den von dir verbundenen Speicher (Host, Schlüssel) — verschlüsselt gespeichert, nie im Klartext',
       pp_s2_p3:
         'Eine Registrierung mit E-Mail-Adresse oder echtem Namen ist nicht erforderlich.',
 
@@ -1082,6 +1305,8 @@
         'Der Betreiber hat keinen Zugriff auf unverschlüsselte Inhalte der Nutzer.',
       pp_s3_p3:
         'Die Entschlüsselung erfolgt ausschließlich auf den Geräten der Nutzer.',
+      pp_s3_p4:
+        'Deine Dateien werden bei dem Speicheranbieter gespeichert, den du selbst verbindest (z. B. dein eigener S3-Bucket oder WebDAV-/Nextcloud-Server) — nicht von websidian. websidian hält keine Kopie deiner Dateien; es speichert nur die Verbindungsdaten für diesen Speicher, verschlüsselt.',
 
       pp_s4_h: '4. Technische Daten',
       pp_s4_p1:
@@ -1089,11 +1314,12 @@
       pp_s4_p2:
         'Eine dauerhafte Speicherung von IP-Adressen oder vergleichbaren Zugriffsdaten erfolgt nicht.',
 
-      pp_s5_h: '5. Zahlungsabwicklung',
-      pp_s5_p1: 'Freiwillige Unterstützungszahlungen werden über Stripe abgewickelt.',
+      pp_s5_h: '5. Spenden',
+      pp_s5_p1:
+        'websidian ist ein gemeinnütziges Projekt. Freiwillige Spenden sind optional und werden vollständig über einen externen Anbieter (z. B. PayPal) abgewickelt.',
       pp_s5_p2:
-        'Die Zahlungsabwicklung erfolgt direkt durch Stripe. Websidian speichert keine Zahlungs- oder Kreditkartendaten.',
-      pp_s5_p3: 'Es gelten zusätzlich die Datenschutzbestimmungen von Stripe.',
+        'websidian verarbeitet und speichert keine Zahlungs- oder Kreditkartendaten.',
+      pp_s5_p3: 'Es gelten die Datenschutzbestimmungen des Spendenanbieters.',
 
       pp_s6_h: '6. Datensicherheit',
       pp_s6_p1:

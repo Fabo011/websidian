@@ -84,6 +84,30 @@ export class User {
   @Column({ type: 'boolean', default: false })
   totpEnabled: boolean;
 
+  // --- Bring-your-own storage (USER_STORAGE_ENABLED) ------------------------
+  // When the server hosts no default storage, each account connects its own
+  // S3-compatible or WebDAV backend. These columns are unused (null) in the
+  // default single-backend mode.
+
+  /** Selected storage driver, or null when the user has not connected one. */
+  @Column({ type: 'varchar', nullable: true })
+  storageDriver: 's3' | 'webdav' | null;
+
+  /**
+   * The user's storage credentials, stored as encrypted JSON at rest (the
+   * decrypted value is a {@link UserStorageConfig}). Null until connected.
+   */
+  @Column({ type: 'varchar', nullable: true, transformer: encryptedColumn })
+  storageConfig: string | null;
+
+  /**
+   * Self-imposed storage quota in bytes for bring-your-own storage. Null or 0
+   * means unlimited (it is the user's own storage). TypeORM returns bigint as a
+   * string, so callers parse it with Number().
+   */
+  @Column({ type: 'bigint', nullable: true })
+  storageQuotaBytes: string | null;
+
   /** The storage plan the user has paid for (independent of privileged status). */
   @Column({ type: 'varchar', default: 'free' })
   plan: PlanTier;

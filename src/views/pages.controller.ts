@@ -57,7 +57,15 @@ export class PagesController {
         pricing: this.app.pricing,
       });
     }
-    return res.render('app', { username });
+    const dbUser = await this.users.findByUsername(username.toLowerCase());
+    return res.render('app', {
+      username,
+      userStorageEnabled: this.app.userStorageEnabled,
+      storageConfigured: this.app.userStorageEnabled
+        ? Boolean(dbUser?.storageConfig)
+        : true,
+      contactEmail: this.app.pricing.contactEmail || '',
+    });
   }
 
   @Get('/docs')
@@ -120,6 +128,10 @@ export class PagesController {
           'Registration is currently full. No spots are available right now.',
       });
     }
-    return res.render('register', { registrationsLeft: left });
+    return res.render('register', {
+      registrationsLeft: left,
+      userStorageEnabled: this.app.userStorageEnabled,
+      contactEmail: this.app.pricing.contactEmail || '',
+    });
   }
 }

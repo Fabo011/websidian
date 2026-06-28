@@ -42,7 +42,8 @@ Copy `.env.example` to `.env` and adjust:
 
 | Variable             | Default              | Purpose                                          |
 | -------------------- | -------------------- | ------------------------------------------------ |
-| `STORAGE_QUOTA_GB`   | `8`                  | Per-user storage limit in GB (`0` = unlimited)   |
+| `USER_STORAGE_ENABLED` | `false`            | Bring-your-own storage: each user connects their own S3/WebDAV backend (set at registration, editable in the dashboard, credentials stored encrypted). When `true` the shared `STORAGE_DRIVER`/`S3_*`/`WEBDAV_*` backend is ignored, quota is self-service (default unlimited) and billing/plans are disabled. See [Bring-your-own storage](#bring-your-own-storage). |
+| `STORAGE_QUOTA_GB`   | `8`                  | Per-user storage limit in GB (`0` = unlimited). Ignored when `USER_STORAGE_ENABLED=true` |
 | `MAX_UPLOAD_SIZE_MB` | `25`                 | Max JSON/urlencoded request body (caps a single note upload) |
 | `MAX_UPLOAD_FILE_MB` | `2048`               | Max size of a single uploaded/imported file (MB) |
 | `MAX_IMPORT_FILES`   | `20000`              | Max files accepted in one folder/zip import      |
@@ -170,6 +171,30 @@ should work):
 
 Note: end-to-end encryption already protects your content, so a provider's own
 "client-side encryption" is not required.
+
+### Bring-your-own storage
+
+Set `USER_STORAGE_ENABLED=true` to stop hosting storage entirely: the server
+keeps no default backend and each user connects **their own** storage instead.
+
+- **At registration** the new account picks a backend after setting up 2FA —
+  either an **S3-compatible** object store (Mega S4, Hetzner Object Storage, AWS
+  S3, …) or a **WebDAV** server (Nextcloud, Box, Koofr, CloudMe, …), enters the
+  credentials, and tests the connection before finishing. The provider choice is
+  not critical because everything is end-to-end encrypted before upload — pick
+  one you trust. websidian is tested end-to-end with **Nextcloud** (WebDAV) and
+  **Mega S4** (S3).
+- **In the dashboard** the user can change the provider/credentials at any time
+  and set a self-imposed quota (in GB; default unlimited — it is their own
+  storage). The usage bar still shows how much space they have used.
+- **Existing accounts** without a provider see a one-time prompt to connect one
+  (no need to register again).
+- Credentials are stored **encrypted at rest** (the same column encryption used
+  for TOTP secrets, governed by `ENCRYPTION_KEY`). Connection failures surface a
+  short reason; if it cannot be resolved, the user is pointed to `CONTACT_EMAIL`.
+
+In this mode the shared `STORAGE_DRIVER` / `S3_*` / `WEBDAV_*` settings and
+billing/plans (`STORAGE_QUOTA_GB`, Stripe) are ignored.
 
 ### Storage quota
 

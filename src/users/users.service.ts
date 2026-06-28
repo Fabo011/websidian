@@ -67,6 +67,24 @@ export class UsersService {
     return randomBytes(16).toString('hex');
   }
 
+  /**
+   * Persist a user's bring-your-own storage configuration. `configJson` is the
+   * serialized credentials (encrypted at rest by the column transformer);
+   * `quotaBytes` of null or 0 means unlimited.
+   */
+  async setStorageConfig(
+    user: User,
+    driver: 's3' | 'webdav',
+    configJson: string,
+    quotaBytes: number | null,
+  ): Promise<User> {
+    user.storageDriver = driver;
+    user.storageConfig = configJson;
+    user.storageQuotaBytes =
+      quotaBytes && quotaBytes > 0 ? String(quotaBytes) : null;
+    return this.users.save(user);
+  }
+
   async save(user: User): Promise<User> {
     return this.users.save(user);
   }
