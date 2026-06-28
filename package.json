@@ -61,6 +61,7 @@
     "sql.js": "^1.14.1",
     "stripe": "^22.2.1",
     "typeorm": "^1.0.0",
+    "webdav": "^5.10.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {

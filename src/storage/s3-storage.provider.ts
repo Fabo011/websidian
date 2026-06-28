@@ -64,12 +64,28 @@ interface UsageCacheEntry {
 @Injectable()
 export class S3StorageProvider implements StorageProvider {
   private readonly logger = new Logger(S3StorageProvider.name);
-  private readonly cfg: S3Config;
+  private readonly s3Config?: S3Config;
   private _client?: S3Client;
   private readonly usageCache = new Map<string, UsageCacheEntry>();
 
   constructor(private readonly config: ConfigService) {
-    this.cfg = this.config.get<AppConfig>('app').storage.s3;
+    const storage = this.config.get<AppConfig>('app').storage;
+    this.s3Config = storage.driver === 's3' ? storage.s3 : undefined;
+  }
+
+  /**
+   * The active S3 settings. Throws if the provider was instantiated while a
+   * non-S3 driver is selected — every real operation goes through {@link client}
+   * first, so this is only hit on genuine misconfiguration.
+   */
+  private get cfg(): S3Config {
+    if (!this.s3Config) {
+      throw new Error(
+        'S3 storage selected but no S3 configuration is present. Set the ' +
+          'STORAGE_DRIVER=s3 and the S3_* environment variables (see .env.example).',
+      );
+    }
+    return this.s3Config;
   }
 
   /**
