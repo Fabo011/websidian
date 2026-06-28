@@ -46,7 +46,7 @@ export interface PostgresConfig {
 export type StorageConfig = 
   | { driver: 'local' } 
   | { driver: 's3'; s3: S3Config }
-  | { driver: 'webdav'; webdav: WebdavConfig }
+  | { driver: 'webdav'; webdav: WebdavConfig };
 
 export interface S3Config {
   endpoint: string;

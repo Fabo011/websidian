@@ -4,7 +4,7 @@ import { AppConfig } from '../config/configuration';
 import { EncryptionService } from './encryption.service';
 import { LocalStorageProvider } from './local-storage.provider';
 import { S3StorageProvider } from './s3-storage.provider';
-import { WebdavStorageProvider } from './webdav-storage.provider'
+import { WebdavStorageProvider } from './webdav-storage.provider';
 import { STORAGE_PROVIDER, StorageProvider } from './storage.interface';
 
 /**
@@ -35,7 +35,7 @@ import { STORAGE_PROVIDER, StorageProvider } from './storage.interface';
         config: ConfigService,
         local: LocalStorageProvider,
         s3: S3StorageProvider,
-        webdav: WebdavStorageProvider
+        webdav: WebdavStorageProvider,
       ): StorageProvider => {
         const app = config.get<AppConfig>('app');
         const logger = new Logger('StorageModule');
@@ -49,7 +49,7 @@ import { STORAGE_PROVIDER, StorageProvider } from './storage.interface';
           case 'webdav':
             logger.log(
               `Using WebDAV storage (endpoint "${app.storage.webdav.url}")`,
-            )
+            );
             return webdav;
           default:
             return local;
