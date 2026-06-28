@@ -35,6 +35,7 @@
           <li data-i18n="pp_s2_li1">freely chosen username</li>
           <li data-i18n="pp_s2_li2">password hash (no plaintext password)</li>
           <li data-i18n="pp_s2_li3">mandatory two-factor authentication data</li>
+          <li data-i18n="pp_s2_li4">encrypted connection details for the storage you connect (host, keys) — stored encrypted, never in plaintext</li>
         </ul>
         <p data-i18n="pp_s2_p3">
           Registration with an email address or real name is not required.
@@ -52,6 +53,12 @@
         <p data-i18n="pp_s3_p3">
           Decryption takes place exclusively on the users&rsquo; devices.
         </p>
+        <p data-i18n="pp_s3_p4">
+          Your files are stored on the storage provider you connect yourself
+          (e.g. your own S3 bucket or WebDAV/Nextcloud server) — not by
+          websidian. websidian holds no copy of your files; it only stores the
+          connection credentials for that storage, encrypted at rest.
+        </p>
       </section>
 
       <section class="legal-section">
@@ -66,13 +73,15 @@
       </section>
 
       <section class="legal-section">
-        <h2 data-i18n="pp_s5_h">5. Payment Processing</h2>
-        <p data-i18n="pp_s5_p1">Voluntary support payments are processed via Stripe.</p>
-        <p data-i18n="pp_s5_p2">
-          Payment processing is handled directly by Stripe. Websidian does not store any
-          payment or credit card data.
+        <h2 data-i18n="pp_s5_h">5. Donations</h2>
+        <p data-i18n="pp_s5_p1">
+          websidian is a non-profit project. Voluntary donations are optional and
+          handled entirely by an external provider (e.g. PayPal).
         </p>
-        <p data-i18n="pp_s5_p3">Stripe&rsquo;s own privacy policy applies in addition.</p>
+        <p data-i18n="pp_s5_p2">
+          websidian does not process or store any payment or credit-card data.
+        </p>
+        <p data-i18n="pp_s5_p3">The donation provider&rsquo;s own privacy policy applies.</p>
       </section>
 
       <section class="legal-section">

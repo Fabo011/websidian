@@ -208,8 +208,13 @@ export interface PricingConfig {
   pricePlus: string;
   /** Storage size of the paid plan, in whole GB (set via STORAGE_PLUS_GB). */
   planGb: number;
-  /** Contact address shown for custom / larger storage requests. */
+  /** Contact address shown for support / help requests (CONTACT_EMAIL). */
   contactEmail: string;
+  /**
+   * Optional donation URL (e.g. PayPal) shown on the landing page. Empty hides
+   * the donation button. Set via DONATION_LINK.
+   */
+  donationLink: string;
 }
 
 function parseBool(value: string | undefined, fallback: boolean): boolean {
@@ -457,6 +462,7 @@ export default (): { app: AppConfig } => {
           process.env.PRICE_PLUS?.trim() || process.env.PRICE_5GB?.trim() || '',
         planGb,
         contactEmail: process.env.CONTACT_EMAIL?.trim() || '',
+        donationLink: process.env.DONATION_LINK?.trim() || '',
       },
       agbEnabled,
       imprintEnabled,

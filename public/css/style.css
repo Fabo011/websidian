@@ -50,11 +50,14 @@ a { color: var(--accent); }
 
 /* ===== Auth pages ===== */
 .auth-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Grid centering (not flex) so a card taller than the viewport — e.g. the
+     register storage step on small screens — stays fully scrollable instead of
+     being clipped at the top. */
+  display: grid;
+  place-items: center;
   padding: 24px;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 .auth-card {
   width: 100%;
@@ -106,6 +109,69 @@ a { color: var(--accent); }
   font-size: 13px;
 }
 .form-error { color: var(--danger); font-size: 13px; margin: 0 0 12px; }
+
+/* --- Bring-your-own storage form (register step + dashboard section) --- */
+.storage-form { margin: 6px 0 4px; }
+.storage-form .muted { line-height: 1.5; }
+.storage-form .small { font-size: 12px; }
+.storage-form a { color: var(--accent); word-break: break-word; }
+.storage-type {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 12px 0 14px;
+}
+.storage-type-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+.storage-type-opt input { flex: none; }
+.storage-driver-fields[hidden] { display: none; }
+.modal-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.modal-checkbox input { flex: none; margin-top: 2px; }
+.storage-test-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.storage-test-status {
+  flex: 1 1 100%;
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.storage-test-status.ok { color: #2e9e5b; }
+.storage-test-status.fail { color: var(--danger); }
+.storage-test-status.pending { color: var(--text-muted); }
+
+.storage-help-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.storage-help-links a { color: var(--accent); }
+.support-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin: 18px 0;
+}
+
+@media (max-width: 480px) {
+  .auth-page { padding: 12px; }
+  .auth-card { padding: 18px; border-radius: 10px; }
+  .storage-type { flex-direction: column; gap: 10px; }
+}
 .recovery-key-box {
   background: var(--bg-elevated);
   border: 1px solid var(--border);

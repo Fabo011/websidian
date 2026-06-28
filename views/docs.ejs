@@ -36,8 +36,9 @@
         <a href="#password">Recovery key &amp; no reset</a>
         <a href="#weblinks">Web links</a>
         <a href="#files">Supported files</a>
-        <a href="#storage">Where your vault is stored</a>
-        <a href="#architecture">Architecture</a>
+        <a href="#storage" data-i18n="toc_storage">Where your vault is stored</a>
+        <a href="#connect-storage" data-i18n="toc_connect">Connecting your storage</a>
+        <a href="#architecture" data-i18n="toc_architecture">Architecture</a>
       </nav>
 
       <section class="legal-section" id="what">
@@ -235,53 +236,99 @@
       </section>
 
       <section class="legal-section" id="storage">
-        <h2>Where your vault is stored</h2>
-        <p>
-          By default your vault lives on the server's own disk. Self-hosters can instead point
-          websidian at <strong>S3-compatible object storage</strong> or at any
-          <strong>WebDAV server</strong> &mdash; set <code>STORAGE_DRIVER</code> to
-          <code>s3</code> or <code>webdav</code> in the server configuration. Whatever you choose,
-          the storage is a <strong>blind blob store</strong>: only end-to-end encrypted ciphertext
-          is ever written, so the host cannot read your notes.
+        <h2 data-i18n="storage_h">Where your vault is stored</h2>
+        <p data-i18n="storage_p1">
+          websidian does <strong>not</strong> host your files. You connect your
+          own storage when you sign up (and can change it any time in the
+          dashboard), so your encrypted vault lives on a backend you control.
+          Whatever you pick is a <strong>blind blob store</strong>: only
+          end-to-end encrypted ciphertext is ever written, so the host cannot
+          read your notes. Because everything is already encrypted in your
+          browser, you do not need a provider with its own “client-side
+          encryption”.
         </p>
-        <p>
-          <strong>Which services work with WebDAV?</strong> Anything that speaks standard WebDAV.
-          Popular options include:
+        <p data-i18n="storage_p2">
+          Two kinds of storage are supported, and the provider choice is not
+          critical (it only ever sees ciphertext) — pick one you trust:
         </p>
         <ul>
-          <li><strong>Nextcloud</strong> and <strong>ownCloud</strong> &mdash; the most common choice.</li>
-          <li><strong>Seafile</strong> (with its WebDAV extension enabled).</li>
-          <li><strong>NAS devices</strong> &mdash; <strong>Synology</strong> (WebDAV Server package),
-              <strong>QNAP</strong> and <strong>TrueNAS</strong>.</li>
-          <li><strong>Your own server</strong> &mdash; <strong>Apache</strong> (<code>mod_dav</code>)
-              or <strong>Nginx</strong> with the WebDAV module.</li>
-          <li><strong>Hosted drives</strong> &mdash; <strong>Infomaniak kDrive</strong>,
-              <strong>IONOS / Strato HiDrive</strong>, <strong>Koofr</strong>, <strong>pCloud</strong>,
-              <strong>Yandex Disk</strong>, <strong>mailbox.org</strong> and <strong>Fastmail</strong>.</li>
-          <li><strong>Almost anything else</strong> via <code>rclone serve webdav</code>, which
-              bridges Google Drive, Dropbox, OneDrive, Backblaze B2 and many more to a WebDAV endpoint.</li>
+          <li data-i18n="storage_li_s3"><strong>S3-compatible object storage</strong> — e.g. <strong>Mega S4</strong> (very inexpensive) or <strong>Hetzner Object Storage</strong> (Germany), also AWS S3, MinIO, …</li>
+          <li data-i18n="storage_li_webdav"><strong>WebDAV</strong> — e.g. <strong>Nextcloud</strong> (self-hosting), <strong>Box</strong>, <strong>Koofr</strong> (Europe) or <strong>CloudMe</strong> (Europe).</li>
         </ul>
-        <p>
-          Because websidian already encrypts everything in your browser, you do not need a
-          provider that offers its own &ldquo;client-side encryption&rdquo; &mdash; your content is
-          unreadable to the storage host either way.
+        <p data-i18n="storage_tested">
+          websidian is tested end-to-end with <strong>Nextcloud</strong> (WebDAV)
+          and <strong>Mega S4</strong> (S3). See the next section for how to
+          connect.
+        </p>
+      </section>
+
+      <section class="legal-section" id="connect-storage">
+        <h2 data-i18n="connect_h">Connecting your storage</h2>
+
+        <h3 data-i18n="connect_webdav_h">WebDAV (Nextcloud)</h3>
+        <p data-i18n="connect_webdav_url">
+          In Nextcloud open <strong>Files</strong>, then click
+          <strong>Files settings</strong> at the bottom-left of the file list.
+          Copy the <strong>WebDAV</strong> URL shown there and paste it into the
+          “Server URL” field when connecting.
+        </p>
+        <img class="docs-architecture" src="/public/images/nextcloud-file-settings-webdav.png?v=<%= v %>"
+             alt="Nextcloud Files settings showing the WebDAV URL" loading="lazy" />
+
+        <h3 data-i18n="connect_apppw_h">Use an app password</h3>
+        <p data-i18n="connect_apppw_body">
+          In Nextcloud go to <strong>Settings → Security</strong> and create a
+          dedicated <strong>app password</strong>, then use it instead of your
+          normal account password.
+        </p>
+        <p class="docs-quote" data-i18n="connect_apppw_why">
+          Why an app password? When your account has two-factor authentication
+          (2FA) enabled, your normal password does not work over WebDAV — an app
+          password is required. It is also safer in general: you can revoke it at
+          any time without changing your main password.
+        </p>
+        <img class="docs-architecture" src="/public/images/set-nextcloud-app-password.png?v=<%= v %>"
+             alt="Nextcloud security settings creating an app password" loading="lazy" />
+
+        <h3 data-i18n="connect_s3_h">S3 (Mega S4 &amp; similar)</h3>
+        <p data-i18n="connect_s3_body">
+          Create a bucket and an access key pair in your provider. For Mega S4
+          use the S4 endpoint and its region — for example
+          <code>https://s3.eu-central-2.s4.mega.io</code> and
+          <code>eu-central-2</code> — then enter the bucket, access key ID and
+          secret access key when connecting.
+        </p>
+        <p data-i18n="connect_help_contact">
+          Stuck? Your credentials are stored encrypted and the connection test
+          shows a precise error if something is wrong. If you cannot resolve it,
+          contact support.
         </p>
       </section>
 
       <section class="legal-section" id="architecture">
-        <h2>Architecture (for technical users)</h2>
-        <img class="docs-architecture" src="/public/websidian-architecture.png"
+        <h2 data-i18n="arch_h">Architecture (for technical users)</h2>
+        <img class="docs-architecture" src="/public/websidian-architecture.png?v=<%= v %>"
              alt="websidian architecture diagram" loading="lazy" />
         <ul>
           <li><strong>HTTP-only auth token</strong> &mdash; the session cookie is HTTP-only, so it cannot be read or manipulated by XSS JavaScript attacks.</li>
           <li><strong>NestJS backend</strong> with server-side rendered EJS views.</li>
           <li><strong>Cloudflare Zero Trust tunnel</strong> into the <code>fabo011-cloud.de</code> private network.</li>
           <li><strong>Docker Swarm</strong> for container orchestration.</li>
-          <li><strong>PostgreSQL</strong> database for user data; sensitive columns (TOTP, billing) encrypted at rest.</li>
+          <li><strong>PostgreSQL</strong> database for user data; sensitive columns (TOTP, storage credentials) encrypted at rest.</li>
           <li><strong>Browser WebCrypto</strong> for end-to-end encryption &mdash; all file contents are encrypted client-side (AES-256-GCM) before upload.</li>
-          <li><strong>S3-compatible storage</strong> (or local disk / WebDAV) as a blind blob store for the encrypted vault contents (keyed by a random per-account ID).</li>
-          <li><strong>Encrypted backups</strong> to MEGA object storage.</li>
+          <li data-i18n="arch_storage_li"><strong>Bring-your-own storage</strong> &mdash; each account connects its own S3-compatible or WebDAV backend as a blind blob store for the encrypted vault contents (keyed by a random per-account ID). websidian itself stores no vault files.</li>
         </ul>
+        <h3 data-i18n="arch_scale_h">Scaling with Docker Swarm</h3>
+        <p data-i18n="arch_scale_p">
+          websidian is stateless at the app layer — the encrypted vault lives in
+          each user's own storage and all shared state is in PostgreSQL — so it
+          scales horizontally with <strong>Docker Swarm mode</strong>. The app
+          service runs as multiple replicas across swarm nodes (load-balanced via
+          the swarm routing mesh / DNS round-robin); to handle more load you
+          simply raise the replica count or add nodes. Cloudflare tunnel
+          replicas front the cluster, and a single PostgreSQL instance (on a
+          manager node) holds accounts and the encrypted storage credentials.
+        </p>
       </section>
     </article>
   </main>

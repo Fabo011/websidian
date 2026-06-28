@@ -8,6 +8,16 @@
     trust most. websidian is tested end-to-end with Nextcloud (WebDAV) and
     Mega S4 (S3).
   </p>
+  <p class="muted small" data-i18n="storage_encrypted_note">
+    <i class="bi bi-shield-lock"></i> The credentials you enter here are stored
+    encrypted at rest — they are never saved in plaintext.
+  </p>
+  <p class="muted small storage-help-links">
+    <i class="bi bi-question-circle"></i>
+    <a href="/docs#connect-storage" target="_blank" rel="noopener noreferrer" data-i18n="storage_help_link">How to connect (with screenshots)</a><% if (typeof contactEmail !== 'undefined' && contactEmail) { %>
+    · <span data-i18n="storage_need_help">Need help? Contact</span>
+    <a href="mailto:<%= contactEmail %>"><%= contactEmail %></a><% } %>
+  </p>
 
   <div class="storage-type">
     <label class="storage-type-opt">
