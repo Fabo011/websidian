@@ -6,7 +6,8 @@ A small, self-hosted Obsidian-like markdown knowledge app.
 - **User store:** SQLite (TypeORM `sql.js` driver) at `data/app.db` by default,
   or **PostgreSQL** (`DB_TYPE=postgres`)
 - **Vaults:** stored on the server's disk under `data/<storageId>/` by default,
-  or in **S3-compatible object storage** (`STORAGE_DRIVER=s3`)
+  in **S3-compatible object storage** (`STORAGE_DRIVER=s3`), or on any
+  **WebDAV server** (`STORAGE_DRIVER=webdav`, e.g. Nextcloud)
 - **Auth:** username + password with **mandatory TOTP 2FA**, JWT in an httpOnly cookie
 - **Zero-knowledge end-to-end encryption:** vault contents (notes, drawings,
   attachments) are encrypted **in your browser** with **AES-256-GCM**; the
@@ -88,7 +89,7 @@ Copy `.env.example` to `.env` and adjust:
 
 | Variable             | Default              | Purpose                                          |
 | -------------------- | -------------------- | ------------------------------------------------ |
-| `STORAGE_DRIVER`     | `local`              | `local` (filesystem) or `s3`                     |
+| `STORAGE_DRIVER`     | `local`              | `local` (filesystem), `s3` or `webdav`           |
 | `S3_ENDPOINT`        | _(empty)_            | S3 endpoint (when `STORAGE_DRIVER=s3`)           |
 | `S3_REGION`          | `us-east-1`          | S3 region                                        |
 | `S3_BUCKET`          | _(empty)_            | S3 bucket name                                   |
@@ -96,6 +97,11 @@ Copy `.env.example` to `.env` and adjust:
 | `S3_SECRET_ACCESS_KEY` | _(empty)_          | S3 secret key                                    |
 | `S3_FORCE_PATH_STYLE`| `true`               | Path-style addressing (MinIO/some S3-compatibles) |
 | `S3_PREFIX`          | _(empty)_            | Optional key prefix so multiple apps share one bucket |
+| `WEBDAV_URL`         | _(empty)_            | WebDAV server base URL (when `STORAGE_DRIVER=webdav`) |
+| `WEBDAV_USERNAME`    | _(empty)_            | WebDAV user (empty = unauthenticated)            |
+| `WEBDAV_PASSWORD`    | _(empty)_            | WebDAV password                                  |
+| `WEBDAV_AUTH_TYPE`   | `auto`               | `auto`, `password` (HTTP Basic), `digest` or `none` |
+| `WEBDAV_BASE_PATH`   | _(empty)_            | Optional path prefix so multiple apps share one account |
 
 **Billing / subscriptions (Stripe)** — optional
 
@@ -142,6 +148,28 @@ server's filesystem). An `s3` driver targeting S3-compatible object storage
 backend is a **blind blob store**: files are stored under an immutable random
 `storageId` per account (never the username) and their contents are already
 end-to-end encrypted ciphertext.
+
+A `webdav` driver stores the same encrypted blobs on any WebDAV server under
+`WEBDAV_BASE_PATH/<storageId>/…`. Configure it with `WEBDAV_URL`,
+`WEBDAV_USERNAME`, `WEBDAV_PASSWORD`, `WEBDAV_AUTH_TYPE` (`auto` by default) and
+an optional `WEBDAV_BASE_PATH`. Because the server only ever writes ciphertext,
+the WebDAV host cannot read your notes.
+
+**Tested / compatible WebDAV services** (anything speaking standard WebDAV
+should work):
+
+- **Nextcloud** / **ownCloud** — URL like
+  `https://cloud.example.com/remote.php/dav/files/<user>`
+- **Seafile** (WebDAV extension)
+- **Synology NAS** (WebDAV Server package) and **QNAP** / **TrueNAS**
+- **Apache** (`mod_dav`) or **Nginx** WebDAV modules — your own server
+- **Infomaniak kDrive**, **IONOS HiDrive** / **Strato HiDrive**, **Koofr**,
+  **pCloud**, **Yandex Disk**, **mailbox.org**, **Fastmail**
+- **`rclone serve webdav`** — bridges almost any other cloud (Google Drive,
+  Dropbox, Backblaze B2, OneDrive, …) to a local WebDAV endpoint
+
+Note: end-to-end encryption already protects your content, so a provider's own
+"client-side encryption" is not required.
 
 ### Storage quota
 
