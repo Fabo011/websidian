@@ -29,8 +29,6 @@ services:
         protocol: tcp
         mode: host
     environment:
-      # Bring-your-own storage deployment: the server hosts NO vault storage;
-      # each user connects their own S3/WebDAV backend (credentials encrypted).
       USER_STORAGE_ENABLED: "true"
       ALLOW_REGISTRATION: "${ALLOW_REGISTRATION:-true}"
       PORT: 3065
