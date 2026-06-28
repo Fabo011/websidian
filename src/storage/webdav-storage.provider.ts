@@ -39,22 +39,12 @@ interface UsageCacheEntry {
 }
 
 /**
- * The `webdav` package is ESM-only (v5+) while this project compiles to
- * CommonJS. A plain `import()` would be downleveled by TypeScript to `require()`
- * and fail on the ESM module, so we load it through a `Function`-wrapped dynamic
- * import that the compiler leaves untouched.
- */
-const importEsm = new Function(
-  'specifier',
-  'return import(specifier)',
-) as <T = unknown>(specifier: string) => Promise<T>;
-
-/**
  * WebDAV storage provider (Nextcloud, ownCloud, generic WebDAV servers).
  *
  * Unlike the object-store backend, WebDAV exposes real directories, so the
  * layout mirrors the local filesystem provider: vault data lives under
- * `${basePath}/${username}/${relPath}` on the remote server.
+ * `${basePath}/${storageId}/${relPath}` on the remote server, where `storageId`
+ * is the account's immutable random namespace
  *
  * The {@link WebDAVClient} is created lazily on first use (and memoized) so the
  * provider can be instantiated by Nest's DI container even when a different
@@ -106,7 +96,7 @@ export class WebdavStorageProvider implements StorageProvider {
       );
     }
     const { createClient, AuthType } =
-      await importEsm<typeof import('webdav')>('webdav');
+      await import('webdav');
     const authType = this.mapAuthType(AuthType);
     const useAuth = this.cfg.authType !== 'none';
     return createClient(this.cfg.url, {
