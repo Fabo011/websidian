@@ -132,20 +132,33 @@ of your licenses.
 
 ---
 
-Required Notice: Copyright (c) 2026 websidian contributors
+Required Notice: Copyright (c) 2026 Fabian Waismayer (https://websidian.fabo011-cloud.de)
 
 ## Commercial License (dual licensing)
 
-The PolyForm Noncommercial License above covers **noncommercial use only**.
-Commercial use — including self-hosting for a business or organization and
-offering websidian to others as a hosted/paid service — is **available under
-a separate, paid commercial license**.
+The licensor and copyright holder of websidian is **Fabian Waismayer**.
 
-To request a commercial-use license, contact: **websidian@proton.me**
+The PolyForm Noncommercial License above covers **noncommercial use only**.
+**Any commercial use requires a separate, paid commercial license** with
+license fees payable to Fabian Waismayer. Commercial use includes, without
+limitation:
+
+- **Self-hosting** websidian for or within any company, business, or other
+  commercial organization (including internal company use);
+- **Using the official hosted service** at https://websidian.fabo011-cloud.de
+  for or within any company, business, or other commercial organization
+  (for example, connecting a company data folder); and
+- **Offering** websidian to others as a hosted, managed, or paid service.
+
+In all of these cases — commercial self-hosting, commercial use of the
+official hosted service, and reselling — license fees are due.
+
+To request a commercial-use license, contact the licensor at:
+**websidian@proton.me** - **https://websidian.fabo011-cloud.de**
 
 The commercial license is granted separately and in addition to the terms
 above; nothing in this section grants commercial rights without such a
-license.
+license and payment of the applicable fees.
 
 ## Project distribution policy (summary, non-binding)
 
@@ -153,15 +166,19 @@ websidian is **source-available** under the PolyForm Noncommercial
 License 1.0.0, with a separate paid commercial license available. In plain
 terms:
 
-- You **may** self-host websidian for your own personal, noncommercial
-  use, study it, and modify it.
-- You **may** use the official hosted ("cloud") version, or deploy the
-  official Docker image from Codeberg/Github or Docker Hub on your own server for
-  your own use.
+- You (a private individual) **may** self-host websidian for your own
+  personal, noncommercial use, free of charge.
+- You (a private individual) **may** use the official hosted service at
+  https://websidian.fabo011-cloud.de — including connecting your own data
+  folder — for your own personal, noncommercial use, free of charge. A
+  donation button is available if you wish to support the project.
+- You **may** also deploy the official Docker image from Codeberg/Github or
+  Docker Hub on your own server for your own personal use.
 - You **may not** use it for any commercial purpose — including self-hosting
-  for commercial use or offering it to others as a hosted service —
-  **unless you obtain a paid commercial license** (contact
-  websidian@proton.me to request one).
+  for or within a company, using the official hosted service for or within a
+  company, or offering it to others as a hosted service — **unless you obtain
+  a paid commercial license and pay the applicable fees** (contact
+  websidian@proton.me - https://websidian.fabo011-cloud.de to request one).
 
 This summary is provided for convenience only; the license text above
 governs in case of any conflict.
