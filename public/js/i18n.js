@@ -142,6 +142,9 @@
       contact_hint:
         'Questions, problems connecting your file storage, or a feature request? Get in touch.',
       contact_none: 'No contact address is configured for this instance.',
+      discussions_hint:
+        'Join discussions and announcements — share feedback, feature ideas, and report bugs.',
+      open_discussions: 'GitHub Discussions',
       copy_email: 'Copy email address',
       support_title: 'Support websidian',
       support_hint:
@@ -975,6 +978,9 @@
       contact_hint:
         'Fragen, Probleme beim Verbinden deines Dateispeichers oder ein Funktionswunsch? Melde dich.',
       contact_none: 'Für diese Instanz ist keine Kontaktadresse hinterlegt.',
+      discussions_hint:
+        'Nimm an Diskussionen und Ankündigungen teil — teile Feedback, Funktionsideen und melde Fehler.',
+      open_discussions: 'GitHub Discussions',
       copy_email: 'E-Mail-Adresse kopieren',
       support_title: 'websidian unterstützen',
       support_hint:

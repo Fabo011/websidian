@@ -316,6 +316,14 @@
             </div>
           </div>
 
+          <% if (typeof donationLink !== 'undefined' && donationLink) { %>
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-heart"></i> <span data-i18n="support_title">Support websidian</span></h3>
+            <p class="settings-hint" data-i18n="support_hint">websidian is a non-profit project. A voluntary donation helps cover storage &amp; server costs.</p>
+            <a class="btn-ghost settings-inline-btn" href="<%= donationLink %>" target="_blank" rel="noopener"><i class="bi bi-heart"></i> <span data-i18n="donate">Donate</span></a>
+          </div>
+          <% } %>
+
           <div class="settings-group">
             <h3 class="settings-group-title"><i class="bi bi-journal-text"></i> <span data-i18n="help">Help</span></h3>
             <p class="settings-hint" data-i18n="docs_hint">Learn how syncing, backups, 2FA and encryption work.</p>
@@ -337,15 +345,9 @@
             <% } else { %>
             <p class="settings-hint" data-i18n="contact_none">No contact address is configured for this instance.</p>
             <% } %>
+            <p class="settings-hint" data-i18n="discussions_hint">Join discussions and announcements — share feedback, feature ideas, and report bugs.</p>
+            <a class="btn-ghost settings-inline-btn" href="https://github.com/Fabo011/websidian/discussions" target="_blank" rel="noopener noreferrer"><i class="bi bi-chat-dots"></i> <span data-i18n="open_discussions">GitHub Discussions</span></a>
           </div>
-
-          <% if (typeof donationLink !== 'undefined' && donationLink) { %>
-          <div class="settings-group">
-            <h3 class="settings-group-title"><i class="bi bi-heart"></i> <span data-i18n="support_title">Support websidian</span></h3>
-            <p class="settings-hint" data-i18n="support_hint">websidian is a non-profit project. A voluntary donation helps cover storage &amp; server costs.</p>
-            <a class="btn-ghost settings-inline-btn" href="<%= donationLink %>" target="_blank" rel="noopener"><i class="bi bi-heart"></i> <span data-i18n="donate">Donate</span></a>
-          </div>
-          <% } %>
         </section>
 
         <!-- File storage -->
