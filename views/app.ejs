@@ -11,11 +11,7 @@
   <header class="topbar">
     <button id="sidebar-toggle" class="icon-btn" aria-label="Toggle sidebar" data-i18n-attr="aria-label:toggle_sidebar"><i class="bi bi-list"></i></button>
     <span class="brand"><i class="bi bi-journal-text"></i> websidian</span>
-    <div class="search-wrap">
-      <input id="search-input" type="search" placeholder="Search notes…" autocomplete="off" enterkeyhint="search" data-i18n-attr="placeholder:search_placeholder" />
-      <button id="search-btn" class="search-btn" type="button" title="Search" aria-label="Search" data-i18n-attr="title:search_button;aria-label:search_button"><i class="bi bi-search"></i></button>
-      <div id="search-results" class="search-results" hidden></div>
-    </div>
+    <button id="search-open-btn" class="icon-btn search-open-btn" type="button" title="Search" aria-label="Search" data-i18n-attr="title:search_button;aria-label:search_button"><i class="bi bi-search"></i></button>
     <div class="topbar-right">
       <button id="account-btn" class="user" title="Settings" data-i18n-attr="title:open_settings"><i class="bi bi-person-circle"></i> <span class="user-name"><%= username %></span></button>
       <button id="logout-btn" class="btn-ghost"><i class="bi bi-box-arrow-right"></i> <span class="btn-label" data-i18n="logout">Logout</span></button>
@@ -190,6 +186,21 @@
     <div class="context-menu-sep" data-folder-only></div>
     <button data-action="download"><i class="bi bi-download"></i> <span data-i18n="ctx_download">Download</span></button>
     <button data-action="delete"><i class="bi bi-trash"></i> <span data-i18n="delete">Delete</span></button>
+  </div>
+
+  <div id="search-overlay" class="modal-overlay search-overlay" hidden>
+    <div class="search-panel" role="dialog" aria-modal="true" aria-label="Search" data-i18n-attr="aria-label:search_button">
+      <div class="search-bar">
+        <input id="search-input" type="search" placeholder="Search notes…" autocomplete="off" enterkeyhint="search" data-i18n-attr="placeholder:search_placeholder" />
+        <button id="search-btn" class="search-btn" type="button" title="Search" aria-label="Search" data-i18n-attr="title:search_button;aria-label:search_button"><i class="bi bi-search"></i></button>
+        <button id="search-close" class="icon-btn" type="button" title="Close" aria-label="Close" data-i18n-attr="title:close;aria-label:close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="search-filters">
+        <span class="search-filters-label" data-i18n="search_exclude_label">Exclude folders:</span>
+        <div id="search-filters-chips" class="search-filters-chips"></div>
+      </div>
+      <div id="search-results" class="search-results"></div>
+    </div>
   </div>
 
   <div id="modal-overlay" class="modal-overlay" hidden>
@@ -520,6 +531,16 @@
         <input id="weblink-category" class="modal-input" type="text" />
         <label class="modal-label" for="weblink-description" data-i18n="weblinks_field_description">Description</label>
         <input id="weblink-description" class="modal-input" type="text" />
+        <label class="modal-label" for="weblink-username" data-i18n="weblinks_field_username">Username</label>
+        <input id="weblink-username" class="modal-input" type="text" autocomplete="off" />
+        <label class="modal-label" for="weblink-contact-name" data-i18n="weblinks_field_contact_name">Contact name</label>
+        <input id="weblink-contact-name" class="modal-input" type="text" autocomplete="off" />
+        <label class="modal-label" for="weblink-contact-phone" data-i18n="weblinks_field_contact_phone">Contact phone</label>
+        <input id="weblink-contact-phone" class="modal-input" type="tel" autocomplete="off" />
+        <label class="modal-label" for="weblink-contact-email" data-i18n="weblinks_field_contact_email">Contact email</label>
+        <input id="weblink-contact-email" class="modal-input" type="email" autocomplete="off" />
+        <label class="modal-label" for="weblink-notes" data-i18n="weblinks_field_notes">Notes</label>
+        <textarea id="weblink-notes" class="modal-input" rows="3"></textarea>
         <p id="weblink-error" class="modal-error" hidden></p>
         <div class="modal-actions">
           <button id="weblink-cancel" class="btn-ghost" type="button" data-i18n="cancel">Cancel</button>

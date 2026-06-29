@@ -146,15 +146,30 @@ export class WebdavStorageProvider implements StorageProvider {
     await this.makeDirSafe(client, this.remotePath(username, parent));
   }
 
-  /** Create a directory (recursively), ignoring "already exists" responses. */
+  /**
+   * Create a directory and any missing parents, ignoring "already exists"
+   * responses.
+   *
+   * Each path segment is created with its own MKCOL rather than relying on the
+   * client's `recursive` option: some WebDAV servers (Nextcloud included) return
+   * 405 for an already-existing intermediate directory, which aborts a recursive
+   * create before it reaches the leaf — leaving the requested folder never
+   * created. Creating segment-by-segment and swallowing 405/409 per segment
+   * guarantees the leaf is made even when its parents already exist.
+   */
   private async makeDirSafe(client: WebDAVClient, path: string): Promise<void> {
-    try {
-      await client.createDirectory(path, { recursive: true });
-    } catch (err) {
-      // 405 Method Not Allowed / 409 already-exists are fine; rethrow others.
-      const status = this.statusOf(err);
-      if (status !== 405 && status !== 409) {
-        throw err;
+    const segments = path.split('/').filter(Boolean);
+    let current = '';
+    for (const segment of segments) {
+      current += '/' + segment;
+      try {
+        await client.createDirectory(current);
+      } catch (err) {
+        // 405 Method Not Allowed / 409 already-exists are fine; rethrow others.
+        const status = this.statusOf(err);
+        if (status !== 405 && status !== 409) {
+          throw err;
+        }
       }
     }
   }
@@ -257,8 +272,12 @@ export class WebdavStorageProvider implements StorageProvider {
     if (!rel) {
       return;
     }
-    const client = await this.client();
-    await this.makeDirSafe(client, this.remotePath(username, rel));
+    // The WebDAV vault tree is built from the *file* listing (walkFiles +
+    // buildTreeFromFlat), so a bare-MKCOL empty directory would never show up.
+    // Mirror the S3 backend: materialise the folder with a hidden `.keep`
+    // placeholder file. writeBytes creates the parent directory (MKCOL) on the
+    // way, so this both physically creates the folder and makes it visible.
+    await this.writeBytes(username, `${rel}/${KEEP_MARKER}`, Buffer.alloc(0));
   }
 
   async move(username: string, from: string, to: string): Promise<void> {
@@ -418,9 +437,12 @@ export class WebdavStorageProvider implements StorageProvider {
         continue;
       }
       const relPath = this.relFromStat(username, item);
-      if (!relPath || item.basename === KEEP_MARKER) {
+      if (!relPath) {
         continue;
       }
+      // Keep `.keep` markers in the walk: buildTreeFromFlat uses them to
+      // materialise an otherwise-empty folder, then hides the marker itself
+      // (matching the S3 backend). Filtering them here would drop empty folders.
       if (relPath === TRASH_DIR || relPath.startsWith(`${TRASH_DIR}/`)) {
         continue; // hide soft-deleted items from tree/export
       }

@@ -297,54 +297,114 @@ a { color: var(--accent); }
 #sidebar-toggle { display: none; }
 .mobile-back { display: none; }
 
-.search-wrap {
-  position: relative;
-  flex: 1;
-  max-width: 460px;
+/* The topbar only holds a magnifier trigger; search itself is a centered
+   overlay so it is reliably visible on every screen size (the old inline
+   dropdown was clipped/hidden behind content on mobile). */
+.search-open-btn { margin-right: auto; }
+
+/* Anchored near the top so the results list grows downward without shifting
+   the search bar. Scoped with .modal-overlay for specificity over the base
+   overlay rule. The base rule also supplies the backdrop + z-index. */
+.modal-overlay.search-overlay {
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 16px 16px;
+}
+.search-panel {
+  width: 100%;
+  max-width: 560px;
+  /* Cap height so the panel + results always fit the viewport and the inner
+     results list scrolls instead of the whole page. */
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px var(--shadow);
+  overflow: hidden;
+  animation: modal-pop 0.12s ease-out;
+}
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  flex: none;
+  border-bottom: 1px solid var(--border);
 }
 #search-input {
+  flex: 1 1 auto;
   width: 100%;
-  /* Right padding leaves room for the in-bar search button. */
-  padding: 7px 40px 7px 12px;
+  min-width: 0; /* allow shrinking inside flex so it never collapses */
+  padding: 9px 12px;
+  font-size: 15px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
 }
-/* The search trigger lives *inside* the bar, on the right, so the magnifier
-   clearly reads as "search this field" rather than a topbar icon. */
+#search-input:focus { outline: none; border-color: var(--accent); }
+/* Small fixed-size icon trigger on the right; never grows to fill the bar. */
 .search-btn {
-  position: absolute;
-  top: 50%;
-  right: 4px;
-  transform: translateY(-50%);
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  background: var(--accent);
+  font-size: 16px;
   color: #fff;
+  background: var(--accent);
   border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-}
-.search-btn:hover { filter: brightness(1.08); }
-.search-btn:disabled { opacity: 0.6; cursor: default; }
-.search-results {
-  position: absolute;
-  top: 110%;
-  left: 0;
-  right: 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 8px 24px var(--shadow);
-  max-height: 60vh;
-  overflow: auto;
-  z-index: 40;
+  cursor: pointer;
+}
+.search-btn:hover { background: var(--accent-hover); }
+.search-btn:disabled { opacity: 0.6; cursor: default; }
+.search-filters {
+  flex: none;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  max-height: 30vh;
+  overflow-y: auto;
+}
+.search-filters-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.search-filters-none { font-size: 12px; color: var(--text-muted); }
+.search-filters-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.search-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.search-chip .bi { font-size: 11px; opacity: 0.7; }
+.search-chip:hover { border-color: var(--accent); }
+/* Active = this folder is excluded from the search. */
+.search-chip.active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.search-chip.active .bi { opacity: 1; }
+.search-results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 .search-hit {
   display: block;
@@ -888,6 +948,25 @@ body.sidebar-resizing {
   border: 1px solid var(--border);
   border-radius: 999px;
 }
+.weblink-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+.weblink-meta dt { color: var(--text-muted); }
+.weblink-meta dd { margin: 0; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+.weblink-meta dd a { color: var(--accent); text-decoration: none; }
+.weblink-meta dd a:hover { text-decoration: underline; }
+.weblink-notes {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .weblink-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .weblinks-empty {
   text-align: center;
@@ -1045,9 +1124,12 @@ body.sidebar-resizing {
   }
   .topbar::-webkit-scrollbar { display: none; }
   .topbar > * { flex-shrink: 0; }
-  .search-wrap { flex: 0 0 auto; width: 46vw; min-width: 160px; max-width: none; }
-  .search-btn { width: 34px; height: 34px; right: 3px; }
-  #search-input { padding-right: 42px; }
+  /* Phones: use the full width and start higher so the on-screen keyboard
+     leaves room for results. */
+  .modal-overlay.search-overlay { padding: 4vh 10px 10px; }
+  .search-panel { max-height: 88vh; }
+  .search-bar { padding: 10px; gap: 6px; }
+  #search-input { font-size: 16px; } /* >=16px stops iOS zoom-on-focus */
   .mobile-back { display: inline-flex; align-items: center; }
   .sidebar {
     position: absolute;

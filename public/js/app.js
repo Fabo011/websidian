@@ -484,6 +484,7 @@ const state = {
   dragPath: null,
   dragType: null,
   expanded: new Set(), // folder paths that are currently expanded
+  tree: [], // last-loaded tree, used to build search folder filters
 };
 
 /* ---------- tree ---------- */
@@ -501,6 +502,7 @@ function expandAncestors(dirPath) {
 
 async function loadTree() {
   const tree = await api('GET', '/api/tree');
+  state.tree = tree; // kept for the search overlay's folder filters
   const container = $('#tree');
   container.innerHTML = '';
   container.appendChild(buildList(tree));
@@ -1037,6 +1039,15 @@ $('#context-menu').addEventListener('click', async (e) => {
         updateProgress(done, total, t('progress_files', { done, total }));
       });
       await closeTabsUnder(node.path);
+      // If the deleted folder was the active target (or contained it), the
+      // cursor would still point at a path that no longer exists — creating
+      // anything would silently resurrect it. Fall back to root.
+      if (
+        state.selectedDir === node.path ||
+        state.selectedDir.startsWith(node.path + '/')
+      ) {
+        setSelectedDir('');
+      }
       await loadTree();
       hideProgress();
     } catch (err) {
@@ -2411,9 +2422,36 @@ async function createFolderIn(targetDir) {
   });
   if (!name) return;
   const path = targetDir ? targetDir + '/' + name : name;
-  await api('POST', '/api/folder', { path });
+  try {
+    await api('POST', '/api/folder', { path });
+  } catch (e) {
+    flash(e.message || t('could_not_create'));
+    return;
+  }
   expandAncestors(path);
   await loadTree();
+  // Only point the cursor at the new folder if it actually landed in the
+  // vault. If the storage backend silently failed to create it, selecting it
+  // anyway would leave the breadcrumb pointing at a folder that does not exist
+  // (and a later file write would resurrect that phantom path). Surface the
+  // failure instead.
+  if (treeHasDir(state.tree, path)) {
+    selectDirByPath(path);
+  } else {
+    flash(t('could_not_create'));
+  }
+}
+
+/** True when `path` exists as a directory node anywhere in `nodes`. */
+function treeHasDir(nodes, path) {
+  for (const node of nodes || []) {
+    if (node.type !== 'dir') continue;
+    if (node.path === path) return true;
+    if (path.startsWith(node.path + '/') && treeHasDir(node.children, path)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 $('#new-note').addEventListener('click', () => createNoteIn(state.selectedDir));
@@ -2765,13 +2803,16 @@ async function restoreTrashItem(it, btn) {
     if (e.key === 'Escape' && !$('#trash-overlay').hidden) closeTrashModal();
   });
   $('#trash-empty-btn').addEventListener('click', async () => {
+    // Close the trash overlay first: it shares z-index with the confirm
+    // dialog (.modal-overlay) and sits later in the DOM, so it would paint
+    // on top of the confirm and hide it.
+    closeTrashModal();
     const ok = await uiConfirm(t('trash_empty'), {
       message: t('trash_empty_confirm'),
       okText: t('trash_empty'),
       danger: true,
     });
     if (!ok) return;
-    closeTrashModal();
     showProgress(t('trash_emptying'));
     try {
       await api('DELETE', '/api/trash', undefined, false, MUTATION_TIMEOUT_MS);
@@ -3023,15 +3064,103 @@ function searchContent(q) {
 // a slow server walk per keystroke. `searching` guards against double-submits.
 let searching = false;
 
+// Overlay state. `epoch` is bumped to abort an in-flight search: each async step
+// checks it before rendering, so clicking a result (or closing) stops the search
+// rather than letting a slow content-index build overwrite the view.
+const searchState = {
+  excluded: new Set(), // top-level folder paths excluded from results
+  lastHits: [], // unfiltered hits from the last run, for re-filtering
+  lastIndexing: false,
+  epoch: 0,
+};
+
+/** Drop hits that live inside an excluded top-level folder. */
+function filterExcluded(hits) {
+  if (!searchState.excluded.size) return hits;
+  return hits.filter((h) => {
+    for (const dir of searchState.excluded) {
+      if (h.path === dir || h.path.startsWith(dir + '/')) return false;
+    }
+    return true;
+  });
+}
+
+/** Build the exclude-folder filter chips from the current tree's top folders. */
+function buildSearchFilters() {
+  const wrap = $('#search-filters-chips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const dirs = (state.tree || []).filter((n) => n.type === 'dir');
+  if (!dirs.length) {
+    wrap.innerHTML =
+      '<span class="search-filters-none">' + t('search_no_folders') + '</span>';
+    return;
+  }
+  // Drop stale exclusions for folders that no longer exist.
+  const present = new Set(dirs.map((d) => d.path));
+  for (const p of [...searchState.excluded]) {
+    if (!present.has(p)) searchState.excluded.delete(p);
+  }
+  for (const dir of dirs) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'search-chip';
+    const icon = document.createElement('i');
+    const label = document.createElement('span');
+    label.textContent = dir.name;
+    chip.appendChild(icon);
+    chip.appendChild(label);
+    const sync = () => {
+      const on = searchState.excluded.has(dir.path);
+      chip.classList.toggle('active', on);
+      chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+      icon.className = on ? 'bi bi-check-lg' : 'bi bi-folder';
+      chip.title = on
+        ? t('search_excluded_title', { name: dir.name })
+        : t('search_exclude_title', { name: dir.name });
+    };
+    sync();
+    chip.addEventListener('click', () => {
+      if (searchState.excluded.has(dir.path)) searchState.excluded.delete(dir.path);
+      else searchState.excluded.add(dir.path);
+      sync();
+      // Re-render the existing results with the new filter, no re-query.
+      renderResults($('#search-results'), searchState.lastHits, searchState.lastIndexing);
+    });
+    wrap.appendChild(chip);
+  }
+}
+
+function openSearchOverlay() {
+  buildSearchFilters();
+  const overlay = $('#search-overlay');
+  overlay.hidden = false;
+  const input = $('#search-input');
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 0);
+}
+
+function closeSearchOverlay() {
+  // Abort any in-flight search so a late content-index build can't repaint.
+  searchState.epoch++;
+  searching = false;
+  const btn = $('#search-btn');
+  if (btn) btn.disabled = false;
+  $('#search-overlay').hidden = true;
+}
+
 async function runSearch(q) {
   const box = $('#search-results');
   if (!q.trim()) {
-    box.hidden = true;
     box.innerHTML = '';
+    searchState.lastHits = [];
     return;
   }
   if (searching) return;
   searching = true;
+  const epoch = ++searchState.epoch;
   const btn = $('#search-btn');
   if (btn) btn.disabled = true;
   // Show a spinner immediately: the server name search plus building/syncing the
@@ -3040,12 +3169,13 @@ async function runSearch(q) {
     '<div class="search-loading"><span class="search-spinner"></span>' +
     t('searching') +
     '</div>';
-  box.hidden = false;
   try {
-    await runSearchInner(q, box);
+    await runSearchInner(q, box, epoch);
   } finally {
-    searching = false;
-    if (btn) btn.disabled = false;
+    if (epoch === searchState.epoch) {
+      searching = false;
+      if (btn) btn.disabled = false;
+    }
   }
 }
 
@@ -3063,15 +3193,17 @@ function mergeContentHits(hits, q) {
   }
 }
 
-/** Render the results dropdown. `indexing` appends a "searching contents" note. */
+/** Render the results list. `indexing` appends a "searching contents" note. */
 function renderResults(box, hits, indexing) {
+  searchState.lastHits = hits;
+  searchState.lastIndexing = indexing;
+  const shown = filterExcluded(hits);
   box.innerHTML = '';
-  if (!hits.length && !indexing) {
+  if (!shown.length && !indexing) {
     box.innerHTML = '<div class="search-empty">' + t('no_matches') + '</div>';
-    box.hidden = false;
     return;
   }
-  for (const hit of hits) {
+  for (const hit of shown) {
     const item = document.createElement('button');
     item.className = 'search-hit';
     const title = document.createElement('div');
@@ -3085,7 +3217,8 @@ function renderResults(box, hits, indexing) {
       item.appendChild(sn);
     }
     item.addEventListener('click', () => {
-      box.hidden = true;
+      // Clicking a result stops any still-running search for reliability.
+      closeSearchOverlay();
       $('#search-input').value = '';
       openFile(hit.path);
     });
@@ -3097,10 +3230,9 @@ function renderResults(box, hits, indexing) {
     note.innerHTML = '<span class="search-spinner"></span>' + t('searching_contents');
     box.appendChild(note);
   }
-  box.hidden = false;
 }
 
-async function runSearchInner(q, box) {
+async function runSearchInner(q, box, epoch) {
   // Name matches come from the server (fast) and are shown immediately. Content
   // matches need the local decrypted index; if it isn't warm yet we render name
   // hits first, build the index in the background, then fold content hits in.
@@ -3111,6 +3243,7 @@ async function runSearchInner(q, box) {
   } catch (e) {
     hits = [];
   }
+  if (epoch !== searchState.epoch) return; // aborted
 
   if (searchIndex.built) {
     mergeContentHits(hits, q);
@@ -3123,13 +3256,20 @@ async function runSearchInner(q, box) {
   renderResults(box, hits, true);
   try {
     await buildSearchIndex();
+    if (epoch !== searchState.epoch) return; // aborted while indexing
     mergeContentHits(hits, q);
   } catch (e) {
     /* content search unavailable; keep name hits only */
   }
+  if (epoch !== searchState.epoch) return; // aborted
   renderResults(box, hits, false);
 }
 
+$('#search-open-btn').addEventListener('click', openSearchOverlay);
+$('#search-close').addEventListener('click', closeSearchOverlay);
+$('#search-overlay').addEventListener('click', (e) => {
+  if (e.target === $('#search-overlay')) closeSearchOverlay();
+});
 $('#search-btn').addEventListener('click', () =>
   runSearch($('#search-input').value),
 );
@@ -3139,16 +3279,15 @@ $('#search-input').addEventListener('keydown', (e) => {
     runSearch(e.target.value);
   }
 });
-// Clearing the field (native "x" or empty) hides the results without searching.
+// Clearing the field (native "x" or empty) clears results without searching.
 $('#search-input').addEventListener('input', (e) => {
   if (!e.target.value.trim()) {
-    const box = $('#search-results');
-    box.hidden = true;
-    box.innerHTML = '';
+    $('#search-results').innerHTML = '';
+    searchState.lastHits = [];
   }
 });
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.search-wrap')) $('#search-results').hidden = true;
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !$('#search-overlay').hidden) closeSearchOverlay();
 });
 
 /* ---------- chrome: theme, sidebar, logout ---------- */
@@ -4070,13 +4209,26 @@ function maybeCloseSidebar() {
 
 const WEBLINKS_DIR = 'weblinks';
 const WEBLINKS_CSV = 'weblinks/weblinks.csv';
-// Native CSV header. It is a column-name prefix of Linky's export format
-// (linkname,linkdescription,link,category,…), so files written here can be
-// imported by Linky and Linky exports can be imported here.
-const WEBLINKS_HEADER = ['linkname', 'linkdescription', 'link', 'category'];
+// Native CSV header. It mirrors Linky's export format so files written here can
+// be imported by Linky and full Linky exports can be imported here. Linky's
+// internal id/user_id columns are not written (the server owns those); they are
+// simply ignored when reading an export that includes them.
+const WEBLINKS_HEADER = [
+  'linkname',
+  'linkdescription',
+  'category',
+  'link',
+  'linkusername',
+  'contactname',
+  'contactphonenumber',
+  'contactemail',
+  'notes',
+];
 
 const weblinksState = {
-  links: [], // { name, description, url, category }
+  // { name, description, category, url, username, contactName, contactPhone,
+  //   contactEmail, notes }
+  links: [],
   version: null, // last loaded file version, for concurrent-edit detection
   editIndex: null, // index being edited, or null when adding
   filter: '',
@@ -4138,7 +4290,19 @@ function serializeWeblinks(links) {
   const lines = [WEBLINKS_HEADER.join(',')];
   for (const l of links) {
     lines.push(
-      [l.name, l.description, l.url, l.category].map(csvCell).join(','),
+      [
+        l.name,
+        l.description,
+        l.category,
+        l.url,
+        l.username,
+        l.contactName,
+        l.contactPhone,
+        l.contactEmail,
+        l.notes,
+      ]
+        .map(csvCell)
+        .join(','),
     );
   }
   return lines.join('\n') + '\n';
@@ -4158,6 +4322,11 @@ function csvToLinks(text) {
   const iDesc = idx('linkdescription');
   const iUrl = idx('link');
   const iCat = idx('category');
+  const iUser = idx('linkusername');
+  const iCName = idx('contactname');
+  const iCPhone = idx('contactphonenumber');
+  const iCEmail = idx('contactemail');
+  const iNotes = idx('notes');
   // If the first row is not a recognizable header, treat every row as data
   // with a simple name,url[,description[,category]] layout.
   const hasHeader = iUrl !== -1 || iName !== -1;
@@ -4175,6 +4344,11 @@ function csvToLinks(text) {
       description: get(iDesc, 2),
       url,
       category: get(iCat, 3),
+      username: get(iUser, -1),
+      contactName: get(iCName, -1),
+      contactPhone: get(iCPhone, -1),
+      contactEmail: get(iCEmail, -1),
+      notes: get(iNotes, -1),
     });
   }
   return out;
@@ -4267,7 +4441,17 @@ function renderWeblinks() {
     .map((link, index) => ({ link, index }))
     .filter(({ link }) => {
       if (!q) return true;
-      return [link.name, link.url, link.description, link.category]
+      return [
+        link.name,
+        link.url,
+        link.description,
+        link.category,
+        link.username,
+        link.contactName,
+        link.contactPhone,
+        link.contactEmail,
+        link.notes,
+      ]
         .join(' ')
         .toLowerCase()
         .includes(q);
@@ -4323,6 +4507,51 @@ function buildWeblinkCard(link, index) {
     tag.textContent = link.category;
     main.appendChild(tag);
   }
+
+  // Optional Linky fields — render each only when present.
+  const meta = [];
+  if (link.username)
+    meta.push([t('weblinks_field_username'), link.username, null]);
+  if (link.contactName)
+    meta.push([t('weblinks_field_contact_name'), link.contactName, null]);
+  if (link.contactPhone)
+    meta.push([
+      t('weblinks_field_contact_phone'),
+      link.contactPhone,
+      'tel:' + link.contactPhone,
+    ]);
+  if (link.contactEmail)
+    meta.push([
+      t('weblinks_field_contact_email'),
+      link.contactEmail,
+      'mailto:' + link.contactEmail,
+    ]);
+  if (meta.length) {
+    const dl = document.createElement('dl');
+    dl.className = 'weblink-meta';
+    for (const [label, value, href] of meta) {
+      const dt = document.createElement('dt');
+      dt.textContent = label;
+      const dd = document.createElement('dd');
+      if (href) {
+        const link2 = document.createElement('a');
+        link2.href = href;
+        link2.textContent = value;
+        dd.appendChild(link2);
+      } else {
+        dd.textContent = value;
+      }
+      dl.appendChild(dt);
+      dl.appendChild(dd);
+    }
+    main.appendChild(dl);
+  }
+  if (link.notes) {
+    const notes = document.createElement('p');
+    notes.className = 'weblink-notes';
+    notes.textContent = link.notes;
+    main.appendChild(notes);
+  }
   card.appendChild(main);
 
   const actions = document.createElement('div');
@@ -4359,6 +4588,11 @@ function openWeblinkModal(index) {
   $('#weblink-name').value = link ? link.name : '';
   $('#weblink-category').value = link ? link.category : '';
   $('#weblink-description').value = link ? link.description : '';
+  $('#weblink-username').value = link ? link.username || '' : '';
+  $('#weblink-contact-name').value = link ? link.contactName || '' : '';
+  $('#weblink-contact-phone').value = link ? link.contactPhone || '' : '';
+  $('#weblink-contact-email').value = link ? link.contactEmail || '' : '';
+  $('#weblink-notes').value = link ? link.notes || '' : '';
   $('#weblink-error').hidden = true;
   $('#weblink-overlay').hidden = false;
   setTimeout(() => $('#weblink-url').focus(), 0);
@@ -4383,6 +4617,11 @@ async function submitWeblink(e) {
     description: $('#weblink-description').value.trim(),
     url,
     category: $('#weblink-category').value.trim(),
+    username: $('#weblink-username').value.trim(),
+    contactName: $('#weblink-contact-name').value.trim(),
+    contactPhone: $('#weblink-contact-phone').value.trim(),
+    contactEmail: $('#weblink-contact-email').value.trim(),
+    notes: $('#weblink-notes').value.trim(),
   };
   showLoading(t('loading'));
   try {

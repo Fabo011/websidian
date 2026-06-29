@@ -21,6 +21,10 @@
       /* topbar */
       search_placeholder: 'Search notes…',
       search_button: 'Search',
+      search_exclude_label: 'Exclude folders from search:',
+      search_no_folders: 'No folders yet — create one to filter your search.',
+      search_exclude_title: 'Exclude "{name}" and its subfolders',
+      search_excluded_title: 'Excluded — click to include "{name}" again',
       searching: 'Searching…',
       searching_contents: 'Searching note contents…',
       toggle_theme: 'Toggle light/dark',
@@ -72,6 +76,11 @@
       weblinks_field_name: 'Name',
       weblinks_field_category: 'Category',
       weblinks_field_description: 'Description',
+      weblinks_field_username: 'Username',
+      weblinks_field_contact_name: 'Contact name',
+      weblinks_field_contact_phone: 'Contact phone',
+      weblinks_field_contact_email: 'Contact email',
+      weblinks_field_notes: 'Notes',
       weblinks_edit: 'Edit link',
       weblinks_delete_title: 'Delete link',
       weblinks_delete_msg: 'Delete this web link?',
@@ -281,6 +290,97 @@
       toc_storage: 'Where your vault is stored',
       toc_connect: 'Connecting your storage',
       toc_architecture: 'Architecture',
+      docs_title: 'Documentation',
+      docs_lead:
+        'Short and to the point: what you need to know to use websidian effectively.',
+      docs_toc_what: 'What websidian is',
+      docs_toc_sync: 'Changes are not real-time',
+      docs_toc_backup: 'Backing up your vault',
+      docs_toc_trash: 'Deleting files (trash)',
+      docs_toc_twofa: 'Two-factor authentication',
+      docs_toc_encryption: 'End-to-end encryption',
+      docs_toc_password: 'Recovery key & no reset',
+      docs_toc_weblinks: 'Web links',
+      docs_toc_files: 'Supported files',
+      docs_what_h: 'What websidian is (and is not)',
+      docs_what_p1:
+        'websidian is an independent open-source project. It is <strong>not</strong> the original Obsidian (obsidian.md), not affiliated with it, and not a competing product. The name only describes the idea: an Obsidian-style markdown vault you reach from a web browser.',
+      docs_what_p2:
+        'The original Obsidian is a desktop/mobile app that stores notes locally on each device and uses a separate sync service to keep devices in step. websidian works the other way around: your vault lives on the server and you simply log in.',
+      docs_what_p3:
+        'Why does that matter? In many organisations &mdash; companies, agencies, enterprise laptops &mdash; you are not allowed to install private sync clients or arbitrary apps. A local-vault-plus-sync setup is then impossible. A web browser, however, is almost always available, so your knowledge vault stays reachable. On top of that:',
+      docs_what_li1: 'Nothing to install &mdash; no app, no sync client.',
+      docs_what_li2: 'No local storage used on your phone or PC.',
+      docs_what_li3:
+        'End-to-end encrypted &mdash; your browser encrypts everything, so only you can read it.',
+      docs_what_li4:
+        'Deliberately simple: just what you need day to day, not a feature maze.',
+      docs_what_quote:
+        'The human brain is made for having ideas, not for holding them. websidian is your second brain.',
+      docs_sync_h: 'Changes are not real-time',
+      docs_sync_p1:
+        'If you edit on device A, then look at device B, you must <strong>reload the browser on device B</strong> to see the change. Updates are not pushed live.',
+      docs_sync_p2:
+        'This is a direct consequence of end-to-end encryption: content is stored as ciphertext and only decrypted in your browser when you request it, so each device sees the latest version the next time it loads a note &mdash; not the instant it changes elsewhere.',
+      docs_backup_h: 'Backing up your vault',
+      docs_backup_p1:
+        'Click <strong>Export</strong> in the sidebar. Your entire vault is downloaded as a single <code>.zip</code> file with the original folder structure.',
+      docs_backup_p2:
+        'The export is <strong>decrypted in your browser</strong> on the way out, so the zip is a portable, platform-independent backup you can open anywhere or re-import later.',
+      docs_trash_h: 'Deleting files (trash & recovery window)',
+      docs_trash_p1:
+        'When you delete a file or folder it is <strong>not erased right away</strong>. It is moved to a hidden, per-account trash so an accidental deletion can be recovered. While an item sits in the trash it is hidden from your file tree, but it still <strong>counts toward your storage quota</strong> until it is permanently removed.',
+      docs_trash_p2:
+        'A daily clean-up job permanently removes items that have been in the trash longer than a fixed <strong>retention window</strong> &mdash; <strong>7 days by default</strong>. The job runs once a day, so the retention setting controls <em>how long an item stays recoverable</em>, not how often the clean-up runs. After the window passes the item is gone for good and cannot be restored.',
+      docs_trash_p3:
+        'Self-hosting? The window is configurable with the <code>TRASH_RETENTION_DAYS</code> environment variable (set it to <code>0</code> to disable the trash entirely so deletions are immediate).',
+      docs_twofa_h: 'Two-factor authentication (2FA / TOTP)',
+      docs_twofa_p1:
+        'TOTP (Time-based One-Time Password) is the 6-digit code that rotates every 30 seconds in an authenticator app. On sign-in you provide your password <em>and</em> the current code, so a stolen password alone is not enough to reach your vault.',
+      docs_twofa_p2:
+        '2FA is <strong>required</strong>, not optional, because your notes are sensitive and a single secret is too weak to protect them. Set it up once during registration by scanning the QR code.',
+      docs_twofa_p3:
+        'Got a new phone or switched authenticator app? You can <strong>change (reset) your authenticator</strong> any time from the dashboard under <em>Account &rarr; Security &rarr; Reset authenticator (2FA)</em>. For your safety the reset requires your current password <em>and</em> a code from your existing authenticator; you then scan a fresh QR code and confirm a code from the new device to switch over. The old code stops working as soon as the new one is confirmed.',
+      docs_enc_h: 'End-to-end encryption (zero-knowledge)',
+      docs_enc_p1:
+        'Every file &mdash; notes, drawings, attachments, documents &mdash; is encrypted <strong>in your browser</strong> with AES-256-GCM before it is uploaded. The server only ever stores ciphertext it cannot read, so nobody &mdash; not even the operator &mdash; can see your content.',
+      docs_enc_p2:
+        'When you sign up, your browser generates a random vault key and locks it with a key derived from your password (PBKDF2, 600,000 iterations). Your password and the vault key <strong>never leave your device</strong>. Because the server is blind to your content, things that would normally happen server-side &mdash; markdown rendering, full-text content search and the <a href="#backup">export</a> &mdash; all run locally in your browser instead.',
+      docs_enc_p3:
+        'Filenames and folder names stay readable on the server so your file tree keeps working; only the <em>contents</em> of files are encrypted.',
+      docs_pw_h: 'Recovery key &mdash; and why there is no password reset',
+      docs_pw_p1:
+        'Because only you can decrypt your vault, we <strong>cannot reset your password</strong> for you &mdash; there is no &ldquo;forgot password&rdquo; e-mail that could ever give someone access. Instead, when you register you are shown a one-time <strong>recovery key</strong>. It unlocks your vault independently of your password, so it is your way back in if you ever forget it.',
+      docs_pw_p2:
+        'You must confirm you have saved the recovery key before you can finish signing up, and you can download it as a text file. <strong>Store it somewhere safe and separate from your password</strong> (a password manager is ideal).',
+      docs_pw_p3:
+        'You can change your password any time from the dashboard (current password + a 2FA code are required); this simply re-locks the same vault key under your new password. But if you lose <strong>both</strong> your password and your recovery key, your data is <strong>permanently unrecoverable</strong> &mdash; by design, no one can decrypt it for you.',
+      docs_pw_p4:
+        'We strongly recommend a password manager &mdash; for example <a href="https://bitwarden.com" target="_blank" rel="noopener noreferrer">Bitwarden</a> &mdash; to store your password, your recovery key, and your 2FA secret (Bitwarden can generate the TOTP codes for you).',
+      docs_wl_h: 'Web links (save a link once, open it safely forever)',
+      docs_wl_p1:
+        'The <strong>Web links</strong> manager lets you keep your important links inside your vault &mdash; with a name, category and description &mdash; instead of scattering them across browser bookmarks. Open the manager from the toolbar, add a link or import a CSV (the Linky export format is supported), and search across everything you saved.',
+      docs_wl_p2:
+        '<strong>The idea.</strong> Your bookmarks normally live inside one browser on one device. Reinstall the browser, switch machines, or log in from a locked-down work computer and they are gone. Web links live in your encrypted vault, so they travel with your account: save a link once and reach it from anywhere you can open websidian.',
+      docs_wl_p3:
+        '<strong>Why it is safer.</strong> The risky moment with any link is the <em>first</em> time &mdash; that is when you judge whether a URL really points where it claims. Vet a link once, store the exact address, and from then on you always open <em>that</em> verified URL. You are no longer re-reading a link someone pasted into an email or chat, where the visible text can hide a different, manipulated destination. The stored URL is end-to-end encrypted like the rest of your vault.',
+      docs_wl_p4:
+        '<strong>Independent of the browser.</strong> Because the links are kept server-side in your vault rather than in a browser profile, they are not tied to any one browser, extension or sync account. Nothing to install, nothing to export when you move devices &mdash; just log in and your trusted links are there.',
+      docs_files_h: 'Supported files',
+      docs_files_p1:
+        'Beyond markdown and Excalidraw, you can browse a wide range of files like in a code editor &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> and many more &mdash; with syntax highlighting. Word (<code>.docx</code>), Excel (<code>.xlsx</code>/<code>.xls</code>) and OpenDocument (<code>.odt</code>/<code>.ods</code>) files render read-only in the browser. All of them are end-to-end encrypted in your browser just like your notes.',
+      docs_arch_li_auth:
+        '<strong>HTTP-only auth token</strong> &mdash; the session cookie is HTTP-only, so it cannot be read or manipulated by XSS JavaScript attacks.',
+      docs_arch_li_nest:
+        '<strong>NestJS backend</strong> with server-side rendered EJS views.',
+      docs_arch_li_cf:
+        '<strong>Cloudflare Zero Trust tunnel</strong> into the <code>fabo011-cloud.de</code> private network.',
+      docs_arch_li_swarm:
+        '<strong>Docker Swarm</strong> for container orchestration.',
+      docs_arch_li_pg:
+        '<strong>PostgreSQL</strong> database for user data; sensitive columns (TOTP, storage credentials) encrypted at rest.',
+      docs_arch_li_crypto:
+        '<strong>Browser WebCrypto</strong> for end-to-end encryption &mdash; all file contents are encrypted client-side (AES-256-GCM) before upload.',
       storage_h: 'Where your vault is stored',
       storage_p1:
         'websidian does not host your files. You connect your own storage when you sign up (and can change it any time in the dashboard), so your encrypted vault lives on a backend you control. Whatever you pick is a blind blob store: only end-to-end encrypted ciphertext is ever written, so the host cannot read your notes. Because everything is already encrypted in your browser, you do not need a provider with its own “client-side encryption”.',
@@ -493,6 +593,8 @@
       reg_pwmanager_before: 'Tip: use a password manager such as',
       reg_pwmanager_after:
         'to store your password, recovery key and TOTP secret. Your vault is end-to-end encrypted: if you lose your password, only the recovery key can restore access — so keep them safe.',
+      reg_browser_support:
+        'Best tested on Chromium browsers (Chrome, Brave) and Firefox. Your browser must support the Web Crypto API.',
       verification_code: 'Verification code',
       confirm_finish: 'Confirm & finish',
       have_account: 'Already have an account?',
@@ -754,6 +856,10 @@
 
       search_placeholder: 'Notizen durchsuchen…',
       search_button: 'Suchen',
+      search_exclude_label: 'Ordner von Suche ausschließen:',
+      search_no_folders: 'Noch keine Ordner — erstelle einen, um die Suche zu filtern.',
+      search_exclude_title: '„{name}“ und Unterordner ausschließen',
+      search_excluded_title: 'Ausgeschlossen — klicken, um „{name}“ wieder einzuschließen',
       searching: 'Suche läuft…',
       searching_contents: 'Durchsuche Notizinhalte…',
       toggle_theme: 'Hell/Dunkel umschalten',
@@ -804,6 +910,11 @@
       weblinks_field_name: 'Name',
       weblinks_field_category: 'Kategorie',
       weblinks_field_description: 'Beschreibung',
+      weblinks_field_username: 'Benutzername',
+      weblinks_field_contact_name: 'Kontaktname',
+      weblinks_field_contact_phone: 'Kontakttelefon',
+      weblinks_field_contact_email: 'Kontakt-E-Mail',
+      weblinks_field_notes: 'Notizen',
       weblinks_edit: 'Link bearbeiten',
       weblinks_delete_title: 'Link löschen',
       weblinks_delete_msg: 'Diesen Weblink löschen?',
@@ -1015,6 +1126,100 @@
       toc_storage: 'Wo dein Tresor gespeichert wird',
       toc_connect: 'Speicher verbinden',
       toc_architecture: 'Architektur',
+      docs_title: 'Dokumentation',
+      docs_lead:
+        'Kurz und auf den Punkt: was du wissen musst, um websidian effektiv zu nutzen.',
+      docs_toc_what: 'Was websidian ist',
+      docs_toc_sync: 'Änderungen sind nicht in Echtzeit',
+      docs_toc_backup: 'Deinen Tresor sichern',
+      docs_toc_trash: 'Dateien löschen (Papierkorb)',
+      docs_toc_twofa: 'Zwei-Faktor-Authentifizierung',
+      docs_toc_encryption: 'Ende-zu-Ende-Verschlüsselung',
+      docs_toc_password: 'Wiederherstellungsschlüssel & kein Zurücksetzen',
+      docs_toc_weblinks: 'Weblinks',
+      docs_toc_files: 'Unterstützte Dateien',
+      docs_what_h: 'Was websidian ist (und was nicht)',
+      docs_what_p1:
+        'websidian ist ein unabhängiges Open-Source-Projekt. Es ist <strong>nicht</strong> das ursprüngliche Obsidian (obsidian.md), nicht mit ihm verbunden und kein Konkurrenzprodukt. Der Name beschreibt nur die Idee: ein Markdown-Tresor im Obsidian-Stil, den du über einen Webbrowser erreichst.',
+      docs_what_p2:
+        'Das ursprüngliche Obsidian ist eine Desktop-/Mobil-App, die Notizen lokal auf jedem Gerät speichert und einen separaten Sync-Dienst nutzt, um die Geräte abzugleichen. websidian funktioniert andersherum: dein Tresor liegt auf dem Server und du meldest dich einfach an.',
+      docs_what_p3:
+        'Warum ist das wichtig? In vielen Organisationen &mdash; Firmen, Agenturen, Unternehmens-Laptops &mdash; darfst du keine privaten Sync-Clients oder beliebige Apps installieren. Eine Einrichtung mit lokalem Tresor plus Sync ist dann unmöglich. Ein Webbrowser ist jedoch fast immer verfügbar, sodass dein Wissens-Tresor erreichbar bleibt. Darüber hinaus:',
+      docs_what_li1:
+        'Nichts zu installieren &mdash; keine App, kein Sync-Client.',
+      docs_what_li2:
+        'Kein lokaler Speicher auf deinem Handy oder PC belegt.',
+      docs_what_li3:
+        'Ende-zu-Ende-verschlüsselt &mdash; dein Browser verschlüsselt alles, sodass nur du es lesen kannst.',
+      docs_what_li4:
+        'Bewusst einfach: genau das, was du täglich brauchst, kein Funktions-Labyrinth.',
+      docs_what_quote:
+        'Das menschliche Gehirn ist dafür gemacht, Ideen zu haben, nicht sie zu behalten. websidian ist dein zweites Gehirn.',
+      docs_sync_h: 'Änderungen sind nicht in Echtzeit',
+      docs_sync_p1:
+        'Wenn du auf Gerät A bearbeitest und dann auf Gerät B schaust, musst du <strong>den Browser auf Gerät B neu laden</strong>, um die Änderung zu sehen. Aktualisierungen werden nicht live übertragen.',
+      docs_sync_p2:
+        'Das ist eine direkte Folge der Ende-zu-Ende-Verschlüsselung: Inhalte werden als Chiffretext gespeichert und nur in deinem Browser entschlüsselt, wenn du sie anforderst. Jedes Gerät sieht die neueste Version erst, wenn es eine Notiz das nächste Mal lädt &mdash; nicht in dem Moment, in dem sie sich anderswo ändert.',
+      docs_backup_h: 'Deinen Tresor sichern',
+      docs_backup_p1:
+        'Klicke in der Seitenleiste auf <strong>Export</strong>. Dein gesamter Tresor wird als einzelne <code>.zip</code>-Datei mit der ursprünglichen Ordnerstruktur heruntergeladen.',
+      docs_backup_p2:
+        'Der Export wird beim Herunterladen <strong>in deinem Browser entschlüsselt</strong>, sodass das Zip ein portables, plattformunabhängiges Backup ist, das du überall öffnen oder später wieder importieren kannst.',
+      docs_trash_h: 'Dateien löschen (Papierkorb & Wiederherstellungsfenster)',
+      docs_trash_p1:
+        'Wenn du eine Datei oder einen Ordner löschst, wird sie <strong>nicht sofort entfernt</strong>. Sie wird in einen versteckten, kontoeigenen Papierkorb verschoben, damit ein versehentliches Löschen rückgängig gemacht werden kann. Solange ein Element im Papierkorb liegt, ist es aus deinem Dateibaum ausgeblendet, zählt aber weiterhin <strong>zu deinem Speicherkontingent</strong>, bis es endgültig entfernt wird.',
+      docs_trash_p2:
+        'Ein täglicher Aufräumjob entfernt Elemente endgültig, die länger als ein festes <strong>Aufbewahrungsfenster</strong> im Papierkorb liegen &mdash; <strong>standardmäßig 7 Tage</strong>. Der Job läuft einmal am Tag, daher steuert die Einstellung, <em>wie lange ein Element wiederherstellbar bleibt</em>, nicht wie oft das Aufräumen läuft. Nach Ablauf des Fensters ist das Element endgültig weg und kann nicht wiederhergestellt werden.',
+      docs_trash_p3:
+        'Selbst gehostet? Das Fenster ist über die Umgebungsvariable <code>TRASH_RETENTION_DAYS</code> konfigurierbar (setze sie auf <code>0</code>, um den Papierkorb ganz zu deaktivieren, sodass Löschungen sofort erfolgen).',
+      docs_twofa_h: 'Zwei-Faktor-Authentifizierung (2FA / TOTP)',
+      docs_twofa_p1:
+        'TOTP (Time-based One-Time Password) ist der 6-stellige Code, der in einer Authenticator-App alle 30 Sekunden wechselt. Beim Anmelden gibst du dein Passwort <em>und</em> den aktuellen Code ein, sodass ein gestohlenes Passwort allein nicht ausreicht, um deinen Tresor zu erreichen.',
+      docs_twofa_p2:
+        '2FA ist <strong>erforderlich</strong>, nicht optional, weil deine Notizen sensibel sind und ein einzelnes Geheimnis zu schwach ist, um sie zu schützen. Richte es einmal bei der Registrierung ein, indem du den QR-Code scannst.',
+      docs_twofa_p3:
+        'Neues Handy oder Authenticator-App gewechselt? Du kannst deinen <strong>Authenticator jederzeit ändern (zurücksetzen)</strong> &mdash; im Dashboard unter <em>Konto &rarr; Sicherheit &rarr; Authenticator zurücksetzen (2FA)</em>. Zu deiner Sicherheit erfordert das Zurücksetzen dein aktuelles Passwort <em>und</em> einen Code aus deinem bestehenden Authenticator; danach scannst du einen neuen QR-Code und bestätigst einen Code vom neuen Gerät, um zu wechseln. Der alte Code funktioniert nicht mehr, sobald der neue bestätigt ist.',
+      docs_enc_h: 'Ende-zu-Ende-Verschlüsselung (Zero-Knowledge)',
+      docs_enc_p1:
+        'Jede Datei &mdash; Notizen, Zeichnungen, Anhänge, Dokumente &mdash; wird <strong>in deinem Browser</strong> mit AES-256-GCM verschlüsselt, bevor sie hochgeladen wird. Der Server speichert nur Chiffretext, den er nicht lesen kann, sodass niemand &mdash; nicht einmal der Betreiber &mdash; deine Inhalte sehen kann.',
+      docs_enc_p2:
+        'Bei der Registrierung erzeugt dein Browser einen zufälligen Tresorschlüssel und sperrt ihn mit einem aus deinem Passwort abgeleiteten Schlüssel (PBKDF2, 600.000 Iterationen). Dein Passwort und der Tresorschlüssel <strong>verlassen niemals dein Gerät</strong>. Weil der Server deine Inhalte nicht kennt, laufen Dinge, die normalerweise serverseitig passieren würden &mdash; Markdown-Rendering, Volltextsuche und der <a href="#backup">Export</a> &mdash; stattdessen lokal in deinem Browser.',
+      docs_enc_p3:
+        'Datei- und Ordnernamen bleiben auf dem Server lesbar, damit dein Dateibaum funktioniert; nur die <em>Inhalte</em> der Dateien sind verschlüsselt.',
+      docs_pw_h:
+        'Wiederherstellungsschlüssel &mdash; und warum es kein Zurücksetzen des Passworts gibt',
+      docs_pw_p1:
+        'Da nur du deinen Tresor entschlüsseln kannst, können wir <strong>dein Passwort nicht für dich zurücksetzen</strong> &mdash; es gibt keine „Passwort vergessen“-E-Mail, die jemandem jemals Zugang verschaffen könnte. Stattdessen wird dir bei der Registrierung ein einmaliger <strong>Wiederherstellungsschlüssel</strong> angezeigt. Er entsperrt deinen Tresor unabhängig von deinem Passwort und ist somit dein Weg zurück, falls du es je vergisst.',
+      docs_pw_p2:
+        'Du musst bestätigen, dass du den Wiederherstellungsschlüssel gespeichert hast, bevor du die Registrierung abschließen kannst, und du kannst ihn als Textdatei herunterladen. <strong>Bewahre ihn sicher und getrennt von deinem Passwort auf</strong> (ein Passwort-Manager ist ideal).',
+      docs_pw_p3:
+        'Du kannst dein Passwort jederzeit im Dashboard ändern (aktuelles Passwort + ein 2FA-Code sind erforderlich); dabei wird derselbe Tresorschlüssel einfach neu unter deinem neuen Passwort gesperrt. Verlierst du jedoch <strong>sowohl</strong> dein Passwort als auch deinen Wiederherstellungsschlüssel, sind deine Daten <strong>endgültig nicht wiederherstellbar</strong> &mdash; konstruktionsbedingt kann niemand sie für dich entschlüsseln.',
+      docs_pw_p4:
+        'Wir empfehlen dringend einen Passwort-Manager &mdash; zum Beispiel <a href="https://bitwarden.com" target="_blank" rel="noopener noreferrer">Bitwarden</a> &mdash;, um dein Passwort, deinen Wiederherstellungsschlüssel und dein 2FA-Geheimnis zu speichern (Bitwarden kann die TOTP-Codes für dich erzeugen).',
+      docs_wl_h: 'Weblinks (einen Link einmal speichern, ihn für immer sicher öffnen)',
+      docs_wl_p1:
+        'Mit dem <strong>Weblinks</strong>-Manager kannst du deine wichtigen Links in deinem Tresor aufbewahren &mdash; mit Name, Kategorie und Beschreibung &mdash;, statt sie über Browser-Lesezeichen zu verstreuen. Öffne den Manager über die Werkzeugleiste, füge einen Link hinzu oder importiere eine CSV (das Linky-Exportformat wird unterstützt) und durchsuche alles, was du gespeichert hast.',
+      docs_wl_p2:
+        '<strong>Die Idee.</strong> Deine Lesezeichen leben normalerweise in einem Browser auf einem Gerät. Installiere den Browser neu, wechsle den Rechner oder melde dich von einem abgeschotteten Arbeitsrechner an &mdash; und sie sind weg. Weblinks liegen in deinem verschlüsselten Tresor, also reisen sie mit deinem Konto: einen Link einmal speichern und ihn von überall erreichen, wo du websidian öffnen kannst.',
+      docs_wl_p3:
+        '<strong>Warum es sicherer ist.</strong> Der riskante Moment bei jedem Link ist das <em>erste</em> Mal &mdash; da beurteilst du, ob eine URL wirklich dorthin führt, wo sie behauptet. Prüfe einen Link einmal, speichere die genaue Adresse, und ab dann öffnest du immer <em>diese</em> verifizierte URL. Du liest nicht mehr einen Link nach, den jemand in eine E-Mail oder einen Chat eingefügt hat, wo der sichtbare Text ein anderes, manipuliertes Ziel verbergen kann. Die gespeicherte URL ist wie der Rest deines Tresors Ende-zu-Ende-verschlüsselt.',
+      docs_wl_p4:
+        '<strong>Unabhängig vom Browser.</strong> Da die Links serverseitig in deinem Tresor liegen und nicht in einem Browserprofil, sind sie nicht an einen einzelnen Browser, eine Erweiterung oder ein Sync-Konto gebunden. Nichts zu installieren, nichts zu exportieren, wenn du das Gerät wechselst &mdash; einfach anmelden und deine vertrauten Links sind da.',
+      docs_files_h: 'Unterstützte Dateien',
+      docs_files_p1:
+        'Über Markdown und Excalidraw hinaus kannst du eine breite Palette von Dateien wie in einem Code-Editor durchsehen &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> und viele mehr &mdash; mit Syntaxhervorhebung. Word- (<code>.docx</code>), Excel- (<code>.xlsx</code>/<code>.xls</code>) und OpenDocument-Dateien (<code>.odt</code>/<code>.ods</code>) werden im Browser schreibgeschützt dargestellt. Sie alle werden wie deine Notizen in deinem Browser Ende-zu-Ende-verschlüsselt.',
+      docs_arch_li_auth:
+        '<strong>HTTP-only-Auth-Token</strong> &mdash; das Sitzungs-Cookie ist HTTP-only, sodass es von XSS-JavaScript-Angriffen nicht gelesen oder manipuliert werden kann.',
+      docs_arch_li_nest:
+        '<strong>NestJS-Backend</strong> mit serverseitig gerenderten EJS-Views.',
+      docs_arch_li_cf:
+        '<strong>Cloudflare-Zero-Trust-Tunnel</strong> in das private Netzwerk <code>fabo011-cloud.de</code>.',
+      docs_arch_li_swarm:
+        '<strong>Docker Swarm</strong> für die Container-Orchestrierung.',
+      docs_arch_li_pg:
+        '<strong>PostgreSQL</strong>-Datenbank für Nutzerdaten; sensible Spalten (TOTP, Speicher-Zugangsdaten) ruhend verschlüsselt.',
+      docs_arch_li_crypto:
+        '<strong>Browser-WebCrypto</strong> für Ende-zu-Ende-Verschlüsselung &mdash; alle Dateiinhalte werden clientseitig (AES-256-GCM) vor dem Upload verschlüsselt.',
       storage_h: 'Wo dein Tresor gespeichert wird',
       storage_p1:
         'websidian hostet deine Dateien nicht. Du verbindest deinen eigenen Speicher bei der Registrierung (und kannst ihn jederzeit im Dashboard ändern) — dein verschlüsselter Tresor liegt also auf einem Backend, das du kontrollierst. Egal was du wählst: Es ist ein blinder Blob-Speicher, in den nur Ende-zu-Ende-verschlüsselter Chiffretext geschrieben wird, sodass der Host deine Notizen nicht lesen kann. Da im Browser bereits alles verschlüsselt wird, brauchst du keinen Anbieter mit eigener „clientseitiger Verschlüsselung“.',
@@ -1228,6 +1433,8 @@
       reg_pwmanager_before: 'Tipp: Nutze einen Passwort-Manager wie',
       reg_pwmanager_after:
         'um dein Passwort, deinen Wiederherstellungsschlüssel und deinen TOTP-Schlüssel zu speichern. Dein Tresor ist Ende-zu-Ende verschlüsselt: Wenn du dein Passwort verlierst, kann nur der Wiederherstellungsschlüssel den Zugang wiederherstellen — bewahre sie daher sicher auf.',
+      reg_browser_support:
+        'Am besten getestet mit Chromium-Browsern (Chrome, Brave) und Firefox. Dein Browser muss die Web Crypto API unterstützen.',
       verification_code: 'Bestätigungscode',
       confirm_finish: 'Bestätigen & abschließen',
       have_account: 'Hast du bereits ein Konto?',
