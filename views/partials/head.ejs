@@ -21,6 +21,22 @@
   })();
 </script>
 <script>
+  // Apply saved font size and contrast before paint to avoid a flash.
+  (function () {
+    try {
+      var fs = parseInt(localStorage.getItem('wo-font-size'), 10);
+      if (fs >= 13 && fs <= 19) {
+        document.documentElement.style.setProperty('--app-font-size', fs + 'px');
+      }
+      if (localStorage.getItem('wo-contrast') === 'high') {
+        document.documentElement.setAttribute('data-contrast', 'high');
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  })();
+</script>
+<script>
   // Set the document language before paint based on saved/browser preference.
   (function () {
     try {

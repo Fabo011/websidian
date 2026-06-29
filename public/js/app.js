@@ -3313,6 +3313,56 @@ document.querySelectorAll('[data-theme-set]').forEach((btn) => {
 });
 syncThemeButtons();
 
+/* Font size and contrast are chosen in Account settings too. */
+function applyFontSize(px) {
+  document.documentElement.style.setProperty('--app-font-size', px + 'px');
+  try {
+    localStorage.setItem('wo-font-size', String(px));
+  } catch (e) {
+    /* ignore */
+  }
+  syncFontButtons();
+}
+function syncFontButtons() {
+  const cur = parseInt(
+    getComputedStyle(document.documentElement).getPropertyValue('--app-font-size'),
+    10,
+  ) || 15;
+  document.querySelectorAll('[data-font-set]').forEach((btn) => {
+    btn.classList.toggle('active', parseInt(btn.getAttribute('data-font-set'), 10) === cur);
+  });
+}
+document.querySelectorAll('[data-font-set]').forEach((btn) => {
+  btn.addEventListener('click', () =>
+    applyFontSize(parseInt(btn.getAttribute('data-font-set'), 10)),
+  );
+});
+syncFontButtons();
+
+function applyContrast(mode) {
+  if (mode === 'high') {
+    document.documentElement.setAttribute('data-contrast', 'high');
+  } else {
+    document.documentElement.removeAttribute('data-contrast');
+  }
+  try {
+    localStorage.setItem('wo-contrast', mode);
+  } catch (e) {
+    /* ignore */
+  }
+  syncContrastButtons();
+}
+function syncContrastButtons() {
+  const cur = document.documentElement.getAttribute('data-contrast') === 'high' ? 'high' : 'normal';
+  document.querySelectorAll('[data-contrast-set]').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-contrast-set') === cur);
+  });
+}
+document.querySelectorAll('[data-contrast-set]').forEach((btn) => {
+  btn.addEventListener('click', () => applyContrast(btn.getAttribute('data-contrast-set')));
+});
+syncContrastButtons();
+
 function toggleSidebar(force) {
   const sidebar = $('#sidebar');
   const backdrop = $('#sidebar-backdrop');
