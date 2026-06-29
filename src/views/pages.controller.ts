@@ -65,6 +65,7 @@ export class PagesController {
         ? Boolean(dbUser?.storageConfig)
         : true,
       contactEmail: this.app.pricing.contactEmail || '',
+      donationLink: this.app.pricing.donationLink || '',
     });
   }
 

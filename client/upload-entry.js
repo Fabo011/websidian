@@ -490,7 +490,12 @@ async function start(opts) {
       if (it.status === 'complete') done++;
       if (it.status === 'uploading') speed += it.speed || 0;
     }
-    const pct = total ? (uploaded / total) * 100 : done === items.length ? 100 : 0;
+    let pct = total ? (uploaded / total) * 100 : done === items.length ? 100 : 0;
+    // Byte totals are estimates and can reach 100% while files are still being
+    // committed. Only report a true 100% once the file counter is complete;
+    // otherwise cap just below so the bar stays in sync with done/count.
+    if (done >= items.length) pct = 100;
+    else if (pct >= 100) pct = 99;
     const remaining = total - uploaded;
     const eta = speed > 0 ? remaining / speed : null;
     panel.setAggregate({

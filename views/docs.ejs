@@ -21,64 +21,64 @@
 
   <main class="landing-main">
     <article class="legal docs">
-      <h1><i class="bi bi-journal-text"></i> Documentation</h1>
-      <p class="section-lead">
+      <h1><i class="bi bi-journal-text"></i> <span data-i18n="docs_title">Documentation</span></h1>
+      <p class="section-lead" data-i18n="docs_lead">
         Short and to the point: what you need to know to use websidian effectively.
       </p>
 
       <nav class="docs-toc" aria-label="Contents">
-        <a href="#what">What websidian is</a>
-        <a href="#sync">Changes are not real-time</a>
-        <a href="#backup">Backing up your vault</a>
-        <a href="#trash">Deleting files (trash)</a>
-        <a href="#twofa">Two-factor authentication</a>
-        <a href="#encryption">End-to-end encryption</a>
-        <a href="#password">Recovery key &amp; no reset</a>
-        <a href="#weblinks">Web links</a>
-        <a href="#files">Supported files</a>
+        <a href="#what" data-i18n="docs_toc_what">What websidian is</a>
+        <a href="#sync" data-i18n="docs_toc_sync">Changes are not real-time</a>
+        <a href="#backup" data-i18n="docs_toc_backup">Backing up your vault</a>
+        <a href="#trash" data-i18n="docs_toc_trash">Deleting files (trash)</a>
+        <a href="#twofa" data-i18n="docs_toc_twofa">Two-factor authentication</a>
+        <a href="#encryption" data-i18n="docs_toc_encryption">End-to-end encryption</a>
+        <a href="#password" data-i18n="docs_toc_password">Recovery key &amp; no reset</a>
+        <a href="#weblinks" data-i18n="docs_toc_weblinks">Web links</a>
+        <a href="#files" data-i18n="docs_toc_files">Supported files</a>
         <a href="#storage" data-i18n="toc_storage">Where your vault is stored</a>
         <a href="#connect-storage" data-i18n="toc_connect">Connecting your storage</a>
         <a href="#architecture" data-i18n="toc_architecture">Architecture</a>
       </nav>
 
       <section class="legal-section" id="what">
-        <h2>What websidian is (and is not)</h2>
-        <p>
+        <h2 data-i18n="docs_what_h">What websidian is (and is not)</h2>
+        <p data-i18n-html="docs_what_p1">
           websidian is an independent open-source project. It is <strong>not</strong> the
           original Obsidian (obsidian.md), not affiliated with it, and not a competing product.
           The name only describes the idea: an Obsidian-style markdown vault you reach from a
           web browser.
         </p>
-        <p>
+        <p data-i18n-html="docs_what_p2">
           The original Obsidian is a desktop/mobile app that stores notes locally on each
           device and uses a separate sync service to keep devices in step. websidian works
           the other way around: your vault lives on the server and you simply log in.
         </p>
-        <p>
+        <p data-i18n-html="docs_what_p3">
           Why does that matter? In many organisations &mdash; companies, agencies, enterprise
           laptops &mdash; you are not allowed to install private sync clients or arbitrary apps.
           A local-vault-plus-sync setup is then impossible. A web browser, however, is almost
           always available, so your knowledge vault stays reachable. On top of that:
         </p>
         <ul>
-          <li>Nothing to install &mdash; no app, no sync client.</li>
-          <li>No local storage used on your phone or PC.</li>
-          <li>End-to-end encrypted &mdash; your browser encrypts everything, so only you can read it.</li>
-          <li>Deliberately simple: just what you need day to day, not a feature maze.</li>
+          <li data-i18n-html="docs_what_li1">Nothing to install &mdash; no app, no sync client.</li>
+          <li data-i18n-html="docs_what_li2">No local storage used on your phone or PC.</li>
+          <li data-i18n-html="docs_what_li3">End-to-end encrypted &mdash; your browser encrypts everything, so only you can read it.</li>
+          <li data-i18n-html="docs_what_li4">Deliberately simple: just what you need day to day, not a feature maze.</li>
         </ul>
-        <p class="docs-quote">
+        <p class="docs-quote" data-i18n="docs_what_quote">
           The human brain is made for having ideas, not for holding them. websidian is your
           second brain.
         </p>
       </section>
 
       <section class="legal-section" id="sync">
-        <h2>Changes are not real-time</h2>
-        <p>
+        <h2 data-i18n="docs_sync_h">Changes are not real-time</h2>
+        <p data-i18n-html="docs_sync_p1">
           If you edit on device A, then look at device B, you must <strong>reload the browser
           on device B</strong> to see the change. Updates are not pushed live.
         </p>
-        <p>
+        <p data-i18n-html="docs_sync_p2">
           This is a direct consequence of end-to-end encryption: content is stored as ciphertext
           and only decrypted in your browser when you request it, so each device sees the latest
           version the next time it loads a note &mdash; not the instant it changes elsewhere.
@@ -86,33 +86,33 @@
       </section>
 
       <section class="legal-section" id="backup">
-        <h2>Backing up your vault</h2>
-        <p>
+        <h2 data-i18n="docs_backup_h">Backing up your vault</h2>
+        <p data-i18n-html="docs_backup_p1">
           Click <strong>Export</strong> in the sidebar. Your entire vault is downloaded as a
           single <code>.zip</code> file with the original folder structure.
         </p>
-        <p>
+        <p data-i18n-html="docs_backup_p2">
           The export is <strong>decrypted in your browser</strong> on the way out, so the zip is
           a portable, platform-independent backup you can open anywhere or re-import later.
         </p>
       </section>
 
       <section class="legal-section" id="trash">
-        <h2>Deleting files (trash &amp; recovery window)</h2>
-        <p>
+        <h2 data-i18n="docs_trash_h">Deleting files (trash &amp; recovery window)</h2>
+        <p data-i18n-html="docs_trash_p1">
           When you delete a file or folder it is <strong>not erased right away</strong>. It is
           moved to a hidden, per-account trash so an accidental deletion can be recovered. While
           an item sits in the trash it is hidden from your file tree, but it still
           <strong>counts toward your storage quota</strong> until it is permanently removed.
         </p>
-        <p>
+        <p data-i18n-html="docs_trash_p2">
           A daily clean-up job permanently removes items that have been in the trash longer than
           a fixed <strong>retention window</strong> &mdash; <strong>7 days by default</strong>.
           The job runs once a day, so the retention setting controls <em>how long an item stays
           recoverable</em>, not how often the clean-up runs. After the window passes the item is
           gone for good and cannot be restored.
         </p>
-        <p>
+        <p data-i18n-html="docs_trash_p3">
           Self-hosting? The window is configurable with the
           <code>TRASH_RETENTION_DAYS</code> environment variable (set it to <code>0</code> to
           disable the trash entirely so deletions are immediate).
@@ -120,18 +120,18 @@
       </section>
 
       <section class="legal-section" id="twofa">
-        <h2>Two-factor authentication (2FA / TOTP)</h2>
-        <p>
+        <h2 data-i18n="docs_twofa_h">Two-factor authentication (2FA / TOTP)</h2>
+        <p data-i18n-html="docs_twofa_p1">
           TOTP (Time-based One-Time Password) is the 6-digit code that rotates every 30 seconds
           in an authenticator app. On sign-in you provide your password <em>and</em> the current
           code, so a stolen password alone is not enough to reach your vault.
         </p>
-        <p>
+        <p data-i18n-html="docs_twofa_p2">
           2FA is <strong>required</strong>, not optional, because your notes are sensitive and a
           single secret is too weak to protect them. Set it up once during registration by
           scanning the QR code.
         </p>
-        <p>
+        <p data-i18n-html="docs_twofa_p3">
           Got a new phone or switched authenticator app? You can <strong>change (reset) your
           authenticator</strong> any time from the dashboard under
           <em>Account &rarr; Security &rarr; Reset authenticator (2FA)</em>. For your safety the
@@ -142,14 +142,14 @@
       </section>
 
       <section class="legal-section" id="encryption">
-        <h2>End-to-end encryption (zero-knowledge)</h2>
-        <p>
+        <h2 data-i18n="docs_enc_h">End-to-end encryption (zero-knowledge)</h2>
+        <p data-i18n-html="docs_enc_p1">
           Every file &mdash; notes, drawings, attachments, documents &mdash; is encrypted
           <strong>in your browser</strong> with AES-256-GCM before it is uploaded. The server
           only ever stores ciphertext it cannot read, so nobody &mdash; not even the operator
           &mdash; can see your content.
         </p>
-        <p>
+        <p data-i18n-html="docs_enc_p2">
           When you sign up, your browser generates a random vault key and locks it with a key
           derived from your password (PBKDF2, 600,000 iterations). Your password and the vault
           key <strong>never leave your device</strong>. Because the server is blind to your
@@ -157,34 +157,34 @@
           full-text content search and the <a href="#backup">export</a> &mdash; all run locally
           in your browser instead.
         </p>
-        <p>
+        <p data-i18n-html="docs_enc_p3">
           Filenames and folder names stay readable on the server so your file tree keeps working;
           only the <em>contents</em> of files are encrypted.
         </p>
       </section>
 
       <section class="legal-section" id="password">
-        <h2>Recovery key &mdash; and why there is no password reset</h2>
-        <p>
+        <h2 data-i18n="docs_pw_h">Recovery key &mdash; and why there is no password reset</h2>
+        <p data-i18n-html="docs_pw_p1">
           Because only you can decrypt your vault, we <strong>cannot reset your password</strong>
           for you &mdash; there is no &ldquo;forgot password&rdquo; e-mail that could ever give
           someone access. Instead, when you register you are shown a one-time
           <strong>recovery key</strong>. It unlocks your vault independently of your password, so
           it is your way back in if you ever forget it.
         </p>
-        <p>
+        <p data-i18n-html="docs_pw_p2">
           You must confirm you have saved the recovery key before you can finish signing up, and
           you can download it as a text file. <strong>Store it somewhere safe and separate from
           your password</strong> (a password manager is ideal).
         </p>
-        <p>
+        <p data-i18n-html="docs_pw_p3">
           You can change your password any time from the dashboard (current password + a 2FA code
           are required); this simply re-locks the same vault key under your new password. But if
           you lose <strong>both</strong> your password and your recovery key, your data is
           <strong>permanently unrecoverable</strong> &mdash; by design, no one can decrypt it for
           you.
         </p>
-        <p>
+        <p data-i18n-html="docs_pw_p4">
           We strongly recommend a password manager &mdash; for example
           <a href="https://bitwarden.com" target="_blank" rel="noopener noreferrer">Bitwarden</a>
           &mdash; to store your password, your recovery key, and your 2FA secret (Bitwarden can
@@ -193,20 +193,20 @@
       </section>
 
       <section class="legal-section" id="weblinks">
-        <h2>Web links (save a link once, open it safely forever)</h2>
-        <p>
+        <h2 data-i18n="docs_wl_h">Web links (save a link once, open it safely forever)</h2>
+        <p data-i18n-html="docs_wl_p1">
           The <strong>Web links</strong> manager lets you keep your important links inside your
           vault &mdash; with a name, category and description &mdash; instead of scattering them
           across browser bookmarks. Open the manager from the toolbar, add a link or import a CSV
           (the Linky export format is supported), and search across everything you saved.
         </p>
-        <p>
+        <p data-i18n-html="docs_wl_p2">
           <strong>The idea.</strong> Your bookmarks normally live inside one browser on one
           device. Reinstall the browser, switch machines, or log in from a locked-down work
           computer and they are gone. Web links live in your encrypted vault, so they travel with
           your account: save a link once and reach it from anywhere you can open websidian.
         </p>
-        <p>
+        <p data-i18n-html="docs_wl_p3">
           <strong>Why it is safer.</strong> The risky moment with any link is the
           <em>first</em> time &mdash; that is when you judge whether a URL really points where it
           claims. Vet a link once, store the exact address, and from then on you always open
@@ -214,7 +214,7 @@
           email or chat, where the visible text can hide a different, manipulated destination.
           The stored URL is end-to-end encrypted like the rest of your vault.
         </p>
-        <p>
+        <p data-i18n-html="docs_wl_p4">
           <strong>Independent of the browser.</strong> Because the links are kept server-side in
           your vault rather than in a browser profile, they are not tied to any one browser,
           extension or sync account. Nothing to install, nothing to export when you move devices
@@ -223,8 +223,8 @@
       </section>
 
       <section class="legal-section" id="files">
-        <h2>Supported files</h2>
-        <p>
+        <h2 data-i18n="docs_files_h">Supported files</h2>
+        <p data-i18n-html="docs_files_p1">
           Beyond markdown and Excalidraw, you can browse a wide range of files like in a code
           editor &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>,
           <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>,
@@ -310,12 +310,12 @@
         <img class="docs-architecture" src="/public/websidian-architecture.png?v=<%= v %>"
              alt="websidian architecture diagram" loading="lazy" />
         <ul>
-          <li><strong>HTTP-only auth token</strong> &mdash; the session cookie is HTTP-only, so it cannot be read or manipulated by XSS JavaScript attacks.</li>
-          <li><strong>NestJS backend</strong> with server-side rendered EJS views.</li>
-          <li><strong>Cloudflare Zero Trust tunnel</strong> into the <code>fabo011-cloud.de</code> private network.</li>
-          <li><strong>Docker Swarm</strong> for container orchestration.</li>
-          <li><strong>PostgreSQL</strong> database for user data; sensitive columns (TOTP, storage credentials) encrypted at rest.</li>
-          <li><strong>Browser WebCrypto</strong> for end-to-end encryption &mdash; all file contents are encrypted client-side (AES-256-GCM) before upload.</li>
+          <li data-i18n-html="docs_arch_li_auth"><strong>HTTP-only auth token</strong> &mdash; the session cookie is HTTP-only, so it cannot be read or manipulated by XSS JavaScript attacks.</li>
+          <li data-i18n-html="docs_arch_li_nest"><strong>NestJS backend</strong> with server-side rendered EJS views.</li>
+          <li data-i18n-html="docs_arch_li_cf"><strong>Cloudflare Zero Trust tunnel</strong> into the <code>fabo011-cloud.de</code> private network.</li>
+          <li data-i18n-html="docs_arch_li_swarm"><strong>Docker Swarm</strong> for container orchestration.</li>
+          <li data-i18n-html="docs_arch_li_pg"><strong>PostgreSQL</strong> database for user data; sensitive columns (TOTP, storage credentials) encrypted at rest.</li>
+          <li data-i18n-html="docs_arch_li_crypto"><strong>Browser WebCrypto</strong> for end-to-end encryption &mdash; all file contents are encrypted client-side (AES-256-GCM) before upload.</li>
           <li data-i18n="arch_storage_li"><strong>Bring-your-own storage</strong> &mdash; each account connects its own S3-compatible or WebDAV backend as a blind blob store for the encrypted vault contents (keyed by a random per-account ID). websidian itself stores no vault files.</li>
         </ul>
         <h3 data-i18n="arch_scale_h">Scaling with Docker Swarm</h3>
