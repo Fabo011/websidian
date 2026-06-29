@@ -111,7 +111,10 @@ a { color: var(--accent); }
 .form-error { color: var(--danger); font-size: 13px; margin: 0 0 12px; }
 
 /* --- Bring-your-own storage form (register step + dashboard section) --- */
-.storage-form { margin: 6px 0 4px; }
+.storage-form { margin: 6px 0 4px; min-width: 0; }
+/* Example URLs in the help text are long and unbreakable — let them wrap so the
+   form never forces horizontal overflow on narrow screens. */
+.storage-form p, .settings-hint, .settings-callout { overflow-wrap: anywhere; }
 .storage-form .muted { line-height: 1.5; }
 .storage-form .small { font-size: 12px; }
 .storage-form a { color: var(--accent); word-break: break-word; }
@@ -1384,8 +1387,8 @@ body.sidebar-resizing {
   gap: 5px;
 }
 
-/* ---------- account dashboard ---------- */
-.modal.dashboard { max-width: 460px; }
+/* ---------- account dashboard / settings (Firefox-style) ---------- */
+/* Kept for backwards compatibility with any remaining markup. */
 .dashboard-head {
   display: flex;
   align-items: center;
@@ -1393,34 +1396,318 @@ body.sidebar-resizing {
   margin-bottom: 4px;
 }
 .dashboard-head .modal-title { margin: 0; }
-.dashboard-section {
-  padding: 14px 0;
+
+/* The settings dialog is a wide two-pane shell, not the small centered modal. */
+.settings-overlay { padding: 0; }
+.settings-modal {
+  width: 100%;
+  max-width: 980px;
+  /* As a flex item, default min-width:auto would let long unbreakable text
+     (e.g. example URLs in the storage help) push the modal wider than the
+     viewport, shoving inputs off-screen on mobile. Allow it to shrink. */
+  min-width: 0;
+  height: 100%;
+  max-height: 100%;
+  margin: auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: 0 16px 48px var(--shadow);
+  overflow: hidden;
+  animation: modal-pop 0.12s ease-out;
+}
+@media (min-width: 700px) {
+  .settings-overlay { padding: 24px; }
+  .settings-modal {
+    /* A DEFINITE height (not auto) so the grid tracks bound the body and it
+       scrolls internally — and so the window keeps a constant size whichever
+       section is open (no jump between short/tall panes). */
+    height: min(760px, calc(100dvh - 48px));
+    border-radius: 14px;
+  }
+}
+
+/* --- left nav --- */
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-alt);
+  border-right: 1px solid var(--border);
+  padding: 16px 12px;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+}
+.settings-nav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.settings-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-search-wrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+.settings-search-wrap .bi {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 13px;
+  pointer-events: none;
+}
+#settings-search {
+  width: 100%;
+  padding: 8px 10px 8px 30px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+}
+#settings-search:focus { outline: none; border-color: var(--accent); }
+.settings-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+}
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.settings-nav-item[hidden] { display: none; }
+.settings-nav-item .bi { color: var(--text-muted); font-size: 16px; flex: none; }
+.settings-nav-item:hover { background: var(--bg-elevated); }
+.settings-nav-item.active { background: var(--accent); color: #fff; }
+.settings-nav-item.active .bi { color: #fff; }
+.settings-version {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* --- right body --- */
+.settings-body {
+  padding: 22px 26px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  min-width: 0;
+}
+.settings-back {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.settings-pane { display: none; }
+.settings-pane.active { display: block; }
+.settings-pane-title {
+  margin: 0 0 18px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+.settings-group {
+  padding: 16px 0;
   border-top: 1px solid var(--border);
 }
-.dashboard-section:first-of-type { border-top: none; }
-.dashboard-subtitle {
-  margin: 0 0 10px;
-  font-size: 13px;
+.settings-group:first-of-type { border-top: none; padding-top: 0; }
+.settings-group-title {
+  margin: 0 0 8px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
-.dashboard-row {
+.settings-group-title .bi { color: var(--text-muted); }
+.settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
-.dashboard-label { color: var(--text-muted); font-size: 13px; }
-.dashboard-value { color: var(--text); font-size: 14px; font-weight: 600; }
-.dashboard-hint {
-  margin: 8px 0 0;
-  font-size: 12px;
+.settings-label { color: var(--text-muted); font-size: 14px; }
+.settings-value { color: var(--text); font-size: 14px; font-weight: 600; word-break: break-word; }
+.settings-hint {
+  margin: 6px 0 10px;
+  font-size: 13px;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.55;
 }
+.settings-inline-btn { width: auto; display: inline-flex; }
+
+/* contact-email row with a copy button (General + Plan) */
+.email-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+.email-row-inline { vertical-align: middle; }
+.email-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 13px;
+  word-break: break-all;
+}
+.email-link:hover { border-color: var(--accent); }
+.email-copy {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.email-copy:hover { border-color: var(--accent); color: var(--accent); }
+.email-copy.copied { color: #2e9e5b; border-color: #2e9e5b; }
+
+/* connection status badge */
+.storage-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.storage-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex: none;
+}
+.storage-status.is-connected { border-color: #1f8b4c55; background: #1f8b4c1a; }
+.storage-status.is-connected .storage-status-dot { background: #1f8b4c; box-shadow: 0 0 0 3px #1f8b4c33; }
+.storage-status.is-disconnected { border-color: #d9930b55; background: #d9930b1a; }
+.storage-status.is-disconnected .storage-status-dot { background: #d9930b; box-shadow: 0 0 0 3px #d9930b33; }
+
+/* callout boxes */
+.settings-callout {
+  display: flex;
+  gap: 9px;
+  padding: 11px 13px;
+  margin: 10px 0 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--text);
+}
+.settings-callout .bi { flex: none; margin-top: 2px; }
+.settings-callout-warn { border-color: #d9930b55; background: #d9930b14; }
+.settings-callout-warn .bi { color: #d9930b; }
+
+/* theme switch */
+.theme-switch { display: inline-flex; gap: 6px; }
+.theme-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.theme-opt:hover { border-color: var(--accent); }
+.theme-opt.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.settings-no-results {
+  display: none;
+  text-align: center;
+  color: var(--text-muted);
+  padding: 40px 16px;
+}
+.settings-no-results .bi { font-size: 28px; opacity: 0.5; }
+.settings-no-results p { margin: 8px 0 0; font-size: 14px; }
+
+/* search mode: show every pane, hide non-matching groups */
+.settings-body.is-searching .settings-pane { display: block; }
+.settings-body.is-searching .settings-pane[data-empty] { display: none; }
+.settings-body.is-searching .settings-group.is-hidden { display: none; }
+.settings-body.is-searching .settings-back { display: none !important; }
+
+/* mobile: single column, slide between nav and pane; modal itself scrolls */
+@media (max-width: 699px) {
+  .settings-modal {
+    display: block;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .settings-nav { border-right: none; border-bottom: 1px solid var(--border); }
+  .settings-body { padding: 18px; }
+  .settings-modal.pane-open .settings-nav { display: none; }
+  .settings-modal:not(.pane-open) .settings-body { display: none; }
+  .settings-modal:not(.pane-open) .settings-nav { display: flex; }
+  /* While searching, show the aggregated results below the nav search box. */
+  .settings-modal:not(.pane-open) .settings-body.is-searching { display: block; }
+  .settings-back { display: inline-flex; }
+  .settings-body.is-searching .settings-back { display: none !important; }
+}
+
 .usage-bar {
   width: 100%;
   height: 10px;
@@ -1443,7 +1730,8 @@ body.sidebar-resizing {
   font-size: 13px;
   color: var(--text);
 }
-.danger-zone .dashboard-subtitle { color: var(--danger); }
+.danger-zone .dashboard-subtitle,
+.danger-zone .settings-group-title { color: var(--danger); }
 
 /* ===== Landing & legal pages ===== */
 .landing-page {

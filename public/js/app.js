@@ -3153,16 +3153,26 @@ document.addEventListener('click', (e) => {
 
 /* ---------- chrome: theme, sidebar, logout ---------- */
 
-$('#theme-toggle').addEventListener('click', () => {
-  const cur = document.documentElement.getAttribute('data-theme');
-  const next = cur === 'dark' ? 'light' : 'dark';
+/* Theme is chosen in Account settings (the old topbar toggle moved there). */
+function applyTheme(next) {
   document.documentElement.setAttribute('data-theme', next);
   try {
     localStorage.setItem('wo-theme', next);
   } catch (e) {
     /* ignore */
   }
+  syncThemeButtons();
+}
+function syncThemeButtons() {
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  document.querySelectorAll('[data-theme-set]').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-theme-set') === cur);
+  });
+}
+document.querySelectorAll('[data-theme-set]').forEach((btn) => {
+  btn.addEventListener('click', () => applyTheme(btn.getAttribute('data-theme-set')));
 });
+syncThemeButtons();
 
 function toggleSidebar(force) {
   const sidebar = $('#sidebar');
@@ -3279,11 +3289,88 @@ function formatBytes(bytes) {
 
 function openDashboard() {
   $('#dashboard-overlay').hidden = false;
+  // Always open on the first (General) section, like a fresh settings window.
+  // reveal=false so mobile shows the nav list first.
+  showSettingsPane('general', false);
+  const search = $('#settings-search');
+  if (search) search.value = '';
+  applySettingsSearch('');
+  syncThemeButtons();
   loadAccount();
 }
 
 function closeDashboard() {
   $('#dashboard-overlay').hidden = true;
+}
+
+/* ---------- settings navigation, search, mobile slide ---------- */
+
+function showSettingsPane(name, reveal = true) {
+  const modal = document.querySelector('.settings-modal');
+  document.querySelectorAll('.settings-nav-item').forEach((item) => {
+    item.classList.toggle('active', item.getAttribute('data-pane') === name);
+  });
+  document.querySelectorAll('.settings-pane').forEach((pane) => {
+    const match = pane.getAttribute('data-pane') === name;
+    pane.classList.toggle('active', match);
+    pane.hidden = !match;
+  });
+  // On mobile, only slide into the pane on an explicit pick; opening the
+  // dashboard lands on the nav list (iOS/Firefox-settings behaviour). Desktop
+  // shows nav + pane side by side regardless.
+  if (modal) modal.classList.toggle('pane-open', reveal);
+  const body = $('#settings-body');
+  if (body) body.scrollTop = 0;
+}
+
+function backToSettingsNav() {
+  const modal = document.querySelector('.settings-modal');
+  if (modal) modal.classList.remove('pane-open');
+}
+
+/** Filter setting groups across every pane by free-text query. */
+function applySettingsSearch(raw) {
+  const body = $('#settings-body');
+  if (!body) return;
+  const q = (raw || '').trim().toLowerCase();
+  const noRes = $('#settings-no-results');
+  if (!q) {
+    body.classList.remove('is-searching');
+    body.querySelectorAll('.settings-group.is-hidden').forEach((g) =>
+      g.classList.remove('is-hidden'),
+    );
+    body.querySelectorAll('.settings-pane[data-empty]').forEach((p) =>
+      p.removeAttribute('data-empty'),
+    );
+    if (noRes) noRes.hidden = true;
+    return;
+  }
+  body.classList.add('is-searching');
+  let anyHit = false;
+  body.querySelectorAll('.settings-pane').forEach((pane) => {
+    let paneHit = false;
+    pane.querySelectorAll('.settings-group').forEach((group) => {
+      const hit = group.textContent.toLowerCase().includes(q);
+      group.classList.toggle('is-hidden', !hit);
+      if (hit) paneHit = true;
+    });
+    // Match the pane/category title too so e.g. "account" surfaces the section.
+    const titleEl = pane.querySelector('.settings-pane-title');
+    const titleHit = titleEl && titleEl.textContent.toLowerCase().includes(q);
+    if (titleHit) {
+      pane.querySelectorAll('.settings-group.is-hidden').forEach((g) =>
+        g.classList.remove('is-hidden'),
+      );
+      paneHit = true;
+    }
+    if (paneHit) {
+      pane.removeAttribute('data-empty');
+      anyHit = true;
+    } else {
+      pane.setAttribute('data-empty', '1');
+    }
+  });
+  if (noRes) noRes.hidden = anyHit;
 }
 
 async function loadAccount() {
@@ -3323,19 +3410,29 @@ const USER_STORAGE = document.body.getAttribute('data-user-storage') === '1';
 async function loadStorageSection() {
   if (!USER_STORAGE) return;
   const cur = $('#dash-storage-current');
+  const badge = $('#dash-storage-status');
   try {
     const cfg = await api('GET', '/api/account/storage');
     const form = window.StorageForm && window.StorageForm.get('dash');
     if (form) form.prefill(cfg);
     if (cur) {
       cur.textContent = cfg.configured
-        ? cfg.driver === 's3'
-          ? t('storage_type_s3')
-          : t('storage_type_webdav')
+        ? t('storage_connected_to', {
+            provider:
+              cfg.driver === 's3' ? t('storage_type_s3') : t('storage_type_webdav'),
+          })
         : t('storage_not_connected');
     }
+    if (badge) {
+      badge.classList.remove('is-unknown', 'is-connected', 'is-disconnected');
+      badge.classList.add(cfg.configured ? 'is-connected' : 'is-disconnected');
+    }
   } catch (e) {
-    /* ignore; the section just stays at defaults */
+    if (cur) cur.textContent = t('storage_not_connected');
+    if (badge) {
+      badge.classList.remove('is-unknown', 'is-connected');
+      badge.classList.add('is-disconnected');
+    }
   }
 }
 
@@ -3393,9 +3490,18 @@ async function billingConfig() {
         ready: Boolean(cfg && cfg.ready),
         planGb: cfg && cfg.planGb ? cfg.planGb : 3,
         planPrice: (cfg && cfg.planPrice) || '',
+        donationLink: (cfg && cfg.donationLink) || '',
+        contactEmail: (cfg && cfg.contactEmail) || '',
       };
     } catch {
-      _billingConfig = { enabled: false, ready: false, planGb: 3, planPrice: '' };
+      _billingConfig = {
+        enabled: false,
+        ready: false,
+        planGb: 3,
+        planPrice: '',
+        donationLink: '',
+        contactEmail: '',
+      };
     }
   }
   return _billingConfig;
@@ -3405,11 +3511,21 @@ async function billingEnabled() {
   return (await billingConfig()).enabled;
 }
 
+/** Show/hide the Plan entry in the settings nav. */
+function setPlanNav(visible) {
+  const navItem = document.querySelector('.settings-nav-item[data-pane="plan"]');
+  if (navItem) navItem.hidden = !visible;
+  // If the plan pane is hidden but currently selected, fall back to General.
+  if (!visible && navItem && navItem.classList.contains('active')) {
+    showSettingsPane('general');
+    backToSettingsNav();
+  }
+}
+
 async function renderPlan(info) {
-  const section = $('#plan-section');
   // Bring-your-own storage mode hosts no plans/billing at all.
   if (info && info.userStorageEnabled) {
-    if (section) section.hidden = true;
+    setPlanNav(false);
     return;
   }
   const warning = $('#plan-warning');
@@ -3420,11 +3536,14 @@ async function renderPlan(info) {
   const upgrade = $('#plan-upgrade');
   const manageBtn = $('#manage-billing-btn');
   const unavailable = $('#billing-unavailable');
+  const donationLink = $('#plan-donation-link');
+  const commercial = $('#plan-commercial');
+  const commercialEmail = $('#plan-commercial-email');
 
   // When billing is switched off (self-hosting) there are no plans to manage:
-  // hide the whole section and just show storage usage elsewhere.
+  // hide the whole nav entry and just show storage usage elsewhere.
   const cfg = await billingConfig();
-  if (section) section.hidden = !cfg.enabled;
+  setPlanNav(cfg.enabled);
   if (!cfg.enabled) {
     return;
   }
@@ -3437,13 +3556,31 @@ async function renderPlan(info) {
   upgrade.hidden = true;
   manageBtn.hidden = true;
   unavailable.hidden = true;
+  if (donationLink) donationLink.hidden = true;
+  if (commercial) commercial.hidden = true;
+
+  // Voluntary donation link (DONATION_LINK), and the commercial-use note that
+  // points at CONTACT_EMAIL — commercial use requires a paid plan.
+  if (donationLink && cfg.donationLink) {
+    donationLink.href = cfg.donationLink;
+    donationLink.hidden = false;
+  }
+  const commercialMail =
+    cfg.contactEmail || document.body.getAttribute('data-contact') || '';
+  if (commercial && commercialEmail && commercialMail) {
+    commercialEmail.textContent = commercialMail;
+    commercialEmail.href = 'mailto:' + commercialMail;
+    const copyBtn = $('#plan-commercial-copy');
+    if (copyBtn) copyBtn.setAttribute('data-copy-email', commercialMail);
+    commercial.hidden = false;
+  }
 
   planValue.textContent = planLabel(info.effectiveTier || 'free');
 
   // Privileged accounts: complimentary storage, no billing whatsoever. Hide the
-  // entire plan/billing section (no plan, no upgrade, no manage-subscription).
+  // entire plan/billing entry (no plan, no upgrade, no manage-subscription).
   if (info.privileged) {
-    if (section) section.hidden = true;
+    setPlanNav(false);
     return;
   }
 
@@ -3814,6 +3951,45 @@ async function submitResetTotpConfirm(e) {
 $('#account-btn').addEventListener('click', openDashboard);
 $('#dashboard-close').addEventListener('click', closeDashboard);
 
+// Settings: left-nav section switching.
+document.querySelectorAll('.settings-nav-item').forEach((item) => {
+  item.addEventListener('click', () => {
+    const search = $('#settings-search');
+    if (search && search.value) {
+      search.value = '';
+      applySettingsSearch('');
+    }
+    showSettingsPane(item.getAttribute('data-pane'));
+  });
+});
+// Settings: mobile "back to sections" button.
+(function () {
+  const back = $('#settings-back');
+  if (back) back.addEventListener('click', backToSettingsNav);
+})();
+// Settings: live search across all sections.
+(function () {
+  const input = $('#settings-search');
+  if (input) input.addEventListener('input', () => applySettingsSearch(input.value));
+})();
+// Settings: copy-to-clipboard buttons for contact email (General + Plan).
+document.querySelectorAll('.email-copy').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const email = btn.getAttribute('data-copy-email') || '';
+    if (!email) return;
+    const ok = await copyText(email);
+    const prev = btn.innerHTML;
+    btn.innerHTML = ok
+      ? '<i class="bi bi-check2"></i>'
+      : '<i class="bi bi-clipboard-x"></i>';
+    btn.classList.toggle('copied', ok);
+    setTimeout(() => {
+      btn.innerHTML = prev;
+      btn.classList.remove('copied');
+    }, 1200);
+  });
+});
+
 // Bring-your-own storage: dashboard save button + the "connect storage" nudge
 // shown to existing accounts that have not set a provider yet.
 (function () {
@@ -3825,6 +4001,7 @@ $('#dashboard-close').addEventListener('click', closeDashboard);
       const ov = document.getElementById('storage-setup-overlay');
       if (ov) ov.hidden = true;
       openDashboard();
+      showSettingsPane('storage');
       setTimeout(() => {
         const s = document.getElementById('storage-provider-section');
         if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' });

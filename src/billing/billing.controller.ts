@@ -38,6 +38,8 @@ export class BillingController {
       ready: this.billing.ready,
       planGb: app.pricing.planGb,
       planPrice: app.pricing.pricePlus,
+      donationLink: app.pricing.donationLink || '',
+      contactEmail: app.pricing.contactEmail || '',
     };
   }
 

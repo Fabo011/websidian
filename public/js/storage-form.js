@@ -153,6 +153,8 @@ window.StorageForm = (function () {
         setVal('s3', 'prefix', s.prefix);
         const ps = field('s3', 'forcePathStyle');
         if (ps) ps.checked = s.forcePathStyle !== false;
+        // Secret is never returned; if one is stored, show it as kept-unless-typed.
+        markSecret(field('s3', 'secretAccessKey'), s.hasSecret);
       }
       if (cfg.driver === 'webdav' && cfg.webdav) {
         const w = cfg.webdav;
@@ -160,7 +162,19 @@ window.StorageForm = (function () {
         setVal('webdav', 'username', w.username);
         setVal('webdav', 'authType', w.authType || 'auto');
         setVal('webdav', 'basePath', w.basePath);
+        markSecret(field('webdav', 'password'), w.hasPassword);
       }
+    }
+
+    /**
+     * Mark a password/secret field as already stored: the value stays blank (the
+     * server never returns it), but the placeholder tells the user it is saved
+     * and only overwritten if they type a new one. Leaving it blank keeps it.
+     */
+    function markSecret(el, hasSecret) {
+      if (!el) return;
+      el.value = '';
+      el.placeholder = hasSecret ? t('storage_secret_saved') : '';
     }
 
     const testBtn = root.querySelector('[data-action="test"]');

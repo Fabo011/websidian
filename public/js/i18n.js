@@ -116,7 +116,36 @@
       delete: 'Delete',
       copy: 'Copy',
 
-      /* dashboard */
+      /* dashboard / settings */
+      settings: 'Settings',
+      open_settings: 'Settings',
+      settings_search: 'Find a setting…',
+      settings_no_results: 'No settings match your search.',
+      nav_general: 'General',
+      nav_storage: 'File storage',
+      nav_account: 'Account',
+      nav_back: 'Settings',
+      appearance: 'Appearance',
+      theme: 'Theme',
+      theme_light: 'Light',
+      theme_dark: 'Dark',
+      contact_title: 'Contact & support',
+      contact_hint:
+        'Questions, problems connecting your file storage, or a feature request? Get in touch.',
+      contact_none: 'No contact address is configured for this instance.',
+      copy_email: 'Copy email address',
+      support_title: 'Support websidian',
+      support_hint:
+        'websidian is a non-profit project. A voluntary donation helps cover development & server costs.',
+      storage_connection: 'Connection',
+      storage_connected_to: 'Connected to {provider}',
+      storage_usage_title: 'Storage used',
+      storage_usage_hint: 'How much of your vault storage is currently in use.',
+      storage_no_migration:
+        'There is no automatic migration yet. If you switch storage, export your vault first and import it again into the new storage — otherwise your existing notes will not appear.',
+      storage_docs_title: 'Documentation',
+      storage_docs_hint:
+        'Step-by-step guides (with screenshots) for connecting Nextcloud (WebDAV) and Mega S4 (S3).',
       account: 'Account',
       close: 'Close',
       signed_in_as: 'Signed in as',
@@ -210,6 +239,7 @@
       storage_bucket: 'Bucket',
       storage_accesskey: 'Access key ID',
       storage_secretkey: 'Secret access key',
+      storage_secret_saved: 'Saved — leave blank to keep, type to replace',
       storage_pathstyle: 'Use path-style addressing (needed by most S3-compatibles)',
       storage_prefix: 'Key prefix (optional)',
       storage_quota: 'Storage limit in GB (optional)',
@@ -293,6 +323,9 @@
       upgrade_plus_priced: 'Get {gb} GB — {price}',
       plan_donation_note:
         'A voluntary donation toward storage & server costs — websidian is non-profit.',
+      donate: 'Donate',
+      commercial_use_note:
+        'Commercial use requires a paid plan. For commercial licensing, get in touch:',
       manage_billing: 'Manage subscription',
       billing_unavailable: 'Paid upgrades are currently unavailable.',
       billing_error: 'Could not start the donation. Please try again.',
@@ -814,6 +847,36 @@
       delete: 'Löschen',
       copy: 'Kopieren',
 
+      /* Dashboard / Einstellungen */
+      settings: 'Einstellungen',
+      open_settings: 'Einstellungen',
+      settings_search: 'Einstellung suchen…',
+      settings_no_results: 'Keine Einstellung passt zu deiner Suche.',
+      nav_general: 'Allgemein',
+      nav_storage: 'Dateispeicher',
+      nav_account: 'Konto',
+      nav_back: 'Einstellungen',
+      appearance: 'Darstellung',
+      theme: 'Design',
+      theme_light: 'Hell',
+      theme_dark: 'Dunkel',
+      contact_title: 'Kontakt & Support',
+      contact_hint:
+        'Fragen, Probleme beim Verbinden deines Dateispeichers oder ein Funktionswunsch? Melde dich.',
+      contact_none: 'Für diese Instanz ist keine Kontaktadresse hinterlegt.',
+      copy_email: 'E-Mail-Adresse kopieren',
+      support_title: 'websidian unterstützen',
+      support_hint:
+        'websidian ist ein gemeinnütziges Projekt. Eine freiwillige Spende hilft, Entwicklungs- und Serverkosten zu decken.',
+      storage_connection: 'Verbindung',
+      storage_connected_to: 'Verbunden mit {provider}',
+      storage_usage_title: 'Belegter Speicher',
+      storage_usage_hint: 'Wie viel deines Tresor-Speichers aktuell belegt ist.',
+      storage_no_migration:
+        'Es gibt noch keine automatische Migration. Wenn du den Speicher wechselst, exportiere zuerst deinen Tresor und importiere ihn erneut in den neuen Speicher — sonst erscheinen deine bestehenden Notizen nicht.',
+      storage_docs_title: 'Dokumentation',
+      storage_docs_hint:
+        'Schritt-für-Schritt-Anleitungen (mit Screenshots) zum Verbinden von Nextcloud (WebDAV) und Mega S4 (S3).',
       account: 'Konto',
       close: 'Schließen',
       signed_in_as: 'Angemeldet als',
@@ -908,6 +971,7 @@
       storage_bucket: 'Bucket',
       storage_accesskey: 'Access Key ID',
       storage_secretkey: 'Secret Access Key',
+      storage_secret_saved: 'Gespeichert — leer lassen zum Beibehalten, eingeben zum Ersetzen',
       storage_pathstyle:
         'Path-Style-Adressierung verwenden (von den meisten S3-Kompatiblen benötigt)',
       storage_prefix: 'Schlüssel-Präfix (optional)',
@@ -993,6 +1057,9 @@
       upgrade_plus_priced: '{gb} GB erhalten — {price}',
       plan_donation_note:
         'Eine freiwillige Spende zur Deckung von Speicher- und Serverkosten — websidian ist gemeinnützig.',
+      donate: 'Spenden',
+      commercial_use_note:
+        'Kommerzielle Nutzung erfordert einen kostenpflichtigen Tarif. Für kommerzielle Lizenzierung melde dich:',
       manage_billing: 'Abo verwalten',
       billing_unavailable: 'Kostenpflichtige Upgrades sind derzeit nicht verfügbar.',
       billing_error: 'Die Spende konnte nicht gestartet werden. Bitte versuche es erneut.',

@@ -17,8 +17,7 @@
       <div id="search-results" class="search-results" hidden></div>
     </div>
     <div class="topbar-right">
-      <button id="theme-toggle" class="icon-btn" title="Toggle light/dark" data-i18n-attr="title:toggle_theme"><i class="bi bi-circle-half"></i></button>
-      <button id="account-btn" class="user" title="Account & storage" data-i18n-attr="title:account_storage"><i class="bi bi-person-circle"></i> <span class="user-name"><%= username %></span></button>
+      <button id="account-btn" class="user" title="Settings" data-i18n-attr="title:open_settings"><i class="bi bi-person-circle"></i> <span class="user-name"><%= username %></span></button>
       <button id="logout-btn" class="btn-ghost"><i class="bi bi-box-arrow-right"></i> <span class="btn-label" data-i18n="logout">Logout</span></button>
     </div>
   </header>
@@ -269,94 +268,204 @@
     </div>
   </div>
 
-  <div id="dashboard-overlay" class="modal-overlay" hidden>
-    <div class="modal dashboard" role="dialog" aria-modal="true" aria-labelledby="dashboard-title">
-      <div class="dashboard-head">
-        <h3 id="dashboard-title" class="modal-title"><i class="bi bi-person-circle"></i> <span data-i18n="account">Account</span></h3>
-        <button id="dashboard-close" class="icon-btn" title="Close" aria-label="Close" data-i18n-attr="title:close;aria-label:close"><i class="bi bi-x-lg"></i></button>
-      </div>
+  <div id="dashboard-overlay" class="modal-overlay settings-overlay" hidden>
+    <div class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-title">
+      <aside class="settings-nav" id="settings-nav">
+        <div class="settings-nav-head">
+          <h3 id="dashboard-title" class="settings-title"><i class="bi bi-gear"></i> <span data-i18n="settings">Settings</span></h3>
+          <button id="dashboard-close" class="icon-btn" title="Close" aria-label="Close" data-i18n-attr="title:close;aria-label:close"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="settings-search-wrap">
+          <i class="bi bi-search"></i>
+          <input id="settings-search" type="search" autocomplete="off" placeholder="Find a setting…" aria-label="Find a setting" data-i18n-attr="placeholder:settings_search;aria-label:settings_search" />
+        </div>
+        <nav class="settings-nav-list" role="tablist" aria-label="Settings sections">
+          <button class="settings-nav-item active" type="button" data-pane="general" role="tab"><i class="bi bi-house-door"></i> <span data-i18n="nav_general">General</span></button>
+          <button class="settings-nav-item" type="button" data-pane="storage" role="tab"><i class="bi bi-hdd"></i> <span data-i18n="nav_storage">File storage</span></button>
+          <button class="settings-nav-item" type="button" data-pane="plan" role="tab" hidden><i class="bi bi-stars"></i> <span data-i18n="plan">Plan</span></button>
+          <button class="settings-nav-item" type="button" data-pane="security" role="tab"><i class="bi bi-shield-lock"></i> <span data-i18n="security">Security</span></button>
+          <button class="settings-nav-item" type="button" data-pane="account" role="tab"><i class="bi bi-person-gear"></i> <span data-i18n="nav_account">Account</span></button>
+        </nav>
+        <% if (typeof appVersion !== 'undefined' && appVersion) { %>
+        <p class="settings-version" title="App version">websidian v<%= appVersion %></p>
+        <% } %>
+      </aside>
 
-      <div class="dashboard-section">
-        <div class="dashboard-row">
-          <span class="dashboard-label" data-i18n="signed_in_as">Signed in as</span>
-          <span id="dashboard-username" class="dashboard-value"></span>
+      <div class="settings-body" id="settings-body">
+        <button id="settings-back" class="settings-back" type="button"><i class="bi bi-arrow-left"></i> <span data-i18n="nav_back">Settings</span></button>
+
+        <!-- General -->
+        <section class="settings-pane active" data-pane="general" role="tabpanel">
+          <h2 class="settings-pane-title"><span data-i18n="nav_general">General</span></h2>
+
+          <div class="settings-group">
+            <div class="settings-row">
+              <span class="settings-label" data-i18n="signed_in_as">Signed in as</span>
+              <span id="dashboard-username" class="settings-value"></span>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-journal-text"></i> <span data-i18n="help">Help</span></h3>
+            <p class="settings-hint" data-i18n="docs_hint">Learn how syncing, backups, 2FA and encryption work.</p>
+            <a class="btn-ghost settings-inline-btn" href="/docs" target="_blank" rel="noopener"><i class="bi bi-book"></i> <span data-i18n="open_docs">Open documentation</span></a>
+          </div>
+
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-envelope"></i> <span data-i18n="contact_title">Contact &amp; support</span></h3>
+            <p class="settings-hint" data-i18n="contact_hint">Questions, problems connecting your file storage, or a feature request? Get in touch.</p>
+            <% if (typeof contactEmail !== 'undefined' && contactEmail) { %>
+            <div class="settings-callout">
+              <i class="bi bi-briefcase"></i>
+              <span data-i18n="commercial_use_note">Commercial use requires a paid plan. For commercial licensing, get in touch:</span>
+            </div>
+            <div class="email-row">
+              <a class="email-link" href="mailto:<%= contactEmail %>"><i class="bi bi-envelope"></i> <%= contactEmail %></a>
+              <button type="button" class="email-copy" data-copy-email="<%= contactEmail %>" title="Copy email" aria-label="Copy email" data-i18n-attr="title:copy_email;aria-label:copy_email"><i class="bi bi-clipboard"></i></button>
+            </div>
+            <% } else { %>
+            <p class="settings-hint" data-i18n="contact_none">No contact address is configured for this instance.</p>
+            <% } %>
+          </div>
+
+          <% if (typeof donationLink !== 'undefined' && donationLink) { %>
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-heart"></i> <span data-i18n="support_title">Support websidian</span></h3>
+            <p class="settings-hint" data-i18n="support_hint">websidian is a non-profit project. A voluntary donation helps cover storage &amp; server costs.</p>
+            <a class="btn-ghost settings-inline-btn" href="<%= donationLink %>" target="_blank" rel="noopener"><i class="bi bi-heart"></i> <span data-i18n="donate">Donate</span></a>
+          </div>
+          <% } %>
+        </section>
+
+        <!-- File storage -->
+        <section class="settings-pane" data-pane="storage" role="tabpanel" hidden>
+          <h2 class="settings-pane-title"><span data-i18n="nav_storage">File storage</span></h2>
+
+          <% if (typeof userStorageEnabled !== 'undefined' && userStorageEnabled) { %>
+          <div class="settings-group" id="storage-status-group">
+            <h3 class="settings-group-title"><i class="bi bi-hdd-network"></i> <span data-i18n="storage_connection">Connection</span></h3>
+            <div id="dash-storage-status" class="storage-status is-unknown">
+              <span class="storage-status-dot"></span>
+              <span class="storage-status-text"><span id="dash-storage-current" data-i18n="loading">Loading…</span></span>
+            </div>
+          </div>
+          <% } %>
+
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-pie-chart"></i> <span data-i18n="storage_usage_title">Storage used</span></h3>
+            <p class="settings-hint" data-i18n="storage_usage_hint">How much of your vault storage is currently in use.</p>
+            <div class="usage-bar"><div id="usage-fill" class="usage-fill"></div></div>
+            <div class="usage-text"><span id="usage-text" data-i18n="loading">Loading…</span></div>
+          </div>
+
+          <% if (typeof userStorageEnabled !== 'undefined' && userStorageEnabled) { %>
+          <div class="settings-group" id="storage-provider-section">
+            <h3 class="settings-group-title"><i class="bi bi-hdd-stack"></i> <span data-i18n="storage_provider">Storage provider</span></h3>
+            <p class="settings-hint" data-i18n="storage_provider_hint">Connect or change the storage your encrypted vault is saved to. websidian never hosts your files.</p>
+            <div class="settings-callout settings-callout-warn">
+              <i class="bi bi-exclamation-triangle"></i>
+              <span data-i18n="storage_no_migration">There is no automatic migration yet. If you switch storage, export your vault first and import it again into the new storage — otherwise your existing notes will not appear.</span>
+            </div>
+            <%- include('partials/storage-fields', { prefix: 'dash', contactEmail: contactEmail }) %>
+            <p id="dash-storage-error" class="settings-hint form-error" hidden></p>
+            <button id="dash-storage-save" class="btn-primary settings-inline-btn" type="button" data-i18n="storage_save">Save storage settings</button>
+          </div>
+          <% } %>
+
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-book"></i> <span data-i18n="storage_docs_title">Documentation</span></h3>
+            <p class="settings-hint" data-i18n="storage_docs_hint">Step-by-step guides (with screenshots) for connecting Nextcloud (WebDAV) and Mega S4 (S3).</p>
+            <a class="btn-ghost settings-inline-btn" href="/docs#connect-storage" target="_blank" rel="noopener"><i class="bi bi-book"></i> <span data-i18n="storage_help_link">How to connect (with screenshots)</span></a>
+          </div>
+        </section>
+
+        <!-- Plan (billing) -->
+        <section class="settings-pane" data-pane="plan" role="tabpanel" hidden>
+          <h2 class="settings-pane-title"><span data-i18n="plan">Plan</span></h2>
+          <div class="settings-group" id="plan-section">
+            <div id="plan-warning" class="plan-warning" hidden></div>
+            <div class="settings-row">
+              <span class="settings-label" data-i18n="current_plan">Current plan</span>
+              <span id="plan-value" class="settings-value">—</span>
+            </div>
+            <div id="plan-valid-row" class="settings-row" hidden>
+              <span class="settings-label" data-i18n="plan_valid_until">Valid until</span>
+              <span id="plan-valid" class="settings-value"></span>
+            </div>
+            <p id="plan-privileged-hint" class="settings-hint" data-i18n="plan_privileged_hint" hidden>You have complimentary top-tier access — no payment required.</p>
+            <div id="plan-upgrade" class="plan-options" hidden>
+              <button class="btn-primary plan-btn" type="button" data-plan="plus"><i class="bi bi-arrow-up-circle"></i> <span id="plan-upgrade-label" data-i18n="upgrade_plus">Get more storage</span></button>
+            </div>
+            <p id="plan-donation-note" class="settings-hint" data-i18n="plan_donation_note" hidden>A voluntary donation toward storage &amp; server costs — websidian is non-profit.</p>
+            <a id="plan-donation-link" class="btn-ghost settings-inline-btn" target="_blank" rel="noopener" hidden><i class="bi bi-heart"></i> <span data-i18n="donate">Donate</span></a>
+            <button id="manage-billing-btn" class="btn-ghost settings-inline-btn" type="button" hidden><i class="bi bi-credit-card"></i> <span data-i18n="manage_billing">Manage subscription</span></button>
+            <p id="billing-unavailable" class="settings-hint" data-i18n="billing_unavailable" hidden>Paid upgrades are currently unavailable.</p>
+            <div id="plan-commercial" class="settings-callout" hidden>
+              <i class="bi bi-briefcase"></i>
+              <span>
+                <span data-i18n="commercial_use_note">Commercial use requires a paid plan. For commercial licensing, get in touch:</span>
+                <span class="email-row email-row-inline">
+                  <a id="plan-commercial-email" class="email-link" href="#"></a>
+                  <button type="button" id="plan-commercial-copy" class="email-copy" data-copy-email="" title="Copy email" aria-label="Copy email" data-i18n-attr="title:copy_email;aria-label:copy_email"><i class="bi bi-clipboard"></i></button>
+                </span>
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Security -->
+        <section class="settings-pane" data-pane="security" role="tabpanel" hidden>
+          <h2 class="settings-pane-title"><span data-i18n="security">Security</span></h2>
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-key"></i> <span data-i18n="change_password">Change password</span></h3>
+            <p class="settings-hint" data-i18n="change_password_hint">Changing your password requires your current password and a code from your authenticator app.</p>
+            <button id="change-password-btn" class="btn-ghost settings-inline-btn" type="button"><i class="bi bi-key"></i> <span data-i18n="change_password">Change password</span></button>
+          </div>
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-shield-lock"></i> <span data-i18n="reset_totp">Reset authenticator (2FA)</span></h3>
+            <p class="settings-hint" data-i18n="reset_totp_hint">Switching to a new phone or authenticator app? Reset your two-factor authentication to pair a new device.</p>
+            <button id="reset-totp-btn" class="btn-ghost settings-inline-btn" type="button"><i class="bi bi-shield-lock"></i> <span data-i18n="reset_totp">Reset authenticator (2FA)</span></button>
+          </div>
+        </section>
+
+        <!-- Account -->
+        <section class="settings-pane" data-pane="account" role="tabpanel" hidden>
+          <h2 class="settings-pane-title"><span data-i18n="nav_account">Account</span></h2>
+
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-circle-half"></i> <span data-i18n="appearance">Appearance</span></h3>
+            <div class="settings-row">
+              <span class="settings-label" data-i18n="theme">Theme</span>
+              <div class="theme-switch" role="radiogroup" aria-label="Theme" data-i18n-attr="aria-label:theme">
+                <button type="button" class="theme-opt" data-theme-set="light"><i class="bi bi-sun"></i> <span data-i18n="theme_light">Light</span></button>
+                <button type="button" class="theme-opt" data-theme-set="dark"><i class="bi bi-moon-stars"></i> <span data-i18n="theme_dark">Dark</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-translate"></i> <span data-i18n="lang_switch">Language</span></h3>
+            <div class="settings-row">
+              <span class="settings-label" data-i18n="lang_switch">Language</span>
+              <select id="lang-select" class="lang-select" data-lang-switch aria-label="Language" data-i18n-attr="aria-label:lang_switch">
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="settings-group danger-zone">
+            <h3 class="settings-group-title"><i class="bi bi-exclamation-triangle"></i> <span data-i18n="danger_zone">Danger zone</span></h3>
+            <p class="settings-hint" data-i18n="delete_account_hint">Deleting your account permanently removes all your notes, files and account data. This cannot be undone.</p>
+            <button id="delete-account-btn" class="btn-danger"><i class="bi bi-trash"></i> <span data-i18n="delete_account">Delete account</span></button>
+          </div>
+        </section>
+
+        <div class="settings-no-results" id="settings-no-results" hidden>
+          <i class="bi bi-search"></i>
+          <p data-i18n="settings_no_results">No settings match your search.</p>
         </div>
       </div>
-
-      <div class="dashboard-section">
-        <h4 class="dashboard-subtitle"><i class="bi bi-journal-text"></i> <span data-i18n="help">Help</span></h4>
-        <p class="dashboard-hint" data-i18n="docs_hint">Learn how syncing, backups, 2FA and encryption work.</p>
-        <a class="btn-ghost" href="/docs" target="_blank" rel="noopener"><i class="bi bi-book"></i> <span data-i18n="open_docs">Open documentation</span></a>
-      </div>
-
-      <div class="dashboard-section">
-        <h4 class="dashboard-subtitle"><i class="bi bi-translate"></i> <span data-i18n="lang_switch">Language</span></h4>
-        <div class="dashboard-row">
-          <span class="dashboard-label" data-i18n="lang_switch">Language</span>
-          <select id="lang-select" class="lang-select" data-lang-switch aria-label="Language" data-i18n-attr="aria-label:lang_switch">
-            <option value="en">English</option>
-            <option value="de">Deutsch</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="dashboard-section">
-        <h4 class="dashboard-subtitle"><i class="bi bi-hdd"></i> <span data-i18n="storage">Storage</span></h4>
-        <div class="usage-bar"><div id="usage-fill" class="usage-fill"></div></div>
-        <div class="usage-text"><span id="usage-text" data-i18n="loading">Loading…</span></div>
-      </div>
-
-      <% if (typeof userStorageEnabled !== 'undefined' && userStorageEnabled) { %>
-      <div class="dashboard-section" id="storage-provider-section">
-        <h4 class="dashboard-subtitle"><i class="bi bi-hdd-network"></i> <span data-i18n="storage_provider">Storage provider</span></h4>
-        <p class="dashboard-hint" data-i18n="storage_provider_hint">Connect or change the storage your encrypted vault is saved to. websidian never hosts your files.</p>
-        <div class="dashboard-row">
-          <span class="dashboard-label" data-i18n="storage_current">Current</span>
-          <span id="dash-storage-current" class="dashboard-value">—</span>
-        </div>
-        <%- include('partials/storage-fields', { prefix: 'dash', contactEmail: contactEmail }) %>
-        <p id="dash-storage-error" class="dashboard-hint form-error" hidden></p>
-        <button id="dash-storage-save" class="btn-primary" type="button" data-i18n="storage_save">Save storage settings</button>
-      </div>
-      <% } %>
-
-      <div class="dashboard-section" id="plan-section" hidden>
-        <h4 class="dashboard-subtitle"><i class="bi bi-stars"></i> <span data-i18n="plan">Plan</span></h4>
-        <div id="plan-warning" class="plan-warning" hidden></div>
-        <div class="dashboard-row">
-          <span class="dashboard-label" data-i18n="current_plan">Current plan</span>
-          <span id="plan-value" class="dashboard-value">—</span>
-        </div>
-        <div id="plan-valid-row" class="dashboard-row" hidden>
-          <span class="dashboard-label" data-i18n="plan_valid_until">Valid until</span>
-          <span id="plan-valid" class="dashboard-value"></span>
-        </div>
-        <p id="plan-privileged-hint" class="dashboard-hint" data-i18n="plan_privileged_hint" hidden>You have complimentary top-tier access — no payment required.</p>
-        <div id="plan-upgrade" class="plan-options" hidden>
-          <button class="btn-primary plan-btn" type="button" data-plan="plus"><i class="bi bi-arrow-up-circle"></i> <span id="plan-upgrade-label" data-i18n="upgrade_plus">Get more storage</span></button>
-        </div>
-        <p id="plan-donation-note" class="dashboard-hint" data-i18n="plan_donation_note" hidden>A voluntary donation toward storage &amp; server costs — websidian is non-profit.</p>
-        <button id="manage-billing-btn" class="btn-ghost" type="button" hidden><i class="bi bi-credit-card"></i> <span data-i18n="manage_billing">Manage subscription</span></button>
-        <p id="billing-unavailable" class="dashboard-hint" data-i18n="billing_unavailable" hidden>Paid upgrades are currently unavailable.</p>
-      </div>
-
-      <div class="dashboard-section">
-        <h4 class="dashboard-subtitle"><i class="bi bi-shield-lock"></i> <span data-i18n="security">Security</span></h4>
-        <p class="dashboard-hint" data-i18n="change_password_hint">Changing your password requires your current password and a code from your authenticator app.</p>
-        <button id="change-password-btn" class="btn-ghost" type="button"><i class="bi bi-key"></i> <span data-i18n="change_password">Change password</span></button>
-        <p class="dashboard-hint" data-i18n="reset_totp_hint">Switching to a new phone or authenticator app? Reset your two-factor authentication to pair a new device.</p>
-        <button id="reset-totp-btn" class="btn-ghost" type="button"><i class="bi bi-shield-lock"></i> <span data-i18n="reset_totp">Reset authenticator (2FA)</span></button>
-      </div>
-
-      <div class="dashboard-section danger-zone">
-        <h4 class="dashboard-subtitle"><i class="bi bi-exclamation-triangle"></i> <span data-i18n="danger_zone">Danger zone</span></h4>
-        <p class="dashboard-hint" data-i18n="delete_account_hint">Deleting your account permanently removes all your notes, files and account data. This cannot be undone.</p>
-        <button id="delete-account-btn" class="btn-danger"><i class="bi bi-trash"></i> <span data-i18n="delete_account">Delete account</span></button>
-      </div>
-
-      <% if (typeof appVersion !== 'undefined' && appVersion) { %>
-      <p class="dashboard-version">v<%= appVersion %></p>
-      <% } %>
     </div>
   </div>
 
