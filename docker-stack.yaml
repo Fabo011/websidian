@@ -7,6 +7,7 @@ volumes:
   postgres-data:
     external: true
     name: server_postgres-data
+  postgresus-data:
 
 services:
   cloudflared:
@@ -67,6 +68,46 @@ services:
     deploy:
       replicas: 2
       endpoint_mode: dnsrr
+      labels:
+        shepherd.enable: "true"
+      restart_policy:
+        condition: any
+
+  shepherd:
+    image: containrrr/shepherd:latest
+    environment:
+      SLEEP_TIME: "5m"
+      WITH_REGISTRY_AUTH: "true"
+      IMAGE_AUTOCLEAN_LIMIT: "3"
+      FILTER_SERVICES: "label=shepherd.enable=true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - websidian-net
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+
+  postgresus:
+    image: rostislavdugin/postgresus:latest
+    networks:
+      - websidian-net
+    ports:
+      - target: 4005
+        published: 4005
+        protocol: tcp
+        mode: host
+    volumes:
+      - postgresus-data:/postgresus-data
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
       restart_policy:
         condition: any
 

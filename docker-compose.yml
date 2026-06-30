@@ -1,3 +1,4 @@
+# Minimal docker-compose for self-hoster
 services:
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -12,75 +13,42 @@ services:
     ports:
       - "3065:3065"
     environment:
-      # Basic
-      ALLOW_REGISTRATION: "${ALLOW_REGISTRATION}"
+      USER_STORAGE_ENABLED: "true"
+      ALLOW_REGISTRATION: "${ALLOW_REGISTRATION:-true}" # Change to false after you and your friends have registered to prevent random people from registering
       PORT: 3065
-      COOKIE_SECURE: "${COOKIE_SECURE:-true}"
-      CORS_ORIGINS: "${CORS_ORIGINS}"
-      TRASH_RETENTION_DAYS: "${TRASH_RETENTION_DAYS}"
-      # Auth rate limiter (/auth: login, register, 2fa)
-      RATE_LIMIT_ENABLED: "${RATE_LIMIT_ENABLED:-true}"
-      RATE_LIMIT_WINDOW_SECONDS: "${RATE_LIMIT_WINDOW_SECONDS:-60}"
-      RATE_LIMIT_MAX: "${RATE_LIMIT_MAX:-60}"
-      # Dashboard rate limiter (/api data routes; disabled by default)
-      RATE_LIMIT_DASH_ENABLED: "${RATE_LIMIT_DASH_ENABLED:-false}"
-      RATE_LIMIT_DASH_WINDOW_SECONDS: "${RATE_LIMIT_DASH_WINDOW_SECONDS:-60}"
-      RATE_LIMIT_DASH_MAX: "${RATE_LIMIT_DASH_MAX:-60}"
-      SEARCH_CACHE_TTL_MS: "${SEARCH_CACHE_TTL_MS:-15000}"
-      GRAPH_CACHE_TTL_MS: "${GRAPH_CACHE_TTL_MS:-300000}"
-      MAX_OPEN_TABS: "${MAX_OPEN_TABS:-8}"
-      TUS_TMP_DIR: "${TUS_TMP_DIR}"
-      VAULT_TREE_CACHE_SECONDS: "${VAULT_TREE_CACHE_SECONDS}"
-      MAX_REGISTRATIONS: "${MAX_REGISTRATIONS}"
-      MAX_UPLOAD_SIZE_MB: "${MAX_UPLOAD_SIZE_MB:-20}"
-      MAX_UPLOAD_FILE_MB: "${MAX_UPLOAD_FILE_MB:-2048}"
-      UPLOAD_EXCLUDE_PATTERNS: "${UPLOAD_EXCLUDE_PATTERNS:-._*,.DS_Store,.AppleDouble,.LSOverride,.Spotlight-V100,.Trashes,.fseventsd,.apdisk,Thumbs.db,ehthumbs.db,desktop.ini,.localized}"
-      MAX_IMPORT_FILES: "${MAX_IMPORT_FILES:-20000}"
-      MAX_IMPORT_TOTAL_MB: "${MAX_IMPORT_TOTAL_MB:-2048}"
-      UPLOAD_REQUEST_TIMEOUT_MIN: "${UPLOAD_REQUEST_TIMEOUT_MIN:-30}"
-      # S3 Storage
-      STORAGE_QUOTA_GB: "${STORAGE_QUOTA_GB}"
-      # Bring-your-own storage: when true, each user connects their own
-      # S3/WebDAV storage and the shared backend below is ignored.
-      USER_STORAGE_ENABLED: "${USER_STORAGE_ENABLED:-false}"
-      STORAGE_DRIVER: "${STORAGE_DRIVER}"
-      S3_ENDPOINT: "${S3_ENDPOINT}"
-      S3_REGION: "${S3_REGION}"
-      S3_BUCKET: "${S3_BUCKET}"
-      S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID}"
-      S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY}"
-      S3_FORCE_PATH_STYLE: "${S3_FORCE_PATH_STYLE:-true}"
-      S3_PREFIX: "${S3_PREFIX}"
-      # JWT
-      JWT_SECRET: "${JWT_SECRET}"
-      JWT_EXPIRES_IN: "7d"
-      # Postgres
       ENCRYPTION_ENABLED: "${ENCRYPTION_ENABLED:-true}"
       ENCRYPTION_KEY: "${ENCRYPTION_KEY}"
-      DATA_ROOT: "/app/data"
-      DB_TYPE: "${DB_TYPE}"
-      DB_HOST: "${DB_HOST}"
+      JWT_EXPIRES_IN: "${JWT_EXPIRES_IN:-7d}"
+      JWT_SECRET: "${JWT_SECRET}"
+      APP_URL: "${APP_URL}" # Frontend url, your domain
+      CONTACT_EMAIL: "${CONTACT_EMAIL}" # You email
+      CORS_ORIGINS: "${CORS_ORIGINS}" # Frontend url, your domain
+      DB_TYPE: "${DB_TYPE:-postgres}"
+      DB_HOST: "${DB_HOST:-localhost}"
       DB_PORT: "${DB_PORT:-5432}"
-      DB_USERNAME: "${DB_USERNAME}"
-      DB_PASSWORD: "${DB_PASSWORD}"
-      DB_DATABASE: "${DB_DATABASE}"
-      DB_SSL: "${DB_SSL}"
-      # Stripe Billing
-      BILLING_ENABLED: "${BILLING_ENABLED}"
-      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY}"
-      STRIPE_PRICE_PLUS: "${STRIPE_PRICE_PLUS}"
-      APP_URL: "${APP_URL}"
-      # Single paid plan (voluntary donation, non-profit)
-      STORAGE_PLUS_GB: "${STORAGE_PLUS_GB}"
-      PRICE_PLUS: "${PRICE_PLUS}"
-      CONTACT_EMAIL: "${CONTACT_EMAIL}"
-      # Privileged users (free dedicated storage, no billing UI)
-      PRIVILEGED_USERS: "${PRIVILEGED_USERS}"
-      STORAGE_PRIVILEGED_USERS_GB: "${STORAGE_PRIVILEGED_USERS_GB:-20}"
-      AGB: "${AGB}"
-      IMPRINT: "${IMPRINT}"
-      LEGAL_NOTICE: "${LEGAL_NOTICE}"
-      #
+      DB_USERNAME: "${DB_USERNAME:-postgres}"
+      DB_PASSWORD: "${DB_PASSWORD:-postgres}"
+      DB_DATABASE: "${DB_DATABASE:-web_obsidian}"
+      DB_SSL: "${DB_SSL:-false}"
+      TRASH_RETENTION_DAYS: "${TRASH_RETENTION_DAYS:-7}"
+      RATE_LIMIT_ENABLED: "${RATE_LIMIT_ENABLED:-true}"
+      RATE_LIMIT_WINDOW_SECONDS: "${RATE_LIMIT_WINDOW_SECONDS:-60}"
+      RATE_LIMIT_MAX: "${RATE_LIMIT_MAX:-500}"
+      VAULT_TREE_CACHE_SECONDS: "${VAULT_TREE_CACHE_SECONDS:-30}"
+      MAX_UPLOAD_SIZE_MB: "${MAX_UPLOAD_SIZE_MB:-100}"
+      IMPRINT: "${IMPRINT:-false}"
+      AGB: "${AGB:-false}"
+      LEGAL_NOTICE: "${LEGAL_NOTICE:-false}"
+      MAX_UPLOAD_FILE_MB: "${MAX_UPLOAD_FILE_MB:-200}"
+      MAX_IMPORT_FILES: "${MAX_IMPORT_FILES:-20000}"
+      MAX_IMPORT_TOTAL_MB: "${MAX_IMPORT_TOTAL_MB:-200}"
+      UPLOAD_REQUEST_TIMEOUT_MIN: "${UPLOAD_REQUEST_TIMEOUT_MIN:-15}"
+      SEARCH_CACHE_TTL_MS: "${SEARCH_CACHE_TTL_MS:-15000}"
+      RATE_LIMIT_DASH_ENABLED: "${RATE_LIMIT_DASH_ENABLED:-true}"
+      RATE_LIMIT_DASH_WINDOW_SECONDS: "${RATE_LIMIT_DASH_WINDOW_SECONDS:-60}"
+      RATE_LIMIT_DASH_MAX: "${RATE_LIMIT_DASH_MAX:-50000000}"
+      UPLOAD_EXCLUDE_PATTERNS: "${UPLOAD_EXCLUDE_PATTERNS}"
+      MAX_OPEN_TABS: "${MAX_OPEN_TABS:-8}"
     depends_on:
       - cloudflared
       - postgres
