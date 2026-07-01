@@ -41,8 +41,20 @@ body {
     Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
-  font-size: 15px;
+  font-size: var(--app-font-size, 15px);
   line-height: 1.5;
+}
+
+/* High-contrast mode: stronger text/border, dimmer muted text gap closed. */
+:root[data-contrast='high'][data-theme='dark'] {
+  --text: #ffffff;
+  --text-muted: #c4c8d0;
+  --border: #5a5a5a;
+}
+:root[data-contrast='high'][data-theme='light'] {
+  --text: #000000;
+  --text-muted: #444b54;
+  --border: #9aa1ad;
 }
 
 button { font: inherit; cursor: pointer; }
@@ -1648,6 +1660,7 @@ body.sidebar-resizing {
   gap: 12px;
   flex-wrap: wrap;
 }
+.settings-row + .settings-row { margin-top: 14px; }
 .settings-label { color: var(--text-muted); font-size: 14px; }
 .settings-value { color: var(--text); font-size: 14px; font-weight: 600; word-break: break-word; }
 .settings-hint {
@@ -1738,7 +1751,7 @@ body.sidebar-resizing {
 .settings-callout-warn .bi { color: #d9930b; }
 
 /* theme switch */
-.theme-switch { display: inline-flex; gap: 6px; }
+.theme-switch { display: inline-flex; gap: 10px; flex-wrap: wrap; }
 .theme-opt {
   display: inline-flex;
   align-items: center;
