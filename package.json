@@ -1,6 +1,6 @@
 {
   "name": "websidian",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "",
   "author": "",
   "private": true,
@@ -46,6 +46,7 @@
     "docx-preview": "^0.3.7",
     "dompurify": "^3.4.11",
     "ejs": "^6.0.1",
+    "epubjs": "^0.3.93",
     "express-rate-limit": "^8.5.2",
     "fflate": "^0.8.3",
     "helmet": "^8.2.0",

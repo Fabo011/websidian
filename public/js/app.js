@@ -859,6 +859,7 @@ function fileIcon(ext) {
   if (ext === 'xlsx' || ext === 'xls' || ext === 'ods')
     return 'bi-file-earmark-spreadsheet';
   if (ext === 'odt') return 'bi-file-earmark-richtext';
+  if (ext === 'epub') return 'bi-book';
   if (CODE_EXTS.includes(ext)) return 'bi-file-earmark-code';
   return 'bi-paperclip';
 }
@@ -1091,6 +1092,49 @@ function activeTab() {
   return TABS.list.find((tb) => tb.id === TABS.activeId) || null;
 }
 
+// Remember which files are open (and which is active) so a page reload restores
+// the same set of tabs. Only paths are stored — content stays end-to-end
+// encrypted and is re-fetched per tab on restore.
+const OPEN_TABS_KEY = 'wo-open-tabs';
+let restoringTabs = false;
+function persistTabs() {
+  if (restoringTabs) return;
+  try {
+    const active = activeTab();
+    localStorage.setItem(
+      OPEN_TABS_KEY,
+      JSON.stringify({
+        paths: TABS.list.map((tb) => tb.path),
+        active: active ? active.path : null,
+      }),
+    );
+  } catch (e) {
+    /* storage blocked — restore is best-effort */
+  }
+}
+
+async function restoreTabs() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(OPEN_TABS_KEY) || 'null');
+  } catch (e) {
+    saved = null;
+  }
+  if (!saved || !Array.isArray(saved.paths) || !saved.paths.length) return;
+  restoringTabs = true;
+  try {
+    for (const p of saved.paths) {
+      // Skip files that were deleted/renamed since; stay quiet during restore.
+      await openFile(p, { silent: true });
+    }
+  } finally {
+    restoringTabs = false;
+  }
+  const target = TABS.list.find((tb) => tb.path === saved.active);
+  if (target) await activateTab(target.id);
+  renderTabbar();
+}
+
 function tabKindFor(ext) {
   if (ext === 'excalidraw') return 'excalidraw';
   if (TEXT_EXTS.includes(ext)) return 'editor';
@@ -1149,6 +1193,7 @@ function renderTabbar() {
     });
     bar.appendChild(el);
   }
+  persistTabs();
 }
 
 // Highlight tree rows that are open as tabs, and the active one.
@@ -1190,7 +1235,8 @@ function snapshotActive() {
     : $('#editor').scrollTop;
 }
 
-async function openFile(path) {
+async function openFile(path, opts = {}) {
+  const silent = !!opts.silent;
   const existing = TABS.list.find((tb) => tb.path === path);
   if (existing) {
     await activateTab(existing.id);
@@ -1216,24 +1262,27 @@ async function openFile(path) {
     pane: null,
     blobUrl: null,
     excalidraw: null,
+    epub: null,
   };
   TABS.list.push(tab);
   renderTabbar();
-  showLoading(t('opening_file'));
+  if (!silent) showLoading(t('opening_file'));
   try {
     await loadTabContent(tab);
   } catch (err) {
     TABS.list = TABS.list.filter((x) => x !== tab);
     renderTabbar();
-    hideLoading();
-    await uiAlert(t('open_failed_title'), {
-      message: err.message || t('open_failed_msg'),
-    });
+    if (!silent) {
+      hideLoading();
+      await uiAlert(t('open_failed_title'), {
+        message: err.message || t('open_failed_msg'),
+      });
+    }
     return;
   }
-  hideLoading();
+  if (!silent) hideLoading();
   await activateTab(tab.id);
-  maybeCloseSidebar();
+  if (!silent) maybeCloseSidebar();
 }
 
 // Fetch + decrypt a freshly opened file once, building any persistent pane.
@@ -1297,6 +1346,8 @@ async function buildViewerPane(tab) {
     frame.src = tab.blobUrl;
   } else if (OFFICE_EXTS.includes(ext)) {
     await renderOffice(tab.path, ext, pane);
+  } else if (ext === 'epub') {
+    await renderEpub(tab, pane);
   } else {
     const p = document.createElement('p');
     p.className = 'muted';
@@ -1385,6 +1436,13 @@ async function closeTab(id) {
       /* ignore */
     }
   }
+  if (tab.epub && tab.epub.destroy) {
+    try {
+      tab.epub.destroy();
+    } catch (e) {
+      /* ignore */
+    }
+  }
   if (tab.pane && tab.pane.parentNode) tab.pane.parentNode.removeChild(tab.pane);
   const wasActive = tab.id === TABS.activeId;
   TABS.list.splice(idx, 1);
@@ -1464,6 +1522,13 @@ function forceCloseTab(tab) {
   if (tab.excalidraw && window.ExcalidrawEditor.unmount) {
     try {
       window.ExcalidrawEditor.unmount(tab.excalidraw);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  if (tab.epub && tab.epub.destroy) {
+    try {
+      tab.epub.destroy();
     } catch (e) {
       /* ignore */
     }
@@ -2319,6 +2384,60 @@ async function renderOffice(path, ext, body) {
     }
   } catch (e) {
     console.error('office preview failed:', ext, e);
+    body.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = t('no_preview');
+    body.appendChild(p);
+  }
+}
+
+/* ---------- epub e-book reader ---------- */
+
+let epubLoading = null;
+function ensureEpub() {
+  if (window.EpubViewer) return Promise.resolve();
+  if (epubLoading) return epubLoading;
+  epubLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = '/public/js/epub-bundle.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Failed to load the e-book reader.'));
+    document.body.appendChild(s);
+  });
+  return epubLoading;
+}
+
+async function renderEpub(tab, body) {
+  body.innerHTML = '';
+  const status = document.createElement('p');
+  status.className = 'muted';
+  status.textContent = t('loading');
+  body.appendChild(status);
+  try {
+    const key = await ensureVaultKey();
+    const res = await fetch(attachmentUrl(tab.path), {
+      credentials: 'same-origin',
+    });
+    if (!res.ok) throw new Error('fetch failed');
+    const cipher = new Uint8Array(await res.arrayBuffer());
+    const plain = await window.WOCrypto.decryptBytesMaybe(key, cipher);
+    // EpubViewer expects an ArrayBuffer; hand it the decrypted bytes' buffer.
+    const buf = plain.buffer.slice(
+      plain.byteOffset,
+      plain.byteOffset + plain.byteLength,
+    );
+    await ensureEpub();
+    // Guard against the tab being closed (its pane detached) while loading.
+    if (!body.isConnected) return;
+    body.innerHTML = '';
+    tab.epub = window.EpubViewer.mount(body, buf, {
+      prevLabel: t('epub_prev'),
+      nextLabel: t('epub_next'),
+      locationKey: tab.path,
+    });
+  } catch (e) {
+    console.error('epub preview failed:', e);
     body.innerHTML = '';
     const p = document.createElement('p');
     p.className = 'muted';
@@ -5410,6 +5529,7 @@ setSelectedDir('');
 // dismisses the prompt they are redirected to login.
 ensureVaultKey()
   .then(() => loadTree())
+  .then(() => restoreTabs())
   .then(() => {
     // Warm the content index in the background once the UI is up, so the first
     // search returns content matches immediately instead of waiting on a cold,

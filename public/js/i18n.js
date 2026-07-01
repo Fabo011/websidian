@@ -103,6 +103,8 @@
       no_preview: 'No preview available for this file type.',
       loading_editor: 'Loading editor…',
       excalidraw_failed: 'Failed to load Excalidraw editor.',
+      epub_prev: 'Previous page',
+      epub_next: 'Next page',
 
       /* markdown toolbar tooltips */
       md_bold_tip: 'Bold — wrap text in ** ** · e.g. **important**',
@@ -379,7 +381,7 @@
         '<strong>Independent of the browser.</strong> Because the links are kept server-side in your vault rather than in a browser profile, they are not tied to any one browser, extension or sync account. Nothing to install, nothing to export when you move devices &mdash; just log in and your trusted links are there.',
       docs_files_h: 'Supported files',
       docs_files_p1:
-        'Beyond markdown and Excalidraw, you can browse a wide range of files like in a code editor &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> and many more &mdash; with syntax highlighting. Word (<code>.docx</code>), Excel (<code>.xlsx</code>/<code>.xls</code>) and OpenDocument (<code>.odt</code>/<code>.ods</code>) files render read-only in the browser. All of them are end-to-end encrypted in your browser just like your notes.',
+        'Beyond markdown and Excalidraw, you can browse a wide range of files like in a code editor &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> and many more &mdash; with syntax highlighting. Word (<code>.docx</code>), Excel (<code>.xlsx</code>/<code>.xls</code>) and OpenDocument (<code>.odt</code>/<code>.ods</code>) files render read-only in the browser, and EPUB (<code>.epub</code>) e-books open in a paginated reader. All of them are end-to-end encrypted in your browser just like your notes.',
       docs_arch_li_auth:
         '<strong>HTTP-only auth token</strong> &mdash; the session cookie is HTTP-only, so it cannot be read or manipulated by XSS JavaScript attacks.',
       docs_arch_li_nest:
@@ -670,6 +672,7 @@
       feat_weblinks: 'Web link manager — save & reopen trusted links',
       feat_excalidraw: 'Excalidraw drawing integration',
       feat_pdf: 'Built-in PDF viewer',
+      feat_epub: 'EPUB e-book reader',
       feat_attach: 'Attachments & file uploads',
       feat_search: 'Full-text search that runs in your browser',
       feat_export: 'Export your whole vault as a decrypted zip',
@@ -948,6 +951,8 @@
       no_preview: 'Für diesen Dateityp ist keine Vorschau verfügbar.',
       loading_editor: 'Editor wird geladen…',
       excalidraw_failed: 'Der Excalidraw-Editor konnte nicht geladen werden.',
+      epub_prev: 'Vorherige Seite',
+      epub_next: 'Nächste Seite',
 
       /* Markdown-Werkzeugleiste */
       md_bold_tip: 'Fett — Text in ** ** einfassen · z. B. **wichtig**',
@@ -1229,7 +1234,7 @@
         '<strong>Unabhängig vom Browser.</strong> Da die Links serverseitig in deinem Tresor liegen und nicht in einem Browserprofil, sind sie nicht an einen einzelnen Browser, eine Erweiterung oder ein Sync-Konto gebunden. Nichts zu installieren, nichts zu exportieren, wenn du das Gerät wechselst &mdash; einfach anmelden und deine vertrauten Links sind da.',
       docs_files_h: 'Unterstützte Dateien',
       docs_files_p1:
-        'Über Markdown und Excalidraw hinaus kannst du eine breite Palette von Dateien wie in einem Code-Editor durchsehen &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> und viele mehr &mdash; mit Syntaxhervorhebung. Word- (<code>.docx</code>), Excel- (<code>.xlsx</code>/<code>.xls</code>) und OpenDocument-Dateien (<code>.odt</code>/<code>.ods</code>) werden im Browser schreibgeschützt dargestellt. Sie alle werden wie deine Notizen in deinem Browser Ende-zu-Ende-verschlüsselt.',
+        'Über Markdown und Excalidraw hinaus kannst du eine breite Palette von Dateien wie in einem Code-Editor durchsehen &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> und viele mehr &mdash; mit Syntaxhervorhebung. Word- (<code>.docx</code>), Excel- (<code>.xlsx</code>/<code>.xls</code>) und OpenDocument-Dateien (<code>.odt</code>/<code>.ods</code>) werden im Browser schreibgeschützt dargestellt, und EPUB-E-Books (<code>.epub</code>) öffnen sich in einem seitenweisen Reader. Sie alle werden wie deine Notizen in deinem Browser Ende-zu-Ende-verschlüsselt.',
       docs_arch_li_auth:
         '<strong>HTTP-only-Auth-Token</strong> &mdash; das Sitzungs-Cookie ist HTTP-only, sodass es von XSS-JavaScript-Angriffen nicht gelesen oder manipuliert werden kann.',
       docs_arch_li_nest:
@@ -1520,6 +1525,7 @@
       feat_weblinks: 'Weblink-Manager — vertrauenswürdige Links speichern & erneut öffnen',
       feat_excalidraw: 'Excalidraw-Zeichenintegration',
       feat_pdf: 'Eingebauter PDF-Viewer',
+      feat_epub: 'EPUB-E-Book-Reader',
       feat_attach: 'Anhänge & Datei-Uploads',
       feat_search: 'Volltextsuche, die in deinem Browser läuft',
       feat_export: 'Exportiere deinen gesamten Tresor als entschlüsseltes Zip',

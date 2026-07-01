@@ -21,6 +21,8 @@ const MIME_BY_EXT: Record<string, string> = {
   xls: 'application/vnd.ms-excel',
   odt: 'application/vnd.oasis.opendocument.text',
   ods: 'application/vnd.oasis.opendocument.spreadsheet',
+  // E-books
+  epub: 'application/epub+zip',
 };
 
 export function mimeForExt(ext: string): string {

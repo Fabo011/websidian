@@ -62,6 +62,20 @@ async function main() {
   });
   console.log('Office viewer bundle ready.');
 
+  // Bundle the read-only EPUB e-book reader (epub.js). EPUBs are decrypted in
+  // the browser and rendered client-side; the server only holds ciphertext.
+  await esbuild.build({
+    entryPoints: ['client/epub-entry.js'],
+    bundle: true,
+    format: 'iife',
+    outfile: 'public/js/epub-bundle.js',
+    minify: true,
+    sourcemap: false,
+    define: { 'process.env.NODE_ENV': '"production"' },
+    logLevel: 'info',
+  });
+  console.log('EPUB reader bundle ready.');
+
   // Bundle the client-side markdown renderer (markdown-it + highlight.js).
   // With end-to-end encryption the server can't read note contents, so the
   // former server-side render/highlight endpoints now run in the browser.
