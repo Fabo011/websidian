@@ -42,6 +42,15 @@ export class StorageResolver {
     this.globalProvider = this.buildGlobal(app);
   }
 
+  /**
+   * The single shared provider built from the global env config (e.g. the
+   * operator's S3_* bucket). This is what "managed" users store their vault on,
+   * namespaced by their storageId. Also used to probe managed connectivity.
+   */
+  get globalStorageProvider(): StorageProvider {
+    return this.globalProvider;
+  }
+
   /** Build the single shared provider from the global env configuration. */
   private buildGlobal(app: AppConfig): StorageProvider {
     switch (app.storage.driver) {
@@ -82,6 +91,11 @@ export class StorageResolver {
         'Your stored storage configuration is corrupted. Reconnect your ' +
           'storage in the dashboard.',
       );
+    }
+    // Managed users share the app's global backend (namespaced by storageId);
+    // there are no per-user credentials to build a provider from.
+    if (cfg.driver === 'managed') {
+      return this.globalProvider;
     }
     const provider = buildUserProvider(cfg);
     this.cache.set(storageId, { hash, provider });

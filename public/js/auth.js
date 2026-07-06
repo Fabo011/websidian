@@ -290,14 +290,24 @@ function initStorageStep() {
     clearError(err);
     finish.disabled = true;
     try {
+      const selection = form.collect();
       const res = await fetch('/api/account/storage', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify(form.collect()),
+        body: JSON.stringify(selection),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
+        // Managed storage is billed: offer the paid plan before entering the
+        // app (like the hosted flow). Own storage goes straight in.
+        const planStep = document.getElementById('plan-step');
+        if (selection.driver === 'managed' && planStep && (await isBillingEnabled())) {
+          step.hidden = true;
+          planStep.hidden = false;
+          finish.disabled = false;
+          return;
+        }
         window.location.href = '/';
         return;
       }

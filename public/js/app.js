@@ -3727,7 +3727,11 @@ async function loadStorageSection() {
       cur.textContent = cfg.configured
         ? t('storage_connected_to', {
             provider:
-              cfg.driver === 's3' ? t('storage_type_s3') : t('storage_type_webdav'),
+              cfg.driver === 'managed'
+                ? t('storage_type_managed')
+                : cfg.driver === 's3'
+                  ? t('storage_type_s3')
+                  : t('storage_type_webdav'),
           })
         : t('storage_not_connected');
     }
@@ -3831,8 +3835,9 @@ function setPlanNav(visible) {
 }
 
 async function renderPlan(info) {
-  // Bring-your-own storage mode hosts no plans/billing at all.
-  if (info && info.userStorageEnabled) {
+  // Own bring-your-own storage (s3/webdav) hosts no plans/billing. Managed users
+  // store on the app's backend and ARE billed, so they keep the Plan section.
+  if (info && info.userStorageEnabled && !info.managed) {
     setPlanNav(false);
     return;
   }

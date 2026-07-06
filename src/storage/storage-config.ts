@@ -7,8 +7,12 @@ import { S3StorageProvider } from './s3-storage.provider';
 import { StorageProvider } from './storage.interface';
 import { WebdavStorageProvider } from './webdav-storage.provider';
 
-/** Storage drivers a user can bring themselves. */
-export type UserStorageDriver = 's3' | 'webdav';
+/**
+ * Storage drivers a user can pick. `s3`/`webdav` are credentials the user
+ * brings themselves; `managed` uses the app's own S3 backend (the global
+ * S3_* provider) namespaced to that user — no credentials to enter.
+ */
+export type UserStorageDriver = 's3' | 'webdav' | 'managed';
 
 /** S3 credentials as entered/stored for a single user. */
 export interface UserS3Config {
@@ -37,7 +41,8 @@ export interface UserWebdavConfig {
  */
 export type UserStorageConfig =
   | { driver: 's3'; s3: UserS3Config }
-  | { driver: 'webdav'; webdav: UserWebdavConfig };
+  | { driver: 'webdav'; webdav: UserWebdavConfig }
+  | { driver: 'managed' };
 
 /** Strip leading/trailing slashes from a path prefix. */
 function trimPrefix(value: string | undefined): string {
@@ -68,12 +73,22 @@ function normalizeWebdav(c: UserWebdavConfig): WebdavConfig {
   };
 }
 
-/** Build a live {@link StorageProvider} from a user's saved configuration. */
+/**
+ * Build a live {@link StorageProvider} from a user's own (s3/webdav) saved
+ * configuration. The `managed` driver has no credentials of its own — it reuses
+ * the app's global provider — so callers must resolve it separately (see
+ * {@link StorageResolver}); passing it here is a programming error.
+ */
 export function buildUserProvider(cfg: UserStorageConfig): StorageProvider {
   if (cfg.driver === 's3') {
     return new S3StorageProvider(normalizeS3(cfg.s3));
   }
-  return new WebdavStorageProvider(normalizeWebdav(cfg.webdav));
+  if (cfg.driver === 'webdav') {
+    return new WebdavStorageProvider(normalizeWebdav(cfg.webdav));
+  }
+  throw new Error(
+    'buildUserProvider cannot build the managed driver; use the global provider.',
+  );
 }
 
 /**

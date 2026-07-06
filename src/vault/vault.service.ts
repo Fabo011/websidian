@@ -171,9 +171,14 @@ export class VaultService {
     if (!user) {
       return this.entitlements.freeBytes;
     }
-    // Bring-your-own storage: the quota is the user's own self-set cap (in their
-    // own storage), independent of plans/billing. Null or 0 means unlimited.
-    if (this.config.get<AppConfig>('app')?.userStorageEnabled) {
+    // Bring-your-own storage (own s3/webdav): the quota is the user's own
+    // self-set cap in their own storage, independent of plans/billing. Null or 0
+    // means unlimited. Managed users are the exception — they store on the app's
+    // backend, so the plan tier / entitlement decides their quota (below).
+    if (
+      this.config.get<AppConfig>('app')?.userStorageEnabled &&
+      user.storageDriver !== 'managed'
+    ) {
       const n = user.storageQuotaBytes ? Number(user.storageQuotaBytes) : 0;
       return Number.isFinite(n) && n > 0 ? n : 0;
     }

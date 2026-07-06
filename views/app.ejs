@@ -379,7 +379,7 @@
               <i class="bi bi-exclamation-triangle"></i>
               <span data-i18n="storage_no_migration">There is no automatic migration yet. If you switch storage, export your vault first and import it again into the new storage — otherwise your existing notes will not appear.</span>
             </div>
-            <%- include('partials/storage-fields', { prefix: 'dash', contactEmail: contactEmail }) %>
+            <%- include('partials/storage-fields', { prefix: 'dash', contactEmail: contactEmail, managedAvailable: (typeof managedAvailable !== 'undefined' && managedAvailable) }) %>
             <p id="dash-storage-error" class="settings-hint form-error" hidden></p>
             <button id="dash-storage-save" class="btn-primary settings-inline-btn" type="button" data-i18n="storage_save">Save storage settings</button>
           </div>
