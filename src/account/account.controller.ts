@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -63,17 +64,19 @@ export class AccountController {
     const userStorage = this.app.userStorageEnabled;
     let dbUser = await this.users.findByUsername(user.username);
     const storageConfigured = Boolean(dbUser?.storageConfig);
+    // Managed users store on the app's own S3 backend, so they are billed and
+    // quota-limited exactly like a normal hosted account — unlike bring-your-own
+    // (s3/webdav) users, who manage their own storage with a self-set cap.
+    const isManaged = dbUser?.storageDriver === 'managed';
 
-    // In bring-your-own-storage mode there is no hosted plan/billing: usage is
+    // Bring-your-own storage (own s3/webdav): no hosted plan/billing. Usage is
     // still reported, but the quota is the user's own (self-set or unlimited)
     // and the billing fields collapse to the free/none defaults. We also avoid
     // hitting storage for usage before a provider is connected.
-    const usage =
-      userStorage && !storageConfigured
+    if (userStorage && !isManaged) {
+      const usage = !storageConfigured
         ? { used: 0, limit: this.userQuotaBytes(dbUser), unlimited: true }
         : await this.vault.usage(user.username);
-
-    if (userStorage) {
       const blacklisted = await this.blacklist.isBlacklisted(user.username);
       return {
         username: user.username,
@@ -91,11 +94,14 @@ export class AccountController {
         warnExpiringSoon: false,
         blacklisted,
         userStorageEnabled: true,
+        managed: false,
         storageConfigured,
         storageDriver: dbUser?.storageDriver ?? null,
       };
     }
 
+    // Hosted mode OR a managed user: the tier quota + Stripe billing apply.
+    const usage = await this.vault.usage(user.username);
     // Pull the latest subscription state from Stripe (no webhooks). Best-effort
     // and only when the user actually has a subscription to refresh.
     if (this.billing.ready && dbUser?.stripeSubscriptionId) {
@@ -119,9 +125,10 @@ export class AccountController {
       daysUntilExpiry: ent?.daysUntilExpiry ?? null,
       warnExpiringSoon: ent?.warnExpiringSoon ?? false,
       blacklisted,
-      userStorageEnabled: false,
-      storageConfigured: true,
-      storageDriver: null,
+      userStorageEnabled: userStorage,
+      managed: isManaged,
+      storageConfigured: userStorage ? storageConfigured : true,
+      storageDriver: isManaged ? 'managed' : null,
     };
   }
 
@@ -215,6 +222,8 @@ export class AccountController {
       configured: Boolean(dbUser?.storageConfig),
       contactEmail: this.app.pricing.contactEmail || '',
       quotaGb: this.bytesToGb(this.userQuotaBytes(dbUser ?? null)),
+      // Whether the managed (app-hosted S3) option may be offered to this user.
+      managedAvailable: this.app.managedStorageAvailable,
     };
     if (!dbUser?.storageConfig) {
       return { ...base, driver: null };
@@ -224,6 +233,9 @@ export class AccountController {
       cfg = JSON.parse(dbUser.storageConfig) as UserStorageConfig;
     } catch {
       return { ...base, driver: null };
+    }
+    if (cfg.driver === 'managed') {
+      return { ...base, driver: 'managed' as const };
     }
     if (cfg.driver === 's3') {
       const { secretAccessKey, ...rest } = cfg.s3;
@@ -252,6 +264,7 @@ export class AccountController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: StorageConfigDto,
   ) {
+    this.assertManagedAllowed(dto);
     const dbUser = await this.users.findByUsername(user.username);
     if (!dbUser) {
       throw new UnauthorizedException('Account no longer exists.');
@@ -273,6 +286,7 @@ export class AccountController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: StorageConfigDto,
   ) {
+    this.assertManagedAllowed(dto);
     const dbUser = await this.users.findByUsername(user.username);
     if (!dbUser) {
       throw new UnauthorizedException('Account no longer exists.');
@@ -282,8 +296,15 @@ export class AccountController {
     if (!result.ok) {
       return result;
     }
+    // Managed storage is billed/quota-limited by the plan tier, so a self-set
+    // cap does not apply — the entitlement decides the quota. Own storage keeps
+    // the user's optional self-imposed cap.
     const quotaBytes =
-      dto.quotaGb && dto.quotaGb > 0 ? Math.round(dto.quotaGb * GIB) : null;
+      cfg.driver === 'managed'
+        ? null
+        : dto.quotaGb && dto.quotaGb > 0
+          ? Math.round(dto.quotaGb * GIB)
+          : null;
     await this.users.setStorageConfig(
       dbUser,
       cfg.driver,
@@ -296,6 +317,9 @@ export class AccountController {
 
   /** Map the validated DTO into the internal {@link UserStorageConfig}. */
   private toUserConfig(dto: StorageConfigDto): UserStorageConfig {
+    if (dto.driver === 'managed') {
+      return { driver: 'managed' };
+    }
     if (dto.driver === 's3') {
       const s = dto.s3!;
       return {
@@ -361,10 +385,27 @@ export class AccountController {
     cfg: UserStorageConfig,
   ): Promise<{ ok: boolean; code?: string }> {
     try {
-      await probeProvider(buildUserProvider(cfg), user.storageId);
+      // Managed users have no own credentials — probe the app's global backend.
+      const provider =
+        cfg.driver === 'managed'
+          ? this.storageResolver.globalStorageProvider
+          : buildUserProvider(cfg);
+      await probeProvider(provider, user.storageId);
       return { ok: true };
     } catch (err) {
       return { ok: false, code: mapStorageError(err) };
+    }
+  }
+
+  /**
+   * Reject a managed selection when the operator has not enabled it (no global
+   * S3 backend). Guards both the test and save endpoints.
+   */
+  private assertManagedAllowed(dto: StorageConfigDto): void {
+    if (dto.driver === 'managed' && !this.app.managedStorageAvailable) {
+      throw new BadRequestException(
+        'Managed storage is not available on this instance.',
+      );
     }
   }
 

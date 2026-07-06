@@ -19,9 +19,16 @@
     <a href="mailto:<%= contactEmail %>"><%= contactEmail %></a><% } %>
   </p>
 
+  <% var managedOn = (typeof managedAvailable !== 'undefined' && managedAvailable); %>
   <div class="storage-type">
+    <% if (managedOn) { %>
     <label class="storage-type-opt">
-      <input type="radio" name="<%= prefix %>-driver" value="webdav" checked />
+      <input type="radio" name="<%= prefix %>-driver" value="managed" checked />
+      <span data-i18n="storage_type_managed">Managed storage (hosted by websidian)</span>
+    </label>
+    <% } %>
+    <label class="storage-type-opt">
+      <input type="radio" name="<%= prefix %>-driver" value="webdav" <% if (!managedOn) { %>checked<% } %> />
       <span data-i18n="storage_type_webdav">WebDAV (Nextcloud &amp; similar)</span>
     </label>
     <label class="storage-type-opt">
@@ -29,6 +36,16 @@
       <span data-i18n="storage_type_s3">S3-compatible object storage</span>
     </label>
   </div>
+
+  <!-- Managed (app-hosted S3) -->
+  <% if (managedOn) { %>
+  <div class="storage-driver-fields" data-driver="managed">
+    <div class="settings-callout">
+      <i class="bi bi-cloud-check"></i>
+      <span data-i18n="storage_managed_help">Store your encrypted vault on websidian's own storage — nothing to set up, no S3 or Nextcloud account needed. You get {free} for free; need more? Upgrade under Billing for up to {planGb} GB.</span>
+    </div>
+  </div>
+  <% } %>
 
   <!-- WebDAV -->
   <div class="storage-driver-fields" data-driver="webdav">
@@ -94,10 +111,12 @@
            placeholder="websidian" />
   </div>
 
-  <label class="modal-label" data-i18n="storage_quota">Storage limit in GB (optional)</label>
-  <input class="modal-input" data-field="quotaGb" type="number" min="0" step="0.1"
-         placeholder="0" />
-  <small class="muted" data-i18n="storage_quota_hint">It is your own storage, so this is just a self-imposed cap. Leave at 0 for unlimited.</small>
+  <div data-role="quota-wrap">
+    <label class="modal-label" data-i18n="storage_quota">Storage limit in GB (optional)</label>
+    <input class="modal-input" data-field="quotaGb" type="number" min="0" step="0.1"
+           placeholder="0" />
+    <small class="muted" data-i18n="storage_quota_hint">It is your own storage, so this is just a self-imposed cap. Leave at 0 for unlimited.</small>
+  </div>
 
   <div class="storage-test-row">
     <button type="button" class="btn-ghost" data-action="test" data-i18n="storage_test">Test connection</button>

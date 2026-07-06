@@ -74,7 +74,7 @@ export class UsersService {
    */
   async setStorageConfig(
     user: User,
-    driver: 's3' | 'webdav',
+    driver: 's3' | 'webdav' | 'managed',
     configJson: string,
     quotaBytes: number | null,
   ): Promise<User> {

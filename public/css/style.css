@@ -182,6 +182,29 @@ a { color: var(--accent); }
   margin: 18px 0;
 }
 
+.storage-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 22px 0 6px;
+}
+.storage-option-card {
+  border: 1px solid var(--border, #2a2a2a);
+  border-radius: 12px;
+  padding: 18px 20px;
+  background: var(--panel, rgba(255, 255, 255, 0.02));
+  text-align: left;
+}
+.storage-option-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+.storage-option-card p {
+  margin: 0 0 6px;
+  opacity: 0.9;
+  line-height: 1.5;
+}
+
 @media (max-width: 480px) {
   .auth-page { padding: 12px; }
   .auth-card { padding: 18px; border-radius: 10px; }
@@ -2120,6 +2143,58 @@ pre.hljs code { background: transparent; padding: 0; }
   padding: 5px 9px;
   white-space: nowrap;
   color: var(--text);
+}
+
+/* ===== EPUB e-book reader ===== */
+/* Fill the whole viewer pane; the reader handles its own internal layout. */
+.viewer-pane:has(> .epub-reader) { padding: 0; overflow: hidden; }
+.epub-reader {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  outline: none;
+  /* Always a bright "paper" page so the book's dark text stays readable even
+     in the app's dark theme. Side gutters keep text clear of the nav buttons. */
+  background: #ffffff;
+  padding: 0 56px;
+}
+.epub-area { flex: 1; min-width: 0; height: 100%; background: #ffffff; }
+.epub-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #d5d7dc;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #1a1a1a;
+  font-size: 1.2rem;
+  cursor: pointer;
+  opacity: 0.85;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  transition: opacity 0.15s ease;
+}
+.epub-nav:hover { opacity: 1; }
+.epub-prev { left: 10px; }
+.epub-next { right: 10px; }
+
+/* Tablet: tighter gutters. */
+@media (max-width: 900px) {
+  .epub-reader { padding: 0 46px; }
+}
+
+/* Mobile: smaller buttons + gutters so single-column text keeps full width. */
+@media (max-width: 560px) {
+  .epub-reader { padding: 0 34px; }
+  .epub-nav { width: 30px; height: 30px; font-size: 1rem; }
+  .epub-prev { left: 4px; }
+  .epub-next { right: 4px; }
 }
 
 /* ===== Documentation page ===== */

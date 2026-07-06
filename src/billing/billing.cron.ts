@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { AppConfig } from '../config/configuration';
 import { BlacklistService } from '../users/blacklist.service';
 import { EntitlementsService } from '../users/entitlements.service';
 import { UsersService } from '../users/users.service';
@@ -25,6 +27,7 @@ export class BillingCron {
     private readonly blacklist: BlacklistService,
     private readonly vault: VaultService,
     private readonly billing: BillingService,
+    private readonly config: ConfigService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
@@ -37,10 +40,20 @@ export class BillingCron {
 
     const users = await this.users.findAll();
     const freeBytes = this.entitlements.freeBytes;
+    // In bring-your-own-storage mode only "managed" users (stored on the app's
+    // own backend) are billed; users on their own s3/webdav pay nothing and are
+    // never reconciled/blacklisted.
+    const userStorage =
+      this.config.get<AppConfig>('app')?.userStorageEnabled ?? false;
     let flagged = 0;
 
     for (const user of users) {
       try {
+        // Skip own-storage users — they are not billable.
+        if (userStorage && user.storageDriver !== 'managed') {
+          await this.blacklist.remove(user.username);
+          continue;
+        }
         // Pull the latest subscription state from Stripe first.
         await this.billing.syncUser(user);
         const ent = await this.entitlements.forUser(user);

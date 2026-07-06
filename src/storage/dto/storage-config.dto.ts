@@ -68,10 +68,10 @@ export class WebdavCredsDto {
   basePath?: string;
 }
 
-/** Body for testing or saving a user's own storage credentials. */
+/** Body for testing or saving a user's storage selection/credentials. */
 export class StorageConfigDto {
-  @IsIn(['s3', 'webdav'])
-  driver: 's3' | 'webdav';
+  @IsIn(['s3', 'webdav', 'managed'])
+  driver: 's3' | 'webdav' | 'managed';
 
   @ValidateIf((o) => o.driver === 's3')
   @IsObject()

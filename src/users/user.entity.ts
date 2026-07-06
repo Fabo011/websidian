@@ -89,9 +89,13 @@ export class User {
   // S3-compatible or WebDAV backend. These columns are unused (null) in the
   // default single-backend mode.
 
-  /** Selected storage driver, or null when the user has not connected one. */
+  /**
+   * Selected storage driver, or null when the user has not connected one.
+   * `managed` means the user stores on the app's own S3 backend (billed +
+   * quota-limited); `s3`/`webdav` are the user's own bring-your-own credentials.
+   */
   @Column({ type: 'varchar', nullable: true })
-  storageDriver: 's3' | 'webdav' | null;
+  storageDriver: 's3' | 'webdav' | 'managed' | null;
 
   /**
    * The user's storage credentials, stored as encrypted JSON at rest (the

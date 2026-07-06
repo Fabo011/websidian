@@ -141,6 +141,15 @@ export interface AppConfig {
    * users — the original behaviour. Configured via USER_STORAGE_ENABLED.
    */
   userStorageEnabled: boolean;
+  /**
+   * Whether the "managed" storage option is offered to users. True only when
+   * bring-your-own mode is on ({@link AppConfig.userStorageEnabled}) AND the
+   * global backend is an S3 bucket (the operator's own S3, connected via the
+   * S3_* env vars). Managed users store their encrypted vault on that shared,
+   * app-hosted S3 — namespaced by their storageId — instead of connecting their
+   * own S3/WebDAV, and are billed/quota-limited like a normal hosted account.
+   */
+  managedStorageAvailable: boolean;
   /** At-rest encryption of vault contents (AES-256-GCM in Node.js). */
   encryption: { enabled: boolean; key: string };
   /**
@@ -358,6 +367,10 @@ export default (): { app: AppConfig } => {
   const resolvedCorsOrigins = corsOrigins.length > 0 ? corsOrigins : [appUrl];
 
   const storageDriver = parseStorageDriver(process.env.STORAGE_DRIVER);
+  const userStorageEnabled = parseBool(process.env.USER_STORAGE_ENABLED, false);
+  // Managed storage is offered only when bring-your-own is on and the global
+  // backend is an S3 bucket the operator connected via the S3_* env vars.
+  const managedStorageAvailable = userStorageEnabled && storageDriver === 's3';
 
   return {
     app: {
@@ -421,7 +434,8 @@ export default (): { app: AppConfig } => {
         key: process.env.ENCRYPTION_KEY?.trim() || '',
       },
       storage: buildStorageConfig(storageDriver),
-      userStorageEnabled: parseBool(process.env.USER_STORAGE_ENABLED, false),
+      userStorageEnabled,
+      managedStorageAvailable,
       rateLimit: {
         enabled: parseBool(process.env.RATE_LIMIT_ENABLED, true),
         // Window length in seconds (default 60s = "per minute").

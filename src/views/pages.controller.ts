@@ -55,17 +55,24 @@ export class PagesController {
         allowRegistration: canRegister,
         registrationsLeft: left,
         pricing: this.app.pricing,
+        freeBytes: this.app.tiers.free,
+        planGb: this.app.pricing.planGb,
+        managedAvailable: this.app.managedStorageAvailable,
+        billingEnabled: this.app.stripe.enabled,
       });
     }
     const dbUser = await this.users.findByUsername(username.toLowerCase());
     return res.render('app', {
       username,
       userStorageEnabled: this.app.userStorageEnabled,
+      managedAvailable: this.app.managedStorageAvailable,
       storageConfigured: this.app.userStorageEnabled
         ? Boolean(dbUser?.storageConfig)
         : true,
       contactEmail: this.app.pricing.contactEmail || '',
       donationLink: this.app.pricing.donationLink || '',
+      freeBytes: this.app.tiers.free,
+      planGb: this.app.pricing.planGb,
     });
   }
 
@@ -132,7 +139,10 @@ export class PagesController {
     return res.render('register', {
       registrationsLeft: left,
       userStorageEnabled: this.app.userStorageEnabled,
+      managedAvailable: this.app.managedStorageAvailable,
       contactEmail: this.app.pricing.contactEmail || '',
+      freeBytes: this.app.tiers.free,
+      planGb: this.app.pricing.planGb,
     });
   }
 }

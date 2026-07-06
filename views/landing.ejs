@@ -125,6 +125,7 @@
         <li><i class="bi bi-link-45deg"></i> <span data-i18n="feat_weblinks">Web link manager &mdash; save &amp; reopen trusted links</span></li>
         <li><i class="bi bi-pencil"></i> <span data-i18n="feat_excalidraw">Excalidraw drawing integration</span></li>
         <li><i class="bi bi-file-earmark-pdf"></i> <span data-i18n="feat_pdf">Built-in PDF viewer</span></li>
+        <li><i class="bi bi-book"></i> <span data-i18n="feat_epub">EPUB e-book reader</span></li>
         <li><i class="bi bi-paperclip"></i> <span data-i18n="feat_attach">Attachments &amp; file uploads</span></li>
         <li><i class="bi bi-search"></i> <span data-i18n="feat_search">Full-text search that runs in your browser</span></li>
         <li><i class="bi bi-box-arrow-down"></i> <span data-i18n="feat_export">Export your whole vault as a decrypted zip</span></li>
@@ -167,13 +168,28 @@
     </section>
 
     <section class="landing-section support-section" id="storage">
-      <h2 data-i18n="byo_title">Bring your own storage</h2>
+      <h2 data-i18n="byo_title">Your storage, your choice</h2>
       <p class="section-lead" data-i18n="byo_lead">
-        websidian does not host your files. When you sign up you connect your own
-        storage — an S3-compatible bucket (e.g. Mega S4) or a WebDAV server
-        (e.g. Nextcloud). Everything is end-to-end encrypted before it leaves
-        your browser, so the provider only ever stores ciphertext it cannot read.
+        Everything is end-to-end encrypted before it leaves your browser, so
+        whichever storage you pick only ever holds ciphertext it cannot read.
       </p>
+
+      <div class="storage-options">
+        <div class="storage-option-card">
+          <h3><i class="bi bi-hdd-stack"></i> <span data-i18n="storage_opt_own_title">Bring your own storage</span></h3>
+          <p data-i18n="storage_opt_own_desc">Connect your own S3-compatible bucket (e.g. Mega S4) or a WebDAV server (e.g. Nextcloud). websidian never hosts these files — you pay your provider directly, and there is no storage limit from us.</p>
+        </div>
+        <% if (typeof managedAvailable !== 'undefined' && managedAvailable) { %>
+        <div class="storage-option-card">
+          <h3><i class="bi bi-cloud-check"></i> <span data-i18n="storage_opt_managed_title">Managed storage</span></h3>
+          <p data-i18n="storage_opt_managed_desc">No account to set up — store on websidian's own storage. Free up to {free}. Need more? Under Billing you can raise it to {planGb} GB — a voluntary donation toward storage &amp; server costs.</p>
+          <% if (typeof pricing !== 'undefined' && pricing.pricePlus) { %>
+          <p class="pricing-note"><span data-i18n="storage_opt_managed_price">Suggested donation for the upgrade:</span> <strong><%= pricing.pricePlus %></strong></p>
+          <% } %>
+        </div>
+        <% } %>
+      </div>
+
       <div class="support-actions">
         <% if (typeof pricing !== 'undefined' && pricing.contactEmail) { %>
         <a class="btn-ghost" href="mailto:<%= pricing.contactEmail %>"><i class="bi bi-envelope"></i> <span data-i18n="support_contact">Need help? Contact us</span></a>

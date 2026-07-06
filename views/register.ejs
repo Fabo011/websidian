@@ -97,7 +97,7 @@
         websidian does not host your files — connect your own storage to finish.
         You can change it anytime in your dashboard.
       </p>
-      <%- include('partials/storage-fields', { prefix: 'reg', contactEmail: contactEmail }) %>
+      <%- include('partials/storage-fields', { prefix: 'reg', contactEmail: contactEmail, managedAvailable: (typeof managedAvailable !== 'undefined' && managedAvailable) }) %>
       <p class="form-error" id="storage-error" hidden></p>
       <button type="button" id="storage-finish" class="btn-primary" data-i18n="storage_finish">Connect &amp; finish</button>
     </section>

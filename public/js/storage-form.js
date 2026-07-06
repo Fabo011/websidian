@@ -27,11 +27,15 @@ window.StorageForm = (function () {
       const checked = root.querySelector(driverSel + ':checked');
       return checked ? checked.value : 'webdav';
     }
+    const quotaWrap = root.querySelector('[data-role="quota-wrap"]');
     function syncGroups() {
       const d = currentDriver();
       groups.forEach((g) => {
         g.hidden = g.getAttribute('data-driver') !== d;
       });
+      // Managed storage is billed/quota-limited by the plan, so the self-set
+      // cap does not apply — hide it.
+      if (quotaWrap) quotaWrap.hidden = d === 'managed';
     }
     root.querySelectorAll(driverSel).forEach((i) =>
       i.addEventListener('change', () => {
@@ -58,6 +62,10 @@ window.StorageForm = (function () {
       const d = currentDriver();
       const quotaEl = root.querySelector('[data-field="quotaGb"]');
       const quotaGb = quotaEl && quotaEl.value ? Number(quotaEl.value) : 0;
+      if (d === 'managed') {
+        // No credentials and no self-quota — the app hosts and bills it.
+        return { driver: 'managed' };
+      }
       if (d === 's3') {
         const ps = field('s3', 'forcePathStyle');
         const secret = field('s3', 'secretAccessKey');
@@ -135,7 +143,11 @@ window.StorageForm = (function () {
       if (cfg.contactEmail) contactEmail = cfg.contactEmail;
       const quotaEl = root.querySelector('[data-field="quotaGb"]');
       if (quotaEl) quotaEl.value = cfg.quotaGb ? cfg.quotaGb : '';
-      if (cfg.driver === 's3' || cfg.driver === 'webdav') {
+      if (
+        cfg.driver === 's3' ||
+        cfg.driver === 'webdav' ||
+        cfg.driver === 'managed'
+      ) {
         const radio = root.querySelector(
           driverSel + '[value="' + cfg.driver + '"]',
         );

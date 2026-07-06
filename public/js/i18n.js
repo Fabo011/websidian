@@ -103,6 +103,8 @@
       no_preview: 'No preview available for this file type.',
       loading_editor: 'Loading editor…',
       excalidraw_failed: 'Failed to load Excalidraw editor.',
+      epub_prev: 'Previous page',
+      epub_next: 'Next page',
 
       /* markdown toolbar tooltips */
       md_bold_tip: 'Bold — wrap text in ** ** · e.g. **important**',
@@ -233,13 +235,16 @@
       storage_not_connected: 'Not connected',
       storage_choose_provider: 'Connect your storage',
       storage_choose_hint:
-        'websidian does not host your files — connect your own storage to finish. You can change it anytime in your dashboard.',
+        'Choose where your encrypted vault is stored to finish — managed storage hosted by websidian, or bring your own. You can change it anytime in your dashboard.',
       storage_intro:
         'Your notes are end-to-end encrypted before they leave your device, so the provider only ever sees ciphertext — the choice is not critical, pick one you trust most. websidian is tested end-to-end with Nextcloud (WebDAV) and Mega S4 (S3).',
       storage_encrypted_note:
         'The credentials you enter here are stored encrypted at rest — they are never saved in plaintext.',
+      storage_type_managed: 'Managed storage (hosted by websidian)',
       storage_type_webdav: 'WebDAV (Nextcloud & similar)',
       storage_type_s3: 'S3-compatible object storage',
+      storage_managed_help:
+        "Store your encrypted vault on websidian's own storage — nothing to set up, no S3 or Nextcloud account needed. You get {free} for free; need more? Upgrade under Billing for up to {planGb} GB.",
       storage_webdav_help:
         'Enter your WebDAV server URL and login. For Nextcloud use the WebDAV URL from Settings → "WebDAV" and an app password.',
       storage_s3_help:
@@ -288,10 +293,17 @@
       storage_help_link: 'How to connect (with screenshots)',
       storage_need_help: 'Need help? Contact',
 
-      /* landing: bring-your-own storage + support */
-      byo_title: 'Bring your own storage',
+      /* landing: storage options + support */
+      byo_title: 'Your storage, your choice',
       byo_lead:
-        'websidian does not host your files. When you sign up you connect your own storage — an S3-compatible bucket (e.g. Mega S4) or a WebDAV server (e.g. Nextcloud). Everything is end-to-end encrypted before it leaves your browser, so the provider only ever stores ciphertext it cannot read.',
+        'Everything is end-to-end encrypted before it leaves your browser, so whichever storage you pick only ever holds ciphertext it cannot read.',
+      storage_opt_own_title: 'Bring your own storage',
+      storage_opt_own_desc:
+        'Connect your own S3-compatible bucket (e.g. Mega S4) or a WebDAV server (e.g. Nextcloud). websidian never hosts these files — you pay your provider directly, and there is no storage limit from us.',
+      storage_opt_managed_title: 'Managed storage',
+      storage_opt_managed_desc:
+        "No account to set up — store on websidian's own storage. Free up to {free}. Need more? Under Billing you can raise it to {planGb} GB — a voluntary donation toward storage & server costs.",
+      storage_opt_managed_price: 'Suggested donation for the upgrade:',
       support_contact: 'Need help? Contact us',
       support_donate: 'Donate via PayPal',
       support_note:
@@ -379,7 +391,7 @@
         '<strong>Independent of the browser.</strong> Because the links are kept server-side in your vault rather than in a browser profile, they are not tied to any one browser, extension or sync account. Nothing to install, nothing to export when you move devices &mdash; just log in and your trusted links are there.',
       docs_files_h: 'Supported files',
       docs_files_p1:
-        'Beyond markdown and Excalidraw, you can browse a wide range of files like in a code editor &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> and many more &mdash; with syntax highlighting. Word (<code>.docx</code>), Excel (<code>.xlsx</code>/<code>.xls</code>) and OpenDocument (<code>.odt</code>/<code>.ods</code>) files render read-only in the browser. All of them are end-to-end encrypted in your browser just like your notes.',
+        'Beyond markdown and Excalidraw, you can browse a wide range of files like in a code editor &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> and many more &mdash; with syntax highlighting. Word (<code>.docx</code>), Excel (<code>.xlsx</code>/<code>.xls</code>) and OpenDocument (<code>.odt</code>/<code>.ods</code>) files render read-only in the browser, and EPUB (<code>.epub</code>) e-books open in a paginated reader. All of them are end-to-end encrypted in your browser just like your notes.',
       docs_arch_li_auth:
         '<strong>HTTP-only auth token</strong> &mdash; the session cookie is HTTP-only, so it cannot be read or manipulated by XSS JavaScript attacks.',
       docs_arch_li_nest:
@@ -397,6 +409,8 @@
         'websidian does not host your files. You connect your own storage when you sign up (and can change it any time in the dashboard), so your encrypted vault lives on a backend you control. Whatever you pick is a blind blob store: only end-to-end encrypted ciphertext is ever written, so the host cannot read your notes. Because everything is already encrypted in your browser, you do not need a provider with its own “client-side encryption”.',
       storage_p2:
         'Two kinds of storage are supported, and the provider choice is not critical (it only ever sees ciphertext) — pick one you trust:',
+      storage_li_managed:
+        "Managed storage — if this instance offers it, store on websidian's own storage with nothing to set up. It is free up to the included allowance; you can raise the limit under Billing. No S3 or Nextcloud account of your own is needed.",
       storage_li_s3:
         'S3-compatible object storage — e.g. Mega S4 (very inexpensive) or Hetzner Object Storage (Germany), also AWS S3, MinIO, …',
       storage_li_webdav:
@@ -670,6 +684,7 @@
       feat_weblinks: 'Web link manager — save & reopen trusted links',
       feat_excalidraw: 'Excalidraw drawing integration',
       feat_pdf: 'Built-in PDF viewer',
+      feat_epub: 'EPUB e-book reader',
       feat_attach: 'Attachments & file uploads',
       feat_search: 'Full-text search that runs in your browser',
       feat_export: 'Export your whole vault as a decrypted zip',
@@ -948,6 +963,8 @@
       no_preview: 'Für diesen Dateityp ist keine Vorschau verfügbar.',
       loading_editor: 'Editor wird geladen…',
       excalidraw_failed: 'Der Excalidraw-Editor konnte nicht geladen werden.',
+      epub_prev: 'Vorherige Seite',
+      epub_next: 'Nächste Seite',
 
       /* Markdown-Werkzeugleiste */
       md_bold_tip: 'Fett — Text in ** ** einfassen · z. B. **wichtig**',
@@ -1078,13 +1095,16 @@
       storage_not_connected: 'Nicht verbunden',
       storage_choose_provider: 'Speicher verbinden',
       storage_choose_hint:
-        'websidian hostet deine Dateien nicht — verbinde deinen eigenen Speicher, um abzuschließen. Du kannst ihn jederzeit im Dashboard ändern.',
+        'Wähle zum Abschluss, wo dein verschlüsselter Tresor gespeichert wird — verwalteter Speicher von websidian oder dein eigener. Du kannst dies jederzeit im Dashboard ändern.',
       storage_intro:
         'Deine Notizen werden Ende-zu-Ende verschlüsselt, bevor sie dein Gerät verlassen — der Anbieter sieht nur Chiffretext. Die Wahl ist daher unkritisch, nimm den, dem du am meisten vertraust. websidian ist mit Nextcloud (WebDAV) und Mega S4 (S3) vollständig getestet.',
       storage_encrypted_note:
         'Die hier eingegebenen Zugangsdaten werden verschlüsselt gespeichert — niemals im Klartext.',
+      storage_type_managed: 'Verwalteter Speicher (gehostet von websidian)',
       storage_type_webdav: 'WebDAV (Nextcloud & ähnliche)',
       storage_type_s3: 'S3-kompatibler Objektspeicher',
+      storage_managed_help:
+        'Speichere deinen verschlüsselten Tresor auf dem Speicher von websidian — nichts einzurichten, kein S3- oder Nextcloud-Konto nötig. {free} bekommst du kostenlos; brauchst du mehr? Unter „Abrechnung“ auf bis zu {planGb} GB upgraden.',
       storage_webdav_help:
         'Gib die URL und den Login deines WebDAV-Servers ein. Bei Nextcloud die WebDAV-URL aus Einstellungen → „WebDAV“ und ein App-Passwort verwenden.',
       storage_s3_help:
@@ -1135,10 +1155,17 @@
       storage_help_link: 'So verbindest du (mit Screenshots)',
       storage_need_help: 'Brauchst du Hilfe? Kontakt',
 
-      /* Startseite: eigener Speicher + Unterstützung */
-      byo_title: 'Eigenen Speicher verbinden',
+      /* Startseite: Speicheroptionen + Unterstützung */
+      byo_title: 'Dein Speicher, deine Wahl',
       byo_lead:
-        'websidian hostet deine Dateien nicht. Bei der Registrierung verbindest du deinen eigenen Speicher — einen S3-kompatiblen Bucket (z. B. Mega S4) oder einen WebDAV-Server (z. B. Nextcloud). Alles wird Ende-zu-Ende verschlüsselt, bevor es deinen Browser verlässt — der Anbieter speichert nur Chiffretext, den er nicht lesen kann.',
+        'Alles wird Ende-zu-Ende verschlüsselt, bevor es deinen Browser verlässt — egal welchen Speicher du wählst, dort liegt nur Chiffretext, den niemand lesen kann.',
+      storage_opt_own_title: 'Eigenen Speicher verbinden',
+      storage_opt_own_desc:
+        'Verbinde deinen eigenen S3-kompatiblen Bucket (z. B. Mega S4) oder einen WebDAV-Server (z. B. Nextcloud). websidian hostet diese Dateien nie — du zahlst direkt bei deinem Anbieter, und von uns gibt es kein Speicherlimit.',
+      storage_opt_managed_title: 'Verwalteter Speicher',
+      storage_opt_managed_desc:
+        'Kein Konto einzurichten — speichere auf dem Speicher von websidian. Kostenlos bis {free}. Mehr nötig? Unter „Abrechnung“ kannst du auf {planGb} GB erhöhen — eine freiwillige Spende für Speicher- & Serverkosten.',
+      storage_opt_managed_price: 'Empfohlene Spende für das Upgrade:',
       support_contact: 'Brauchst du Hilfe? Kontaktiere uns',
       support_donate: 'Per PayPal spenden',
       support_note:
@@ -1229,7 +1256,7 @@
         '<strong>Unabhängig vom Browser.</strong> Da die Links serverseitig in deinem Tresor liegen und nicht in einem Browserprofil, sind sie nicht an einen einzelnen Browser, eine Erweiterung oder ein Sync-Konto gebunden. Nichts zu installieren, nichts zu exportieren, wenn du das Gerät wechselst &mdash; einfach anmelden und deine vertrauten Links sind da.',
       docs_files_h: 'Unterstützte Dateien',
       docs_files_p1:
-        'Über Markdown und Excalidraw hinaus kannst du eine breite Palette von Dateien wie in einem Code-Editor durchsehen &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> und viele mehr &mdash; mit Syntaxhervorhebung. Word- (<code>.docx</code>), Excel- (<code>.xlsx</code>/<code>.xls</code>) und OpenDocument-Dateien (<code>.odt</code>/<code>.ods</code>) werden im Browser schreibgeschützt dargestellt. Sie alle werden wie deine Notizen in deinem Browser Ende-zu-Ende-verschlüsselt.',
+        'Über Markdown und Excalidraw hinaus kannst du eine breite Palette von Dateien wie in einem Code-Editor durchsehen &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> und viele mehr &mdash; mit Syntaxhervorhebung. Word- (<code>.docx</code>), Excel- (<code>.xlsx</code>/<code>.xls</code>) und OpenDocument-Dateien (<code>.odt</code>/<code>.ods</code>) werden im Browser schreibgeschützt dargestellt, und EPUB-E-Books (<code>.epub</code>) öffnen sich in einem seitenweisen Reader. Sie alle werden wie deine Notizen in deinem Browser Ende-zu-Ende-verschlüsselt.',
       docs_arch_li_auth:
         '<strong>HTTP-only-Auth-Token</strong> &mdash; das Sitzungs-Cookie ist HTTP-only, sodass es von XSS-JavaScript-Angriffen nicht gelesen oder manipuliert werden kann.',
       docs_arch_li_nest:
@@ -1246,7 +1273,9 @@
       storage_p1:
         'websidian hostet deine Dateien nicht. Du verbindest deinen eigenen Speicher bei der Registrierung (und kannst ihn jederzeit im Dashboard ändern) — dein verschlüsselter Tresor liegt also auf einem Backend, das du kontrollierst. Egal was du wählst: Es ist ein blinder Blob-Speicher, in den nur Ende-zu-Ende-verschlüsselter Chiffretext geschrieben wird, sodass der Host deine Notizen nicht lesen kann. Da im Browser bereits alles verschlüsselt wird, brauchst du keinen Anbieter mit eigener „clientseitiger Verschlüsselung“.',
       storage_p2:
-        'Zwei Arten von Speicher werden unterstützt; die Wahl des Anbieters ist unkritisch (er sieht nur Chiffretext) — nimm einen, dem du vertraust:',
+        'Die Wahl des Anbieters ist unkritisch (er sieht nur Chiffretext) — nimm einen, dem du vertraust:',
+      storage_li_managed:
+        'Verwalteter Speicher — falls diese Instanz ihn anbietet, speichere auf dem Speicher von websidian, ohne etwas einzurichten. Kostenlos bis zum enthaltenen Kontingent; das Limit kannst du unter „Abrechnung“ erhöhen. Kein eigenes S3- oder Nextcloud-Konto nötig.',
       storage_li_s3:
         'S3-kompatibler Objektspeicher — z. B. Mega S4 (sehr günstig) oder Hetzner Object Storage (Deutschland), auch AWS S3, MinIO, …',
       storage_li_webdav:
@@ -1520,6 +1549,7 @@
       feat_weblinks: 'Weblink-Manager — vertrauenswürdige Links speichern & erneut öffnen',
       feat_excalidraw: 'Excalidraw-Zeichenintegration',
       feat_pdf: 'Eingebauter PDF-Viewer',
+      feat_epub: 'EPUB-E-Book-Reader',
       feat_attach: 'Anhänge & Datei-Uploads',
       feat_search: 'Volltextsuche, die in deinem Browser läuft',
       feat_export: 'Exportiere deinen gesamten Tresor als entschlüsseltes Zip',
@@ -1762,6 +1792,11 @@
       (typeof window !== 'undefined' && window.__WO_MAX_IMPORT_TOTAL_MB__) || 0,
     ) || 2048;
 
+  // Paid ("plus") plan size in GB (STORAGE_PLUS_GB). Used by managed-storage
+  // copy as {planGb}. Falls back to 3 GB.
+  const planGb =
+    Number((typeof window !== 'undefined' && window.__WO_PLAN_GB__) || 0) || 3;
+
   // Render a MB value as a friendly size (e.g. 2048 -> "2 GB", 512 -> "512 MB").
   function fmtMb(mb) {
     if (mb >= 1024) {
@@ -1779,6 +1814,7 @@
       maxUploadSize: fmtMb(maxUploadMb),
       maxImportFiles: maxImportFiles.toLocaleString(),
       maxImportTotal: fmtMb(maxImportTotalMb),
+      planGb: planGb,
     };
     const f = fmtBytes(freeBytes);
     if (f) vars.free = f;
