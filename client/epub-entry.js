@@ -92,21 +92,34 @@ export function mount(container, arrayBuffer, opts = {}) {
     rendition.themes.select('wo');
   }
 
-  // Restore the saved page once the book's spine is parsed; displaying a CFI
-  // before `book.ready` silently falls back to page one. `restored` guards the
-  // relocated handler so the initial render can't clobber the stored position.
-  let restored = false;
-  book.ready
-    .then(() => rendition.display(loadLocation() || undefined))
-    .then(() => {
-      restored = true;
-      applyTheme();
-    });
+  // Restore the saved page. `rendition.display(cfi)` queues internally until the
+  // spine is parsed, so it does not need `book.ready`.
+  //
+  // IMPORTANT: this reader is often mounted into a hidden (display:none) tab
+  // pane, which has zero dimensions. epub.js cannot paginate — and therefore
+  // cannot position a CFI — in a zero-size container, so the restore silently
+  // lands on page one. `resize()` (called by the host when the pane becomes
+  // visible) re-paginates and re-displays `currentCfi` so we land on the right
+  // spot. `currentCfi` tracks the position we want to be at (saved, then updated
+  // as the user reads).
+  const savedCfi = loadLocation();
+  let currentCfi = savedCfi || null;
+  rendition.display(savedCfi || undefined);
+  book.ready.then(applyTheme);
 
-  // epub.js fires `relocated` on every page turn with the current CFI.
+  // epub.js fires `relocated` on every page turn with the current CFI. Skip
+  // saving only the first event when we restored a position, so the initial
+  // render (or a restore that fell back to page one) cannot clobber the stored
+  // spot. Every later navigation updates `currentCfi` and is saved.
+  let skipFirst = Boolean(savedCfi);
   rendition.on('relocated', (location) => {
-    if (!restored) return;
-    if (location && location.start) saveLocation(location.start.cfi);
+    if (!location || !location.start || !location.start.cfi) return;
+    currentCfi = location.start.cfi;
+    if (skipFirst) {
+      skipFirst = false;
+      return;
+    }
+    saveLocation(location.start.cfi);
   });
 
   const goPrev = () => rendition.prev();
@@ -125,6 +138,26 @@ export function mount(container, arrayBuffer, opts = {}) {
   rendition.on('keydown', onKey);
 
   return {
+    /**
+     * Re-paginate and re-anchor to the current position. The host calls this
+     * when the reader's tab pane becomes visible: epub.js could not lay the book
+     * out while the pane was hidden (zero size), so without this the reader stays
+     * stuck on page one.
+     */
+    resize() {
+      try {
+        rendition.resize();
+      } catch (e) {
+        /* ignore */
+      }
+      if (currentCfi) {
+        try {
+          rendition.display(currentCfi);
+        } catch (e) {
+          /* ignore */
+        }
+      }
+    },
     destroy() {
       root.removeEventListener('keydown', onKey);
       try {

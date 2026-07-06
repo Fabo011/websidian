@@ -1,0 +1,43 @@
+# Quality gate: install, audit (critical), lint, build, full Jest suite.
+#
+# Runs on every push to `dev` and every pull request targeting `main`. A red
+# run means the change broke something — nothing should be merged to `main`
+# until this is green.
+#
+# Also reusable via `workflow_call`: the release pipeline (release.yml) calls
+# this workflow as its quality gate on `main`, so the steps are defined once.
+
+name: ci
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      # Node 24 to match engines.node and the lockfile (see AGENTS.md).
+      image: node:24-bookworm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Quality gate: fail the build when any dependency has a CRITICAL
+      # vulnerability. Lower severities are reported by npm but do not block.
+      - name: Audit dependencies (block on critical)
+        run: npm audit --audit-level=critical
+
+      - name: Lint
+        run: npx eslint "{src,apps,libs,test}/**/*.ts"
+
+      - name: Build client + server
+        run: npm run build:all
+
+      - name: Run tests (quality gate)
+        run: npm test

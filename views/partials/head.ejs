@@ -53,6 +53,11 @@
   })();
 </script>
 <script>
+  // Cache-busting asset version (?v=...). Lazy-loaded bundles (epub/office/
+  // excalidraw) are injected by app.js as <script> tags, which — unlike the
+  // EJS-rendered tags — must append this token themselves, or the immutable
+  // 1-year cache serves a stale copy forever after an update.
+  window.__WO_ASSET_V__ = '<%= v %>';
   // Free-tier storage allowance (bytes), set by the server from STORAGE_QUOTA_GB.
   // i18n.js reads this to render the real free quota instead of a hardcoded size.
   window.__WO_FREE_BYTES__ = <%= typeof freeBytes !== 'undefined' ? freeBytes : 0 %>;

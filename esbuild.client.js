@@ -12,7 +12,15 @@ async function main() {
     minify: true,
     sourcemap: false,
     conditions: ['production'],
-    define: { 'process.env.NODE_ENV': '"production"' },
+    // @excalidraw/excalidraw's main.js branches on process.env.IS_PREACT /
+    // NODE_ENV. Replace those literals at build time; the banner shim then
+    // guarantees any remaining runtime `process.env.*` access resolves instead
+    // of throwing "process is not defined" in the browser.
+    define: {
+      'process.env.NODE_ENV': '"production"',
+      'process.env.IS_PREACT': '"false"',
+    },
+    banner: { js: 'window.process = window.process || { env: {} };' },
     loader: {
       '.woff2': 'file',
       '.woff': 'file',
@@ -21,13 +29,15 @@ async function main() {
     logLevel: 'info',
   });
 
-  // Copy Excalidraw runtime assets (fonts, locales) for offline use.
+  // Copy Excalidraw runtime assets (fonts, locales) for offline use. These are
+  // loaded at runtime from window.EXCALIDRAW_ASSET_PATH. In @excalidraw >=0.17
+  // they live under dist/excalidraw-assets (older versions used dist/prod).
   const src = path.join(
     'node_modules',
     '@excalidraw',
     'excalidraw',
     'dist',
-    'prod',
+    'excalidraw-assets',
   );
   const dest = path.join('public', 'vendor', 'excalidraw');
   fs.rmSync(dest, { recursive: true, force: true });

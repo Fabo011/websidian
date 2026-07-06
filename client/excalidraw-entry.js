@@ -6,7 +6,8 @@
 window.EXCALIDRAW_ASSET_PATH = '/public/vendor/excalidraw/';
 
 import { Excalidraw, serializeAsJSON } from '@excalidraw/excalidraw';
-import '@excalidraw/excalidraw/index.css';
+// @excalidraw/excalidraw >=0.17 ships no separate index.css — its styles are
+// inlined in the JS bundle and injected at runtime, so no CSS import is needed.
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 

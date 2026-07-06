@@ -1395,6 +1395,12 @@ function activateViewerTab(tab) {
   $('#viewer-body')
     .querySelectorAll('.viewer-pane')
     .forEach((p) => (p.hidden = p !== tab.pane));
+  // epub.js cannot paginate/position while its pane is hidden (zero size), so it
+  // renders on page one. Now that the pane is visible, re-paginate and re-anchor
+  // to the saved reading position. rAF so the browser has applied the layout.
+  if (tab.epub && tab.epub.resize) {
+    requestAnimationFrame(() => tab.epub.resize());
+  }
   const dl = $('#viewer-download');
   if (tab.blobUrl) {
     dl.href = tab.blobUrl;
@@ -2337,13 +2343,22 @@ document.addEventListener('keydown', (e) => {
 
 /* ---------- office document viewer (Word / Excel / OpenDocument) ---------- */
 
+// Build a cache-busted URL for a lazy-loaded bundle. These <script> tags are
+// injected at runtime (not rendered by EJS), so they must carry the asset
+// version themselves — otherwise the immutable 1-year cache serves a stale copy
+// forever after an update.
+function bundleUrl(file) {
+  const v = window.__WO_ASSET_V__;
+  return '/public/js/' + file + (v ? '?v=' + encodeURIComponent(v) : '');
+}
+
 let officeLoading = null;
 function ensureOffice() {
   if (window.OfficeViewer) return Promise.resolve();
   if (officeLoading) return officeLoading;
   officeLoading = new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = '/public/js/office-bundle.js';
+    s.src = bundleUrl('office-bundle.js');
     s.onload = () => resolve();
     s.onerror = () => reject(new Error('Failed to load the document viewer.'));
     document.body.appendChild(s);
@@ -2400,7 +2415,7 @@ function ensureEpub() {
   if (epubLoading) return epubLoading;
   epubLoading = new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = '/public/js/epub-bundle.js';
+    s.src = bundleUrl('epub-bundle.js');
     s.onload = () => resolve();
     s.onerror = () => reject(new Error('Failed to load the e-book reader.'));
     document.body.appendChild(s);
@@ -2454,7 +2469,7 @@ function ensureExcalidraw() {
   if (excalidrawLoading) return excalidrawLoading;
   excalidrawLoading = new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = '/public/js/excalidraw-bundle.js';
+    s.src = bundleUrl('excalidraw-bundle.js');
     s.onload = () => resolve();
     s.onerror = () => reject(new Error('Failed to load Excalidraw editor.'));
     document.body.appendChild(s);
