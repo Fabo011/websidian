@@ -1,8 +1,13 @@
 # GitHub Actions pipeline.
 #
 # On every push to `main` this will:
-#   1. Build the project and run the test suite.
-#   2. Derive a version, create and push a git tag.
+#   1. Run the quality gate by calling the reusable ci.yml workflow
+#      (install, npm audit on critical, lint, build, full test suite).
+#   2. Derive the next version from the latest existing `v*` git tag, bumped
+#      by the merged PR's title: MAJOR -> major, FEATURE -> minor,
+#      FIX -> patch (also the fallback when none of the keywords is present).
+#      package.json is left untouched — git tags are the version source of
+#      truth. Then create and push the new tag.
 #   3. Build a multi-arch Docker image (linux/amd64 + linux/arm64) so it runs on
 #      x86_64 servers (e.g. Ubuntu 26.04 x86_64) as well as ARM (Raspberry Pi)
 #      and push it to the GitHub Container Registry (ghcr.io).
@@ -26,32 +31,14 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-project:
-    runs-on: ubuntu-latest
-    container:
-      image: node:24-bookworm
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: npm ci
-
-      # Quality gate: no release when any dependency has a CRITICAL
-      # vulnerability. Lower severities are reported but do not block.
-      - name: Audit dependencies (block on critical)
-        run: npm audit --audit-level=critical
-
-      - name: Build client + server
-        run: npm run build:all
-
-      # Quality gate: the release job below only runs when the full test
-      # suite passes. A failing test blocks the tag + Docker image.
-      - name: Run tests
-        run: npm test
+  # Quality gate: reuses the ci.yml workflow (install, audit on critical
+  # vulnerabilities, lint, build, tests). The release job below only runs
+  # when it passes — a failing gate blocks the tag + Docker image.
+  quality-gate:
+    uses: ./.github/workflows/ci.yml
 
   release:
-    needs: build-project
+    needs: quality-gate
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -62,16 +49,47 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Derive version tag
+      # Find the PR that was merged into this commit and read its title. A
+      # direct push to main has no PR -> empty title -> patch fallback.
+      - name: Determine version bump from PR title
+        id: bump
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE=$(gh api "/repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+            --jq '.[0].title // ""' 2>/dev/null || echo "")
+          echo "PR title: ${TITLE:-<none>}"
+          case "$TITLE" in
+            *MAJOR*)   BUMP=major ;;
+            *FEATURE*) BUMP=minor ;;
+            *FIX*)     BUMP=patch ;;
+            *)         BUMP=patch ;;  # fallback: treat as a fix
+          esac
+          echo "Version bump: $BUMP"
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+
+      # Next version = latest v* tag bumped by the keyword. package.json is
+      # not touched. Older tags may carry a `-<date>.<sha>` suffix; only the
+      # semver core before the dash counts. No tag at all seeds from
+      # package.json so the numbering continues instead of restarting.
+      - name: Derive version tag from latest tag
         id: version
         run: |
-          PKG_VERSION=$(node -p "require('./package.json').version")
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          DATE=$(date +%Y%m%d)
-          TAG="v${PKG_VERSION}-${DATE}.${SHORT_SHA}"
+          LATEST=$(git tag --list 'v*' | sed 's/^v//; s/-.*$//' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          if [ -z "$LATEST" ]; then
+            LATEST=$(node -p "require('./package.json').version")
+            echo "No existing v* tag; seeding from package.json: ${LATEST}"
+          fi
+          IFS=. read -r MAJOR MINOR PATCH <<< "$LATEST"
+          case "${{ steps.bump.outputs.bump }}" in
+            major) VERSION="$((MAJOR + 1)).0.0" ;;
+            minor) VERSION="${MAJOR}.$((MINOR + 1)).0" ;;
+            *)     VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+          esac
+          TAG="v${VERSION}"
+          echo "Latest: v${LATEST} -> next: ${TAG} (${{ steps.bump.outputs.bump }})"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "version=${PKG_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Resolved tag: ${TAG}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Create and push git tag
         run: |

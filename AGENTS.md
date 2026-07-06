@@ -22,7 +22,12 @@ dependency-specific gotchas (otplib pin, cache-busting, lockfile/Node version).
 7. **No vulnerable packages.** After all code changes run `npm install` and
    confirm **0 vulnerabilities** (`npm audit`). Deprecation *warnings* are not
    vulnerabilities — see CONTRIBUTING.md before "fixing" them.
-8. **Run all tests.** After every code change, bug fix, or feature
+8. **Never bump the version manually.** Versions live in git tags, not
+   `package.json` (its `version` field is untouched by releases). The release
+   pipeline derives the next tag from the latest `v*` tag, bumped by the
+   merged PR title: `MAJOR` → major, `FEATURE` → minor, `FIX` → patch (also
+   the fallback). Name PRs accordingly.
+9. **Run all tests.** After every code change, bug fix, or feature
    implementation run `npm run test` and make sure the full suite passes —
    this is the regression gate proving nothing else broke. The suite covers
    every service, storage provider, controller, and cron (`src/**/*.spec.ts`,

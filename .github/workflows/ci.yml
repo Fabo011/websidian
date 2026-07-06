@@ -1,22 +1,19 @@
-# Quality gate for development work.
+# Quality gate: install, audit (critical), lint, build, full Jest suite.
 #
-# Runs on every push to `dev` and every pull request targeting `main` or
-# `dev`: install, lint, build, full Jest suite. A red run means the change
-# broke something — nothing should be merged to `main` (which triggers the
-# release pipeline) until this is green.
+# Runs on every push to `dev` and every pull request targeting `main`. A red
+# run means the change broke something — nothing should be merged to `main`
+# until this is green.
 #
-# The release pipeline (release.yml) runs the same tests again on `main` as
-# the final gate before tagging and publishing the Docker image.
+# Also reusable via `workflow_call`: the release pipeline (release.yml) calls
+# this workflow as its quality gate on `main`, so the steps are defined once.
 
 name: ci
 
 on:
-  push:
-    branches:
-      - dev
   pull_request:
     branches:
       - main
+  workflow_call:
 
 jobs:
   test:
