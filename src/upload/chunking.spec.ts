@@ -53,4 +53,16 @@ describe('upload chunking', () => {
     const chunks = planChunks(3 * ONE_MB);
     expect(chunks).toEqual([{ offset: 0, length: 3 * ONE_MB }]);
   });
+
+  it('yields no chunks for an empty file', () => {
+    expect(planChunks(0)).toEqual([]);
+  });
+
+  it('rejects invalid totals and chunk sizes', () => {
+    expect(() => planChunks(-1)).toThrow('non-negative');
+    expect(() => planChunks(NaN)).toThrow('non-negative');
+    expect(() => planChunks(100, 0)).toThrow('positive');
+    expect(() => planChunks(100, -5)).toThrow('positive');
+    expect(() => planChunks(100, Infinity)).toThrow('positive');
+  });
 });

@@ -37,11 +37,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Quality gate: no release when any dependency has a CRITICAL
+      # vulnerability. Lower severities are reported but do not block.
+      - name: Audit dependencies (block on critical)
+        run: npm audit --audit-level=critical
+
       - name: Build client + server
         run: npm run build:all
 
+      # Quality gate: the release job below only runs when the full test
+      # suite passes. A failing test blocks the tag + Docker image.
       - name: Run tests
-        run: npm test --if-present
+        run: npm test
 
   release:
     needs: build-project
@@ -99,7 +106,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64 #linux/arm64
+          platforms: linux/amd64, linux/arm64
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:latest
