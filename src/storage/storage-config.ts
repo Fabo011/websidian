@@ -97,12 +97,7 @@ export function buildUserProvider(cfg: UserStorageConfig): StorageProvider {
  * the support contact.
  */
 export type StorageErrorCode =
-  | 'auth'
-  | 'unreachable'
-  | 'notfound'
-  | 'tls'
-  | 'config'
-  | 'unknown';
+  'auth' | 'unreachable' | 'notfound' | 'tls' | 'config' | 'unknown';
 
 /** Classify a connection error into a short, user-facing {@link StorageErrorCode}. */
 export function mapStorageError(err: unknown): StorageErrorCode {

@@ -10,11 +10,7 @@ import { encryptedColumn } from '../storage/encrypted-column.transformer';
 
 /** Stripe-mirrored subscription lifecycle state. */
 export type SubscriptionStatus =
-  | 'none'
-  | 'active'
-  | 'canceled'
-  | 'past_due'
-  | 'incomplete';
+  'none' | 'active' | 'canceled' | 'past_due' | 'incomplete';
 
 @Entity('users')
 export class User {
