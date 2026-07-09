@@ -69,8 +69,40 @@ npm run lint           # eslint --fix
 npm install            # then verify: npm audit == 0 vulnerabilities
 ```
 
-Use **Node 24** (`engines.node: ">=24"`). Regenerating `package-lock.json` on
-older Node produces a lockfile that breaks CI `npm ci`.
+### Keep `package-lock.json` in sync (CI runs `npm ci`)
+
+CI installs with **`npm ci`**, which does a strict lockfile check and **fails the
+whole build** the moment `package.json` and `package-lock.json` disagree
+(`npm error code EUSAGE … can only install packages when your package.json and
+package-lock.json … are in sync`). This has broken CI repeatedly. Whenever you
+add, remove, or change a dependency (or its version):
+
+1. Use **Node 24** (`engines.node: ">=24"`). Regenerating the lock on an older
+   Node produces a lockfile that CI `npm ci` rejects.
+2. Do a **clean, full regenerate** so transitive and cross-platform optional
+   deps are all recorded (a partial install can leave the lock missing packages
+   like the `@emnapi/*` / `@napi-rs/*` optional deps, which fails `npm ci` on the
+   CI platform even if `npm install` looked fine locally):
+   ```bash
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+3. **Verify on the CI platform (linux/amd64), not just locally.** CI runs
+   linux/amd64; this Mac is darwin/arm64. A lock regenerated on arm64 can omit
+   amd64-only optional deps (e.g. `@emnapi/*` pulled via
+   `@unrs/resolver-binding-linux-x64-*`), so **local `npm ci` passing is NOT
+   proof** — it must pass under Docker linux/amd64:
+   ```bash
+   docker run --rm --platform=linux/amd64 -v "$PWD":/app -w /app -v /app/node_modules \
+     node:24-bookworm sh -c "npm ci --ignore-scripts"   # must exit 0, no EUSAGE
+   ```
+   The `-v /app/node_modules` anonymous volume keeps linux binaries out of your
+   darwin `node_modules`. If it fails, regenerate the lock **inside** that same
+   image (`rm -f package-lock.json && npm install --ignore-scripts`) rather than
+   with a local `npm install` (which rewrites the lock back to arm64).
+4. **Commit `package-lock.json` together with `package.json`.** Never commit one
+   without the other. (`npm install` succeeding is NOT proof of sync — only
+   `npm ci` validates it.)
 
 ## Checklist before finishing a change
 
@@ -83,6 +115,10 @@ older Node produces a lockfile that breaks CI `npm ci`.
 - [ ] Overlay z-index checked: no toast/alert/error can be hidden behind an
       overlay that may be open at the same time
 - [ ] `npm install` → `npm audit` shows 0 vulnerabilities
+- [ ] If any dependency changed: lock regenerated on **Node 24** via a clean
+      `rm -rf node_modules package-lock.json && npm install`, then verified with
+      **Docker linux/amd64 `npm ci --ignore-scripts` (exit 0, no EUSAGE)** — not
+      just local `npm ci`; commit `package-lock.json` with `package.json`
 - [ ] `npm run test` passes — **both** backend and frontend suites
 - [ ] New/changed backend behaviour has a matching `*.spec.ts` test
 - [ ] New/changed frontend behaviour has a matching `test-frontend/*.spec.js`
