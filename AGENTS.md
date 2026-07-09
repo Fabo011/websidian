@@ -39,20 +39,34 @@ dependency-specific gotchas (otplib pin, cache-busting, lockfile/Node version).
    with, and prefer surfacing an error where the user is looking (e.g. inline in
    the open panel) over a toast that a higher overlay could cover.
 10. **Run all tests.** After every code change, bug fix, or feature
-   implementation run `npm run test` and make sure the full suite passes —
-   this is the regression gate proving nothing else broke. The suite covers
-   every service, storage provider, controller, and cron (`src/**/*.spec.ts`,
-   ~540 tests). When you add or change behaviour, add or update the matching
-   `*.spec.ts` next to the source file. During development, run a single
-   suite with `npx jest src/<path>`; `npm run test:cov` reports coverage.
+   implementation run `npm run test` and make sure **both** suites pass — this
+   is the regression gate proving nothing else broke. `npm test` runs
+   `test:backend` then `test:frontend`; CI (`ci.yml`) runs the same two.
+   - **Backend** (`npm run test:backend`, ts-jest, node env): covers every
+     service, storage provider, controller, and cron (`src/**/*.spec.ts`,
+     ~540 tests). Add/update the matching `*.spec.ts` next to the source file.
+     Run a single suite with `npx jest src/<path>`; `npm run test:cov` reports
+     coverage.
+   - **Frontend** (`npm run test:frontend`, jsdom env, config
+     `jest.frontend.config.js`): covers the browser code in
+     `test-frontend/**/*.spec.js`. Frontend logic must be **testable without a
+     DOM** — put pure helpers (formatting, validation, parsing, CSV, URL
+     sanitizing, etc.) in `public/js/wo-util.js` (dual-mode: `window.WOUtil`
+     in the browser, `module.exports` under Jest) rather than burying them in
+     `public/js/app.js`, which runs DOM side-effects on load and cannot be
+     `require`d. When you add or change frontend behaviour, add or update the
+     matching `test-frontend/*.spec.js` — tests are part of the feature, not a
+     follow-up.
 
 ## Commands
 
 ```bash
-npm run build:all   # build client bundles (esbuild) + server (nest)
-npm test            # run the full Jest suite
-npm run lint        # eslint --fix
-npm install         # then verify: npm audit == 0 vulnerabilities
+npm run build:all      # build client bundles (esbuild) + server (nest)
+npm test               # backend + frontend Jest suites (runs both)
+npm run test:backend   # ts-jest, node env — src/**/*.spec.ts
+npm run test:frontend  # jsdom env — test-frontend/**/*.spec.js
+npm run lint           # eslint --fix
+npm install            # then verify: npm audit == 0 vulnerabilities
 ```
 
 Use **Node 24** (`engines.node: ">=24"`). Regenerating `package-lock.json` on
@@ -69,6 +83,8 @@ older Node produces a lockfile that breaks CI `npm ci`.
 - [ ] Overlay z-index checked: no toast/alert/error can be hidden behind an
       overlay that may be open at the same time
 - [ ] `npm install` → `npm audit` shows 0 vulnerabilities
-- [ ] `npm run test` passes (full suite, after any code change)
-- [ ] New/changed behaviour has a matching `*.spec.ts` test
+- [ ] `npm run test` passes — **both** backend and frontend suites
+- [ ] New/changed backend behaviour has a matching `*.spec.ts` test
+- [ ] New/changed frontend behaviour has a matching `test-frontend/*.spec.js`
+      test; pure logic lives in `public/js/wo-util.js` so it is testable
 - [ ] Client bundle rebuilt if a `client/*` or `public/js/*` source changed

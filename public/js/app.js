@@ -26,36 +26,20 @@ const MAX_IMPORT_FILES = Number(window.__WO_MAX_IMPORT_FILES__) || 20000;
 const MAX_IMPORT_TOTAL_MB = Number(window.__WO_MAX_IMPORT_TOTAL_MB__) || 2048;
 const MAX_IMPORT_TOTAL_BYTES = MAX_IMPORT_TOTAL_MB * 1024 * 1024;
 
-// Human-readable byte size, e.g. 360 MB / 1.4 GB.
-function fmtSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let v = bytes / 1024;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return (v >= 10 ? Math.round(v) : v.toFixed(1)) + ' ' + units[i];
-}
-
-// Validate a selection of { path, size } items against the upload limits.
-// Returns a ready-to-show error message, or '' when the selection is fine. The
-// {maxImportTotal}/{maxUploadSize}/{maxImportFiles} placeholders are filled by
-// i18n automatically.
+// Pure size/limit helpers live in wo-util.js (loaded before this script) so
+// they can be unit-tested without a DOM. fmtSize is byte formatting;
+// uploadLimitError validates a { path, size } selection against the caps above.
+const fmtSize = WOUtil.fmtSize;
 function uploadLimitError(items) {
-  const totalBytes = items.reduce((n, it) => n + it.size, 0);
-  if (totalBytes > MAX_IMPORT_TOTAL_BYTES) {
-    return t('import_total_too_large', { total: fmtSize(totalBytes) });
-  }
-  if (items.length > MAX_IMPORT_FILES) {
-    return t('too_many_files', { count: items.length.toLocaleString() });
-  }
-  const big = items.find((it) => it.size > MAX_UPLOAD_FILE_BYTES);
-  if (big) {
-    return t('file_too_large', { name: big.path.split('/').pop() });
-  }
-  return '';
+  return WOUtil.uploadLimitError(
+    items,
+    {
+      maxImportTotalBytes: MAX_IMPORT_TOTAL_BYTES,
+      maxImportFiles: MAX_IMPORT_FILES,
+      maxUploadFileBytes: MAX_UPLOAD_FILE_BYTES,
+    },
+    t,
+  );
 }
 
 async function api(method, url, body, isForm, timeoutMs) {
@@ -4412,21 +4396,12 @@ function maybeCloseSidebar() {
 
 const WEBLINKS_DIR = 'weblinks';
 const WEBLINKS_CSV = 'weblinks/weblinks.csv';
-// Native CSV header. It mirrors Linky's export format so files written here can
-// be imported by Linky and full Linky exports can be imported here. Linky's
-// internal id/user_id columns are not written (the server owns those); they are
-// simply ignored when reading an export that includes them.
-const WEBLINKS_HEADER = [
-  'linkname',
-  'linkdescription',
-  'category',
-  'link',
-  'linkusername',
-  'contactname',
-  'contactphonenumber',
-  'contactemail',
-  'notes',
-];
+// CSV parse/serialize/sanitize helpers (and the Linky-compatible header) live
+// in wo-util.js (loaded before this script) so they can be unit-tested without
+// a DOM. Bind them to the names the rest of this file already uses.
+const serializeWeblinks = (links) => WOUtil.serializeWeblinks(links);
+const csvToLinks = (text) => WOUtil.csvToLinks(text);
+const sanitizeLinkUrl = (value) => WOUtil.sanitizeLinkUrl(value);
 
 const weblinksState = {
   // { name, description, category, url, username, contactName, contactPhone,
@@ -4436,144 +4411,6 @@ const weblinksState = {
   editIndex: null, // index being edited, or null when adding
   filter: '',
 };
-
-/** Parse RFC 4180-style CSV text into an array of string-cell rows. */
-function parseCsv(text) {
-  const rows = [];
-  let row = [];
-  let cell = '';
-  let inQuotes = false;
-  const src = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  for (let i = 0; i < src.length; i++) {
-    const ch = src[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (src[i + 1] === '"') {
-          cell += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        cell += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ',') {
-      row.push(cell);
-      cell = '';
-    } else if (ch === '\n') {
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = '';
-    } else {
-      cell += ch;
-    }
-  }
-  // Flush the trailing cell/row unless the file ended on a clean newline.
-  if (cell !== '' || row.length) {
-    row.push(cell);
-    rows.push(row);
-  }
-  return rows;
-}
-
-/** Quote a single CSV cell when it contains a comma, quote or newline. */
-function csvCell(value) {
-  const s = value == null ? '' : String(value);
-  if (/[",\n]/.test(s)) {
-    return '"' + s.replace(/"/g, '""') + '"';
-  }
-  return s;
-}
-
-/** Serialize the current links into Linky-compatible CSV text. */
-function serializeWeblinks(links) {
-  const lines = [WEBLINKS_HEADER.join(',')];
-  for (const l of links) {
-    lines.push(
-      [
-        l.name,
-        l.description,
-        l.category,
-        l.url,
-        l.username,
-        l.contactName,
-        l.contactPhone,
-        l.contactEmail,
-        l.notes,
-      ]
-        .map(csvCell)
-        .join(','),
-    );
-  }
-  return lines.join('\n') + '\n';
-}
-
-/**
- * Turn CSV text into link records. Maps by header name so both the native
- * format and a full Linky export (extra columns) are understood. Rows without
- * a usable http(s) URL are skipped.
- */
-function csvToLinks(text) {
-  const rows = parseCsv(text);
-  if (!rows.length) return [];
-  const header = rows[0].map((h) => h.trim().toLowerCase());
-  const idx = (name) => header.indexOf(name);
-  const iName = idx('linkname');
-  const iDesc = idx('linkdescription');
-  const iUrl = idx('link');
-  const iCat = idx('category');
-  const iUser = idx('linkusername');
-  const iCName = idx('contactname');
-  const iCPhone = idx('contactphonenumber');
-  const iCEmail = idx('contactemail');
-  const iNotes = idx('notes');
-  // If the first row is not a recognizable header, treat every row as data
-  // with a simple name,url[,description[,category]] layout.
-  const hasHeader = iUrl !== -1 || iName !== -1;
-  const out = [];
-  const start = hasHeader ? 1 : 0;
-  for (let r = start; r < rows.length; r++) {
-    const cells = rows[r];
-    if (!cells.length || cells.every((c) => c.trim() === '')) continue;
-    const get = (i, fallback) =>
-      (i !== -1 && i < cells.length ? cells[i] : cells[fallback] || '').trim();
-    const url = sanitizeLinkUrl(get(iUrl, 1));
-    if (!url) continue;
-    out.push({
-      name: get(iName, 0) || url,
-      description: get(iDesc, 2),
-      url,
-      category: get(iCat, 3),
-      username: get(iUser, -1),
-      contactName: get(iCName, -1),
-      contactPhone: get(iCPhone, -1),
-      contactEmail: get(iCEmail, -1),
-      notes: get(iNotes, -1),
-    });
-  }
-  return out;
-}
-
-/** Accept only http(s) URLs; reject javascript:, data:, etc. */
-function sanitizeLinkUrl(value) {
-  const s = (value || '').trim();
-  if (!s) return '';
-  try {
-    const u = new URL(s);
-    if (u.protocol === 'http:' || u.protocol === 'https:') {
-      return u.href;
-    }
-  } catch {
-    // Allow a bare host like "example.com" by retrying with https://.
-    if (/^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(s)) {
-      return sanitizeLinkUrl('https://' + s);
-    }
-  }
-  return '';
-}
 
 /** Persist the current links to the vault CSV (create folder/file as needed). */
 async function saveWeblinks() {
