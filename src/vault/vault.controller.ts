@@ -182,8 +182,15 @@ export class VaultController {
    * useful export itself because it only holds ciphertext.
    */
   @Get('files')
-  async listFiles(@CurrentUser() user: AuthenticatedUser) {
-    const files = await this.vault.listAllFiles(user.username);
+  async listFiles(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('hidden') hidden?: string,
+  ) {
+    // `hidden=1` includes user dotfiles (e.g. .websidian/settings.json) so a
+    // full export is a complete vault backup. The trash is never included.
+    const files = await this.vault.listAllFiles(user.username, {
+      includeHidden: hidden === '1',
+    });
     return files.map((f) => ({ path: f.relPath, version: f.version }));
   }
 

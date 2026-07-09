@@ -556,6 +556,11 @@ function refreshTreeSoon() {
 function buildList(nodes) {
   const ul = document.createElement('ul');
   for (const node of nodes) {
+    // Hide websidian's own internal folder (encrypted app settings) from the
+    // sidebar — the user never edits it by hand.
+    if (node.path === RESERVED_DIR || node.path.startsWith(RESERVED_DIR + '/')) {
+      continue;
+    }
     ul.appendChild(buildItem(node));
   }
   return ul;
@@ -1108,8 +1113,17 @@ async function restoreTabs() {
   restoringTabs = true;
   try {
     for (const p of saved.paths) {
-      // Skip files that were deleted/renamed since; stay quiet during restore.
-      await openFile(p, { silent: true });
+      // Restore special (non-file) tabs by kind; otherwise open the file. Stay
+      // quiet during restore — deleted/renamed files are simply skipped.
+      if (p === SPECIAL_TABS.weblinks.path) {
+        await openSpecialTab('weblinks', { silent: true });
+      } else if (p === SPECIAL_TABS.calendar.path) {
+        await openSpecialTab('calendar', { silent: true });
+      } else if (p === SPECIAL_TABS.graph.path) {
+        await openSpecialTab('graph', { silent: true });
+      } else {
+        await openFile(p, { silent: true });
+      }
     }
   } finally {
     restoringTabs = false;
@@ -1129,15 +1143,32 @@ function renderTabbar() {
   const bar = $('#tabbar');
   bar.hidden = TABS.list.length === 0;
   bar.innerHTML = '';
+
+  // Tab counter (open / max). Makes the MAX_OPEN_TABS limit transparent so the
+  // user understands why a new file won't open once the cap is reached — the cap
+  // protects the vault's storage connection (e.g. WebDAV) from too many
+  // concurrent open files. Turns "full" when the limit is hit.
+  const counter = document.createElement('span');
+  const full = TABS.list.length >= MAX_OPEN_TABS;
+  counter.className = 'tab-count' + (full ? ' is-full' : '');
+  counter.textContent = `${TABS.list.length}/${MAX_OPEN_TABS}`;
+  counter.title = t('tabs_count_tip', { max: MAX_OPEN_TABS });
+  counter.setAttribute('aria-label', counter.title);
+  bar.appendChild(counter);
+
   for (const tab of TABS.list) {
     const el = document.createElement('div');
     el.className = 'tab' + (tab.id === TABS.activeId ? ' active' : '');
     el.dataset.tabId = tab.id;
     el.setAttribute('role', 'tab');
-    el.title = tab.path;
+    el.title = tab.special ? tab.title : tab.path;
 
     const icon = document.createElement('i');
-    icon.className = 'bi ' + fileIcon(tab.ext) + ' tab-icon';
+    const iconName =
+      tab.special && SPECIAL_TABS[tab.kind]
+        ? SPECIAL_TABS[tab.kind].icon
+        : fileIcon(tab.ext);
+    icon.className = 'bi ' + iconName + ' tab-icon';
     el.appendChild(icon);
 
     const title = document.createElement('span');
@@ -1247,6 +1278,7 @@ async function openFile(path, opts = {}) {
     blobUrl: null,
     excalidraw: null,
     epub: null,
+    pdf: null,
   };
   TABS.list.push(tab);
   renderTabbar();
@@ -1323,11 +1355,7 @@ async function buildViewerPane(tab) {
     tab.blobUrl = await attachmentBlobUrl(tab.path);
     img.src = tab.blobUrl;
   } else if (ext === 'pdf') {
-    const frame = document.createElement('iframe');
-    frame.className = 'pdf-frame';
-    pane.appendChild(frame);
-    tab.blobUrl = await attachmentBlobUrl(tab.path);
-    frame.src = tab.blobUrl;
+    await renderPdf(tab, pane);
   } else if (OFFICE_EXTS.includes(ext)) {
     await renderOffice(tab.path, ext, pane);
   } else if (ext === 'epub') {
@@ -1346,11 +1374,16 @@ async function activateTab(id) {
   snapshotActive();
   TABS.activeId = id;
   hideAllViews();
-  state.current = { path: tab.path, ext: tab.ext, version: tab.version };
+  state.current = tab.special
+    ? null
+    : { path: tab.path, ext: tab.ext, version: tab.version };
   state.dirty = tab.dirty;
   state.excalidraw = tab.kind === 'excalidraw' ? tab.excalidraw : null;
   if (tab.kind === 'editor') activateEditorTab(tab);
   else if (tab.kind === 'excalidraw') activateExcalidrawTab(tab);
+  else if (tab.kind === 'weblinks') activateWeblinksTab(tab);
+  else if (tab.kind === 'calendar') activateCalendarTab(tab);
+  else if (tab.kind === 'graph') activateGraphTab(tab);
   else activateViewerTab(tab);
   renderTabbar();
   markTreeActive();
@@ -1385,6 +1418,11 @@ function activateViewerTab(tab) {
   if (tab.epub && tab.epub.resize) {
     requestAnimationFrame(() => tab.epub.resize());
   }
+  // Same for the pdf.js viewer: it could not lay out (or anchor to the saved
+  // page) while its pane was hidden and zero-sized.
+  if (tab.pdf && tab.pdf.resize) {
+    requestAnimationFrame(() => tab.pdf.resize());
+  }
   const dl = $('#viewer-download');
   if (tab.blobUrl) {
     dl.href = tab.blobUrl;
@@ -1400,6 +1438,89 @@ function activateExcalidrawTab(tab) {
   $('#excalidraw-root')
     .querySelectorAll('.excalidraw-pane')
     .forEach((p) => (p.hidden = p !== tab.pane));
+}
+
+// Special (non-file) tabs — web links and the calendar. They open as tabs so the
+// user can switch between them and files without the view being torn down and
+// rebuilt. Their data lives in module state (weblinksState / calendarState), so
+// re-activating a tab just re-shows the view from memory — no refetch.
+const SPECIAL_TABS = {
+  weblinks: {
+    path: '__weblinks__',
+    icon: 'bi-link-45deg',
+    titleKey: 'weblinks_title',
+  },
+  calendar: {
+    path: '__calendar__',
+    icon: 'bi-calendar3',
+    titleKey: 'calendar_title',
+  },
+  graph: {
+    path: '__graph__',
+    icon: 'bi-diagram-3',
+    titleKey: 'graph_title',
+  },
+};
+
+function activateWeblinksTab() {
+  $('#weblinks-view').hidden = false;
+  renderWeblinks();
+}
+
+function activateCalendarTab() {
+  $('#calendar-view').hidden = false;
+  renderCalendar();
+}
+
+/**
+ * Open (or focus) a special tab. `opts.refresh` reloads its data first — done on
+ * an explicit sidebar-button click and always for a freshly created tab, but
+ * NOT when the user merely clicks the tab (that re-shows from memory).
+ */
+async function openSpecialTab(kind, opts = {}) {
+  const meta = SPECIAL_TABS[kind];
+  if (!meta) return;
+  let tab = TABS.list.find((tb) => tb.path === meta.path);
+  const isNew = !tab;
+  if (isNew && TABS.list.length >= MAX_OPEN_TABS) {
+    flash(t('tabs_limit', { max: MAX_OPEN_TABS }));
+    return;
+  }
+  if (isNew || opts.refresh) {
+    const loadOpts = { silent: opts.silent, force: opts.force };
+    const loader =
+      kind === 'weblinks'
+        ? loadWeblinksData
+        : kind === 'calendar'
+          ? loadCalendarView
+          : loadGraphView;
+    const ok = await loader(loadOpts);
+    if (!ok) return; // load failed; don't create/leave a broken tab
+  }
+  if (isNew) {
+    tab = {
+      id: 't' + ++tabSeq,
+      path: meta.path,
+      ext: null,
+      kind,
+      special: true,
+      title: t(meta.titleKey),
+      version: null,
+      dirty: false,
+      content: '',
+      viewing: false,
+      scrollTop: 0,
+      pane: null,
+      blobUrl: null,
+      excalidraw: null,
+      epub: null,
+      pdf: null,
+    };
+    TABS.list.push(tab);
+    renderTabbar();
+  }
+  await activateTab(tab.id);
+  if (!opts.silent) maybeCloseSidebar();
 }
 
 async function closeTab(id) {
@@ -1429,6 +1550,13 @@ async function closeTab(id) {
   if (tab.epub && tab.epub.destroy) {
     try {
       tab.epub.destroy();
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  if (tab.pdf && tab.pdf.destroy) {
+    try {
+      tab.pdf.destroy();
     } catch (e) {
       /* ignore */
     }
@@ -1519,6 +1647,13 @@ function forceCloseTab(tab) {
   if (tab.epub && tab.epub.destroy) {
     try {
       tab.epub.destroy();
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  if (tab.pdf && tab.pdf.destroy) {
+    try {
+      tab.pdf.destroy();
     } catch (e) {
       /* ignore */
     }
@@ -2430,13 +2565,89 @@ async function renderEpub(tab, body) {
     // Guard against the tab being closed (its pane detached) while loading.
     if (!body.isConnected) return;
     body.innerHTML = '';
+    const savedLoc = getReadingPos(tab.path);
     tab.epub = window.EpubViewer.mount(body, buf, {
       prevLabel: t('epub_prev'),
       nextLabel: t('epub_next'),
       locationKey: tab.path,
+      // Cross-device resume: prefer the position synced from the vault; the
+      // bundle still caches locally too. Save each page turn back to the vault.
+      initialLocation: typeof savedLoc === 'string' ? savedLoc : undefined,
+      onLocation: (cfi) => setReadingPos(tab.path, cfi),
     });
   } catch (e) {
     console.error('epub preview failed:', e);
+    body.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = t('no_preview');
+    body.appendChild(p);
+  }
+}
+
+/* ---------- pdf reader ---------- */
+
+let pdfLoading = null;
+function ensurePdf() {
+  if (window.PdfViewer) return Promise.resolve();
+  if (pdfLoading) return pdfLoading;
+  pdfLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = bundleUrl('pdf-bundle.js');
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Failed to load the PDF reader.'));
+    document.body.appendChild(s);
+  });
+  return pdfLoading;
+}
+
+async function renderPdf(tab, body) {
+  body.innerHTML = '';
+  const status = document.createElement('p');
+  status.className = 'muted';
+  status.textContent = t('loading');
+  body.appendChild(status);
+  try {
+    const key = await ensureVaultKey();
+    const res = await fetch(attachmentUrl(tab.path), {
+      credentials: 'same-origin',
+    });
+    if (!res.ok) throw new Error('fetch failed');
+    const cipher = new Uint8Array(await res.arrayBuffer());
+    const plain = await window.WOCrypto.decryptBytesMaybe(key, cipher);
+    const buf = plain.buffer.slice(
+      plain.byteOffset,
+      plain.byteOffset + plain.byteLength,
+    );
+    await ensurePdf();
+    if (!body.isConnected) return;
+    body.innerHTML = '';
+    // Keep the header Download button working (we render via pdf.js, not an
+    // iframe blob) using the bytes we already decrypted — no second fetch.
+    try {
+      tab.blobUrl = URL.createObjectURL(
+        new Blob([buf], { type: 'application/pdf' }),
+      );
+    } catch (e) {
+      /* download stays disabled if blob creation fails */
+    }
+    const savedPage = getReadingPos(tab.path);
+    const savedZoom = getPref('pdfZoom');
+    tab.pdf = window.PdfViewer.mount(body, buf, {
+      workerSrc: bundleUrl('pdf-worker.js'),
+      // Cross-device resume: jump to the page synced from the vault, and save
+      // the page back as the user scrolls.
+      initialPage: typeof savedPage === 'number' ? savedPage : undefined,
+      onPage: (n) => setReadingPos(tab.path, n),
+      // Zoom is a synced preference (shared across PDFs), not per-file.
+      initialZoom: typeof savedZoom === 'number' ? savedZoom : undefined,
+      onZoom: (z) => persistPref('pdfZoom', z),
+      zoomInLabel: t('pdf_zoom_in'),
+      zoomOutLabel: t('pdf_zoom_out'),
+      errorText: t('no_preview'),
+    });
+  } catch (e) {
+    console.error('pdf preview failed:', e);
     body.innerHTML = '';
     const p = document.createElement('p');
     p.className = 'muted';
@@ -2572,9 +2783,320 @@ function treeHasDir(nodes, path) {
   return false;
 }
 
-$('#new-note').addEventListener('click', () => createNoteIn(state.selectedDir));
 $('#new-file').addEventListener('click', () => createFileIn(state.selectedDir));
 $('#new-folder').addEventListener('click', () => createFolderIn(state.selectedDir));
+
+/* ---------- notes: daily notes, templates, calendar ---------------------- */
+
+// websidian's own internal, hidden folder (encrypted app settings live here).
+const RESERVED_DIR = '.websidian';
+const NOTES_SETTINGS_PATH = RESERVED_DIR + '/settings.json';
+// User templates live in a fixed top-level folder, mirroring Obsidian.
+const TEMPLATES_DIR = 'Templates';
+const DEFAULT_DAILY_DIR = 'Daily';
+
+// The full, decrypted settings object from `.websidian/settings.json`. Holds
+// everything that should follow the user across devices: the daily-note folder,
+// UI preferences (theme/font/contrast/language) and per-file reading positions
+// (epub CFI, pdf page). `null` until first load. localStorage stays the instant
+// cache for UI prefs — this file is only the cross-device source of truth, read
+// once after unlock and written back on a debounce, so it never blocks the UI.
+let vaultSettings = null;
+
+/** Load (and cache) the full encrypted settings object; {} when absent. */
+async function loadVaultSettings(force) {
+  if (vaultSettings && !force) return vaultSettings;
+  let cfg = {};
+  try {
+    const data = await api(
+      'GET',
+      '/api/file?path=' + encodeURIComponent(NOTES_SETTINGS_PATH),
+    );
+    cfg = JSON.parse(await decryptContent(data.content || '')) || {};
+  } catch {
+    cfg = {}; // no settings file yet, or unreadable — use defaults
+  }
+  if (!cfg || typeof cfg !== 'object') cfg = {};
+  vaultSettings = cfg;
+  return vaultSettings;
+}
+
+let settingsSaveTimer = null;
+/** Encrypt and write the cached settings object now. */
+async function flushVaultSettings() {
+  settingsSaveTimer = null;
+  if (!vaultSettings) return;
+  await api('POST', '/api/folder', { path: RESERVED_DIR }).catch(() => {});
+  await api('PUT', '/api/file', {
+    path: NOTES_SETTINGS_PATH,
+    content: await encryptContent(JSON.stringify(vaultSettings)),
+  });
+}
+/** Debounced background write — coalesces rapid changes (e.g. page turns). */
+function saveVaultSettingsSoon() {
+  if (settingsSaveTimer) clearTimeout(settingsSaveTimer);
+  settingsSaveTimer = setTimeout(
+    () => flushVaultSettings().catch(() => {}),
+    800,
+  );
+}
+
+/** Current daily-note folder (normalized), from settings or the default. */
+function getDailyNotePath() {
+  const raw = vaultSettings && vaultSettings.dailyNotePath;
+  return WOUtil.normalizeVaultPath(raw || '') || DEFAULT_DAILY_DIR;
+}
+
+// ---- Cross-device UI preferences + reading positions ----------------------
+// localStorage is applied instantly at page load (see partials/head.ejs) so the
+// UI never flashes; these helpers additionally mirror the value into the vault
+// settings file so it follows the user to other devices.
+
+/** Read a UI preference from the loaded settings (undefined if unset). */
+function getPref(key) {
+  return vaultSettings && vaultSettings.prefs
+    ? vaultSettings.prefs[key]
+    : undefined;
+}
+
+/** Record a UI preference into the settings object (debounced write). */
+function persistPref(key, value) {
+  if (!vaultSettings) return; // not synced yet — localStorage still holds it
+  if (!vaultSettings.prefs || typeof vaultSettings.prefs !== 'object') {
+    vaultSettings.prefs = {};
+  }
+  if (vaultSettings.prefs[key] === value) return; // no change → no write/echo
+  vaultSettings.prefs[key] = value;
+  saveVaultSettingsSoon();
+}
+
+/**
+ * After unlock, reconcile the device with the vault: apply any UI preferences
+ * saved on another device (theme/font/contrast/language) over the local cache.
+ * Runs before tabs are restored so reading positions are available at mount.
+ * The apply* helpers short-circuit persistPref when the value is unchanged, so
+ * this never echoes a write back.
+ */
+async function syncSettingsFromVault() {
+  let cfg;
+  try {
+    cfg = await loadVaultSettings();
+  } catch {
+    return;
+  }
+  const p = (cfg && cfg.prefs) || {};
+  if (p.theme === 'light' || p.theme === 'dark') applyTheme(p.theme);
+  if (Number.isFinite(p.fontSize)) applyFontSize(p.fontSize);
+  if (p.contrast === 'high' || p.contrast === 'normal') applyContrast(p.contrast);
+  if (
+    p.lang &&
+    window.I18N &&
+    typeof window.I18N.set === 'function' &&
+    p.lang !== window.I18N.lang
+  ) {
+    window.I18N.set(p.lang);
+  }
+}
+
+/** Saved reading position for a file (epub CFI string / pdf page number). */
+function getReadingPos(path) {
+  const r = vaultSettings && vaultSettings.reading;
+  if (r && Object.prototype.hasOwnProperty.call(r, path)) return r[path];
+  return null;
+}
+
+/** Store a file's reading position (debounced write). */
+function setReadingPos(path, pos) {
+  if (pos == null || pos === '') return;
+  if (!vaultSettings) return; // not synced yet
+  if (!vaultSettings.reading || typeof vaultSettings.reading !== 'object') {
+    vaultSettings.reading = {};
+  }
+  if (vaultSettings.reading[path] === pos) return;
+  vaultSettings.reading[path] = pos;
+  saveVaultSettingsSoon();
+}
+
+/** True if a file exists at `path` anywhere in the current tree. */
+function treeHasFile(nodes, path) {
+  for (const node of nodes || []) {
+    if (node.type === 'file' && node.path === path) return true;
+    if (node.type === 'dir' && treeHasFile(node.children, path)) return true;
+  }
+  return false;
+}
+
+/** List markdown templates (paths) found in the Templates folder. */
+function listTemplates() {
+  const out = [];
+  const walk = (nodes) => {
+    for (const node of nodes || []) {
+      if (node.type === 'dir') {
+        if (node.path === TEMPLATES_DIR || node.path.startsWith(TEMPLATES_DIR + '/')) {
+          walk(node.children);
+        }
+      } else if (
+        node.path.startsWith(TEMPLATES_DIR + '/') &&
+        (node.ext === 'md' || node.ext === 'markdown')
+      ) {
+        out.push(node.path);
+      }
+    }
+  };
+  walk(state.tree);
+  return out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+}
+
+/** Create a new template file in the Templates folder and open it. */
+async function createTemplate() {
+  let name = await uiPrompt(t('prompt_new_template_title'), 'Untitled.md', {
+    title: t('prompt_new_template_title'),
+    message: t('prompt_new_template_msg'),
+    placeholder: t('prompt_new_note_ph'),
+  });
+  if (!name) return;
+  if (!/\.[a-z0-9]+$/i.test(name)) name += '.md';
+  const path = TEMPLATES_DIR + '/' + name;
+  await api('POST', '/api/folder', { path: TEMPLATES_DIR }).catch(() => {});
+  try {
+    await api('PUT', '/api/file', {
+      path,
+      content: await encryptContent('# {{title}}\n'),
+    });
+  } catch (e) {
+    flash(e.message || t('could_not_create'));
+    return;
+  }
+  expandAncestors(TEMPLATES_DIR);
+  await loadTree();
+  openFile(path);
+}
+
+/**
+ * Create a markdown note, optionally seeded from a template. Prompts for the
+ * template (blank = default) then the name, applying {{date}}/{{time}}/{{title}}
+ * placeholders to the chosen template's content.
+ */
+async function createNoteWithTemplate(targetDir) {
+  const templates = listTemplates();
+  let templatePath = '';
+  if (templates.length) {
+    templatePath = await pickTemplate(templates);
+    if (templatePath === null) return; // cancelled
+  }
+  let name = await uiPrompt(t('prompt_new_note_title'), 'Untitled.md', {
+    title: t('prompt_new_note_title'),
+    placeholder: t('prompt_new_note_ph'),
+  });
+  if (!name) return;
+  if (!/\.[a-z0-9]+$/i.test(name)) name += '.md';
+  const path = targetDir ? targetDir + '/' + name : name;
+  let body = '';
+  if (templatePath) {
+    try {
+      const data = await api(
+        'GET',
+        '/api/file?path=' + encodeURIComponent(templatePath),
+      );
+      const raw = await decryptContent(data.content || '');
+      body = WOUtil.applyTemplate(raw, { title: name.replace(/\.[^.]+$/, '') });
+    } catch {
+      flash(t('template_load_failed'));
+    }
+  }
+  try {
+    await api('PUT', '/api/file', { path, content: await encryptContent(body) });
+  } catch (e) {
+    flash(e.message || t('could_not_create'));
+    return;
+  }
+  expandAncestors(targetDir);
+  await loadTree();
+  openFile(path);
+}
+
+/**
+ * Show the template picker overlay and resolve with the chosen template path,
+ * '' for "no template", or null if cancelled.
+ */
+function pickTemplate(templates) {
+  return new Promise((resolve) => {
+    const overlay = $('#template-overlay');
+    const list = $('#template-list');
+    list.innerHTML = '';
+    let settled = false;
+    const done = (val) => {
+      if (settled) return;
+      settled = true;
+      overlay.hidden = true;
+      list.innerHTML = '';
+      resolve(val);
+    };
+    const addOption = (label, value, icon) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'template-option';
+      const i = document.createElement('i');
+      i.className = 'bi ' + icon;
+      const span = document.createElement('span');
+      span.textContent = label;
+      btn.append(i, span);
+      btn.addEventListener('click', () => done(value));
+      list.appendChild(btn);
+    };
+    addOption(t('template_blank'), '', 'bi-file-earmark');
+    for (const path of templates) {
+      addOption(
+        path.slice(TEMPLATES_DIR.length + 1).replace(/\.[^.]+$/, ''),
+        path,
+        'bi-file-earmark-text',
+      );
+    }
+    $('#template-cancel').onclick = () => done(null);
+    $('#template-close').onclick = () => done(null);
+    overlay.addEventListener(
+      'click',
+      (e) => {
+        if (e.target === overlay) done(null);
+      },
+      { once: true },
+    );
+    overlay.hidden = false;
+  });
+}
+
+/** Create (or open, if it already exists) today's daily note. */
+async function createDailyNote() {
+  await loadVaultSettings();
+  const dir = getDailyNotePath();
+  const name = WOUtil.formatDailyDate(new Date()) + '.md';
+  const path = dir + '/' + name;
+  if (treeHasFile(state.tree, path)) {
+    openFile(path);
+    return;
+  }
+  await api('POST', '/api/folder', { path: dir }).catch(() => {});
+  try {
+    await api('PUT', '/api/file', {
+      path,
+      content: await encryptContent('# ' + WOUtil.formatDailyDate(new Date()) + '\n'),
+    });
+  } catch (e) {
+    flash(e.message || t('could_not_create'));
+    return;
+  }
+  expandAncestors(dir);
+  await loadTree();
+  openFile(path);
+}
+
+$('#new-note').addEventListener('click', () =>
+  createNoteWithTemplate(state.selectedDir),
+);
+$('#new-daily') &&
+  $('#new-daily').addEventListener('click', () => createDailyNote());
+$('#new-template') &&
+  $('#new-template').addEventListener('click', () => createTemplate());
 
 $('#upload-btn').addEventListener('click', () => $('#upload-input').click());
 $('#upload-input').addEventListener('change', async (e) => {
@@ -2707,7 +3229,9 @@ $('#export-btn').addEventListener('click', async () => {
     // can take minutes.
     const key = await ensureVaultKey();
     showProgress(t('export_progress'));
-    const list = await api('GET', '/api/files');
+    // Full backup: include hidden files (e.g. .websidian/settings.json) so the
+    // export is a complete copy of the vault.
+    const list = await api('GET', '/api/files?hidden=1');
     const files = {};
     const total = (list || []).length;
     let done = 0;
@@ -2729,6 +3253,25 @@ $('#export-btn').addEventListener('click', async () => {
       }
       done += 1;
       updateProgress(done, total, t('progress_files', { done, total }));
+    }
+    // Always include websidian's own settings file. Some storage backends omit
+    // dotfiles from the file listing, so fetch it explicitly by path (read by
+    // path works everywhere) to guarantee a complete backup.
+    if (!files[NOTES_SETTINGS_PATH]) {
+      try {
+        const res = await fetch(attachmentUrl(NOTES_SETTINGS_PATH), {
+          credentials: 'same-origin',
+        });
+        if (res.ok) {
+          const cipher = new Uint8Array(await res.arrayBuffer());
+          files[NOTES_SETTINGS_PATH] = await window.WOCrypto.decryptBytesMaybe(
+            key,
+            cipher,
+          );
+        }
+      } catch (e) {
+        /* no settings file yet — nothing to add */
+      }
     }
     // Packaging the zip is a single synchronous step with no sub-progress.
     updateProgress(total, total, t('export_packaging'));
@@ -3432,6 +3975,7 @@ function applyTheme(next) {
   } catch (e) {
     /* ignore */
   }
+  persistPref('theme', next);
   syncThemeButtons();
 }
 function syncThemeButtons() {
@@ -3453,6 +3997,7 @@ function applyFontSize(px) {
   } catch (e) {
     /* ignore */
   }
+  persistPref('fontSize', px);
   syncFontButtons();
 }
 function syncFontButtons() {
@@ -3482,6 +4027,7 @@ function applyContrast(mode) {
   } catch (e) {
     /* ignore */
   }
+  persistPref('contrast', mode);
   syncContrastButtons();
 }
 function syncContrastButtons() {
@@ -3568,6 +4114,110 @@ $('#sidebar-backdrop').addEventListener('click', () => toggleSidebar(false));
     }
   });
 })();
+
+/* ---------- resizable / collapsible actions (button) area ---------- */
+(function setupToolsArea() {
+  const sidebar = $('#sidebar');
+  const tools = $('#sidebar-tools');
+  const resizer = $('#tools-resizer');
+  const toggle = $('#tools-toggle');
+  if (!sidebar || !tools) return;
+
+  const TOOLS_MIN = 44;
+  const TOOLS_MAX = 600;
+  const clamp = (h) => Math.min(TOOLS_MAX, Math.max(TOOLS_MIN, h));
+  const applyHeight = (h) => {
+    // Set both so a user-chosen height can also exceed the default max-height cap.
+    tools.style.height = `${h}px`;
+    tools.style.maxHeight = `${h}px`;
+  };
+  const clearHeight = () => {
+    tools.style.removeProperty('height');
+    tools.style.removeProperty('max-height');
+  };
+
+  // Restore persisted height + collapsed state.
+  try {
+    const saved = parseInt(localStorage.getItem('wo-tools-height'), 10);
+    if (Number.isFinite(saved)) applyHeight(clamp(saved));
+    if (localStorage.getItem('wo-tools-collapsed') === '1') {
+      sidebar.classList.add('tools-collapsed');
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+        const label = t('tools_toggle_show');
+        toggle.setAttribute('title', label);
+        toggle.setAttribute('aria-label', label);
+      }
+    }
+  } catch (e) {
+    /* ignore */
+  }
+
+  // Collapse / expand the whole actions area to free room for the file tree.
+  const setCollapsed = (collapsed) => {
+    sidebar.classList.toggle('tools-collapsed', collapsed);
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+      const label = t(collapsed ? 'tools_toggle_show' : 'tools_toggle_hide');
+      toggle.setAttribute('title', label);
+      toggle.setAttribute('aria-label', label);
+    }
+    try {
+      localStorage.setItem('wo-tools-collapsed', collapsed ? '1' : '0');
+    } catch (e) {
+      /* ignore */
+    }
+  };
+  if (toggle) {
+    toggle.addEventListener('click', () =>
+      setCollapsed(!sidebar.classList.contains('tools-collapsed')),
+    );
+  }
+
+  if (!resizer) return;
+  let dragging = false;
+  let startY = 0;
+  let startH = 0;
+  const onMove = (e) => {
+    if (!dragging) return;
+    applyHeight(clamp(startH + (e.clientY - startY)));
+  };
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.classList.remove('tools-resizing');
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    const cur = parseInt(getComputedStyle(tools).height, 10);
+    if (Number.isFinite(cur)) {
+      try {
+        localStorage.setItem('wo-tools-height', String(cur));
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  };
+  resizer.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    startY = e.clientY;
+    startH = tools.offsetHeight;
+    resizer.classList.add('dragging');
+    document.body.classList.add('tools-resizing');
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+  // Double-click resets to the natural (content) height.
+  resizer.addEventListener('dblclick', () => {
+    clearHeight();
+    try {
+      localStorage.removeItem('wo-tools-height');
+    } catch (e) {
+      /* ignore */
+    }
+  });
+})();
 document.querySelectorAll('[data-mobile-back]').forEach((btn) => {
   btn.addEventListener('click', () => toggleSidebar(true));
 });
@@ -3581,6 +4231,8 @@ document.querySelectorAll('[data-mobile-back]').forEach((btn) => {
       setViewMode(!!state.viewing);
     }
     if (typeof renderTabbar === 'function') renderTabbar();
+    // Follow the language choice to other devices too.
+    if (window.I18N && window.I18N.lang) persistPref('lang', window.I18N.lang);
   });
 })();
 
@@ -3618,7 +4270,46 @@ function openDashboard() {
   applySettingsSearch('');
   syncThemeButtons();
   loadAccount();
+  loadDailyPathSetting();
 }
+
+/** Populate the daily-note folder field from the (encrypted) settings. */
+async function loadDailyPathSetting() {
+  const input = $('#daily-path-input');
+  if (!input) return;
+  try {
+    await loadVaultSettings();
+    input.value = getDailyNotePath();
+  } catch {
+    input.value = DEFAULT_DAILY_DIR;
+  }
+}
+
+(function setupDailyPathSetting() {
+  const input = $('#daily-path-input');
+  const save = $('#daily-path-save');
+  const note = $('#daily-path-note');
+  if (!input || !save) return;
+  save.addEventListener('click', async () => {
+    const clean = WOUtil.normalizeVaultPath(input.value) || DEFAULT_DAILY_DIR;
+    input.value = clean;
+    save.disabled = true;
+    try {
+      const cfg = await loadVaultSettings();
+      cfg.dailyNotePath = clean;
+      await flushVaultSettings(); // explicit Save → write immediately
+      if (note) {
+        note.hidden = false;
+        note.textContent = t('daily_path_saved');
+      }
+      flash(t('daily_path_saved'));
+    } catch (e) {
+      flash(e.message || t('could_not_create'));
+    } finally {
+      save.disabled = false;
+    }
+  });
+})();
 
 function closeDashboard() {
   $('#dashboard-overlay').hidden = true;
@@ -4424,10 +5115,13 @@ async function saveWeblinks() {
 }
 
 /**
- * Open the web link manager. On first use this creates the `weblinks` folder
- * and an empty `weblinks.csv` inside it, then loads and renders the links.
+ * Load (or first-time create) the weblinks CSV into `weblinksState`. On first
+ * use this creates the `weblinks` folder and an empty CSV. Returns true on
+ * success; on failure shows an alert (unless silent) and returns false. The
+ * view is shown separately by the tab machinery so switching back never
+ * reloads.
  */
-async function openWebLinks() {
+async function loadWeblinksData(opts = {}) {
   showLoading(t('loading'));
   try {
     let data;
@@ -4454,16 +5148,14 @@ async function openWebLinks() {
     weblinksState.filter = '';
     const search = $('#weblinks-search');
     if (search) search.value = '';
-    deactivateTabs();
-    hideAllViews();
-    state.current = null;
-    $('#weblinks-view').hidden = false;
-    maybeCloseSidebar();
-    renderWeblinks();
+    return true;
   } catch (err) {
-    await uiAlert(t('open_failed_title'), {
-      message: err.message || t('weblinks_load_failed'),
-    });
+    if (!opts.silent) {
+      await uiAlert(t('open_failed_title'), {
+        message: err.message || t('weblinks_load_failed'),
+      });
+    }
+    return false;
   } finally {
     hideLoading();
   }
@@ -4737,7 +5429,9 @@ async function importWeblinksCsv(file) {
 }
 
 (function setupWeblinks() {
-  $('#weblinks-btn').addEventListener('click', openWebLinks);
+  $('#weblinks-btn').addEventListener('click', () =>
+    openSpecialTab('weblinks', { refresh: true }),
+  );
   $('#weblink-add').addEventListener('click', () => openWeblinkModal(null));
   $('#weblink-form').addEventListener('submit', submitWeblink);
   $('#weblink-cancel').addEventListener('click', closeWeblinkModal);
@@ -4782,6 +5476,7 @@ const graphState = {
   raf: null,
   dpr: 1,
   active: null, // node currently hovered (mouse) or tapped (touch)
+  pendingSim: false, // true after a (re)build so the tab re-runs the force sim
   dragNode: null,
   panning: false,
   moved: false,
@@ -5115,18 +5810,21 @@ function invalidateGraphCache() {
   graphBuiltAt = 0;
 }
 
-/** Reveal the graph view and (re)draw the current `graphState` layout. */
-function showGraphView(resim) {
+/**
+ * Reveal the graph view and (re)draw the current `graphState` layout. Called by
+ * the tab machinery, so it does NOT hide other views or touch tabs — that is
+ * handled by activateTab. Re-runs the force sim only when the data was just
+ * (re)built (`pendingSim`); a plain tab switch keeps the user's pan/zoom.
+ */
+function activateGraphTab() {
   const n = graphState.nodes.length;
   graphState.active = null;
-  deactivateTabs();
-  hideAllViews();
-  state.current = null;
   $('#graph-view').hidden = false;
   $('#graph-empty').hidden = n > 0;
   $('#graph-hint').hidden = n === 0;
   $('#graph-tooltip').hidden = true;
-  maybeCloseSidebar();
+  const resim = graphState.pendingSim;
+  graphState.pendingSim = false;
   // Defer sizing until the view is laid out so clientWidth/Height are correct.
   requestAnimationFrame(() => {
     resizeGraphCanvas();
@@ -5135,15 +5833,23 @@ function showGraphView(resim) {
   });
 }
 
-async function openGraph(force) {
+/**
+ * Ensure `graphState` holds a usable layout, rebuilding from the vault's notes
+ * unless a fresh cached layout already exists (or `opts.force`). Returns true on
+ * success; on failure alerts (unless silent) and returns false. Sets
+ * `graphState.pendingSim` when a rebuild happened so the view re-simulates.
+ */
+async function loadGraphView(opts = {}) {
   const ttl = graphCacheTtl();
   const fresh =
-    !force && graphBuiltAt && graphState.nodes.length &&
+    !opts.force &&
+    graphBuiltAt &&
+    graphState.nodes.length &&
     Date.now() - graphBuiltAt < ttl;
   if (fresh) {
     // Reuse the cached layout (keeps the user's pan/zoom too).
-    showGraphView(false);
-    return;
+    graphState.pendingSim = false;
+    return true;
   }
   showLoading(t('graph_building'));
   try {
@@ -5162,9 +5868,15 @@ async function openGraph(force) {
       nd.y = Math.sin(a) * radius * jitter;
     });
     graphBuiltAt = Date.now();
-    showGraphView(true);
+    graphState.pendingSim = true;
+    return true;
   } catch (err) {
-    await uiAlert(t('open_failed_title'), { message: err.message || t('graph_failed') });
+    if (!opts.silent) {
+      await uiAlert(t('open_failed_title'), {
+        message: err.message || t('graph_failed'),
+      });
+    }
+    return false;
   } finally {
     hideLoading();
   }
@@ -5172,7 +5884,8 @@ async function openGraph(force) {
 
 (function setupGraph() {
   const btn = $('#graph-btn');
-  if (btn) btn.addEventListener('click', () => openGraph());
+  if (btn)
+    btn.addEventListener('click', () => openSpecialTab('graph', { refresh: true }));
   const canvas = $('#graph-canvas');
   if (!canvas) return;
 
@@ -5182,7 +5895,9 @@ async function openGraph(force) {
   $('#graph-zoom-out').addEventListener('click', () => {
     graphZoomAround(canvas.clientWidth / 2, canvas.clientHeight / 2, 0.8);
   });
-  $('#graph-refresh').addEventListener('click', () => openGraph(true));
+  $('#graph-refresh').addEventListener('click', () =>
+    openSpecialTab('graph', { refresh: true, force: true }),
+  );
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -5303,6 +6018,198 @@ async function openGraph(force) {
   });
 })();
 
+/* ---------- calendar ------------------------------------------------------ */
+
+// Which month the calendar is currently showing, and the last day->files map.
+const calendarState = { year: 0, month: 0, byDay: new Map(), selected: null };
+
+/** Fetch every file and bucket by local last-modified day (skips internals). */
+async function loadCalendarData() {
+  const files = await api('GET', '/api/files');
+  // Show every user file (incl. templates & daily notes); only websidian's own
+  // internal settings folder is hidden.
+  calendarState.byDay = WOUtil.filesByDay(files, [RESERVED_DIR]);
+}
+
+/**
+ * Load the calendar data (files bucketed by day) into `calendarState` and
+ * default to the current month. Returns true on success; on failure shows an
+ * alert (unless silent) and returns false. Rendering/showing the view is done
+ * by the tab machinery so switching back never reloads.
+ */
+async function loadCalendarView(opts = {}) {
+  showLoading(t('calendar_loading'));
+  try {
+    await loadCalendarData();
+  } catch (err) {
+    hideLoading();
+    if (!opts.silent) {
+      await uiAlert(t('open_failed_title'), {
+        message: err.message || t('calendar_failed'),
+      });
+    }
+    return false;
+  }
+  hideLoading();
+  const now = new Date();
+  if (!calendarState.year) {
+    calendarState.year = now.getFullYear();
+    calendarState.month = now.getMonth();
+  }
+  calendarState.selected = null;
+  return true;
+}
+
+/** Month name in the active language via the browser's Intl formatter. */
+function monthLabel(year, month) {
+  const lang = (window.I18N && window.I18N.lang) || 'en';
+  try {
+    return new Date(year, month, 1).toLocaleDateString(lang, {
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return year + '-' + String(month + 1).padStart(2, '0');
+  }
+}
+
+/** Render the month grid and (if a day is selected) its file list. */
+function renderCalendar() {
+  const counts = calendarState.byDay;
+  const model = WOUtil.buildCalendarModel(
+    calendarState.year,
+    calendarState.month,
+    counts,
+  );
+  $('#calendar-title').textContent = monthLabel(
+    calendarState.year,
+    calendarState.month,
+  );
+
+  // Weekday header (Mon..Sun), localized short names.
+  const lang = (window.I18N && window.I18N.lang) || 'en';
+  const dow = $('#calendar-dow');
+  dow.innerHTML = '';
+  for (let d = 0; d < 7; d++) {
+    const ref = new Date(2024, 0, 1 + d); // 2024-01-01 is a Monday
+    const cell = document.createElement('span');
+    cell.className = 'calendar-dow-cell';
+    try {
+      cell.textContent = ref.toLocaleDateString(lang, { weekday: 'short' });
+    } catch {
+      cell.textContent = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'][d];
+    }
+    dow.appendChild(cell);
+  }
+
+  const todayKey = WOUtil.formatDailyDate(new Date());
+  const grid = $('#calendar-grid');
+  grid.innerHTML = '';
+  for (const week of model.weeks) {
+    for (const cell of week) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'calendar-cell';
+      if (!cell.inMonth) btn.classList.add('is-other-month');
+      if (cell.key === todayKey) btn.classList.add('is-today');
+      if (cell.key === calendarState.selected) btn.classList.add('is-selected');
+      if (cell.count > 0) btn.classList.add('has-files');
+
+      const num = document.createElement('span');
+      num.className = 'calendar-day-num';
+      num.textContent = String(cell.day);
+      btn.appendChild(num);
+
+      if (cell.count > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'calendar-count';
+        badge.textContent = String(cell.count);
+        badge.title = t('calendar_files_n', { n: cell.count });
+        btn.appendChild(badge);
+      }
+
+      btn.addEventListener('click', () => {
+        calendarState.selected =
+          calendarState.selected === cell.key ? null : cell.key;
+        renderCalendar();
+      });
+      grid.appendChild(btn);
+    }
+  }
+
+  renderCalendarDayList();
+}
+
+/** Render the list of files for the currently selected day. */
+function renderCalendarDayList() {
+  const panel = $('#calendar-daylist');
+  const heading = $('#calendar-daylist-title');
+  const list = $('#calendar-daylist-files');
+  const empty = $('#calendar-daylist-empty');
+  const key = calendarState.selected;
+  list.innerHTML = '';
+  if (!key) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  heading.textContent = key;
+  const files = calendarState.byDay.get(key) || [];
+  empty.hidden = files.length > 0;
+  // The month grid can be tall; make sure the day's file list is visible.
+  requestAnimationFrame(() =>
+    panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }),
+  );
+  for (const path of files) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'calendar-file';
+    const icon = document.createElement('i');
+    icon.className = 'bi bi-file-earmark-text';
+    const name = document.createElement('span');
+    name.textContent = path;
+    btn.append(icon, name);
+    btn.addEventListener('click', () => openFile(path));
+    list.appendChild(btn);
+  }
+}
+
+(function setupCalendar() {
+  const btn = $('#calendar-btn');
+  if (btn)
+    btn.addEventListener('click', () =>
+      openSpecialTab('calendar', { refresh: true }),
+    );
+  const prev = $('#calendar-prev');
+  const next = $('#calendar-next');
+  const today = $('#calendar-today');
+  const shift = (delta) => {
+    let m = calendarState.month + delta;
+    let y = calendarState.year;
+    if (m < 0) {
+      m = 11;
+      y--;
+    } else if (m > 11) {
+      m = 0;
+      y++;
+    }
+    calendarState.month = m;
+    calendarState.year = y;
+    calendarState.selected = null;
+    renderCalendar();
+  };
+  if (prev) prev.addEventListener('click', () => shift(-1));
+  if (next) next.addEventListener('click', () => shift(1));
+  if (today)
+    today.addEventListener('click', () => {
+      const now = new Date();
+      calendarState.year = now.getFullYear();
+      calendarState.month = now.getMonth();
+      calendarState.selected = WOUtil.formatDailyDate(now);
+      renderCalendar();
+    });
+})();
+
 /* ---------- flash ---------- */
 
 let flashTimer;
@@ -5402,6 +6309,9 @@ setSelectedDir('');
 // dismisses the prompt they are redirected to login.
 ensureVaultKey()
   .then(() => loadTree())
+  // Reconcile UI prefs + load reading positions from the vault before restoring
+  // tabs, so a reopened epub/pdf can jump to where it was left off.
+  .then(() => syncSettingsFromVault())
   .then(() => restoreTabs())
   .then(() => {
     // Warm the content index in the background once the UI is up, so the first

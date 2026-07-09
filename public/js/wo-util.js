@@ -199,6 +199,123 @@
     return out;
   }
 
+  // ---- Notes: daily notes, templates, calendar -------------------------------
+
+  /**
+   * Normalize a user-typed vault folder path: trim, use forward slashes,
+   * collapse repeats, drop leading/trailing slashes and any '.'/'..' segments
+   * so it can never escape the vault. Returns '' for an empty/invalid path.
+   */
+  function normalizeVaultPath(input) {
+    if (typeof input !== 'string') return '';
+    const parts = input
+      .replace(/\\/g, '/')
+      .split('/')
+      .map((s) => s.trim())
+      .filter((s) => s && s !== '.' && s !== '..');
+    return parts.join('/');
+  }
+
+  // Zero-pad a number to 2 digits (local date/time formatting).
+  function pad2(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  /** Local calendar day key 'YYYY-MM-DD' for a Date (used as daily-note name). */
+  function formatDailyDate(date) {
+    const d = date instanceof Date ? date : new Date(date);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  }
+
+  /**
+   * Substitute the supported template placeholders. `now` defaults to the
+   * current time; `title` is the new note's name without extension.
+   *   {{date}} -> YYYY-MM-DD   {{time}} -> HH:MM   {{title}} -> note title
+   */
+  function applyTemplate(text, opts) {
+    const o = opts || {};
+    const now = o.now instanceof Date ? o.now : new Date();
+    const date = formatDailyDate(now);
+    const time = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+    const title = o.title == null ? '' : String(o.title);
+    return String(text == null ? '' : text)
+      .replace(/\{\{\s*date\s*\}\}/gi, date)
+      .replace(/\{\{\s*time\s*\}\}/gi, time)
+      .replace(/\{\{\s*title\s*\}\}/gi, title);
+  }
+
+  /**
+   * Parse the millisecond mtime out of a vault file's opaque `version` token,
+   * whose format is `${Math.round(mtimeMs)}-${size}` (see VaultService). Returns
+   * NaN when the token is missing or malformed so callers can skip the file.
+   */
+  function mtimeFromVersion(version) {
+    if (typeof version !== 'string') return NaN;
+    const ms = Number(version.split('-')[0]);
+    return Number.isFinite(ms) ? ms : NaN;
+  }
+
+  /**
+   * Bucket vault files by the local day they were last changed. `files` is the
+   * `/api/files` payload: `[{ path, version }]`. Returns a Map keyed by
+   * 'YYYY-MM-DD' -> array of file paths (sorted), skipping reserved/internal
+   * paths and files with an unreadable version. Pure and DOM-free.
+   */
+  function filesByDay(files, reservedPrefixes) {
+    const reserved = reservedPrefixes || [];
+    const map = new Map();
+    for (const f of files || []) {
+      const path = f && f.path;
+      if (!path) continue;
+      if (reserved.some((p) => path === p || path.startsWith(p + '/'))) continue;
+      const ms = mtimeFromVersion(f.version);
+      if (!Number.isFinite(ms)) continue;
+      const key = formatDailyDate(new Date(ms));
+      const arr = map.get(key);
+      if (arr) arr.push(path);
+      else map.set(key, [path]);
+    }
+    for (const arr of map.values()) {
+      arr.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    }
+    return map;
+  }
+
+  /**
+   * Build a month-grid model for the calendar. `year` is full (e.g. 2026),
+   * `month` is 0-based. `counts` maps 'YYYY-MM-DD' -> file count. Weeks start on
+   * Monday. Returns { year, month, weeks: [[{ key, day, inMonth, count }]] }
+   * with leading/trailing days from adjacent months to fill 6 rows. Pure.
+   */
+  function buildCalendarModel(year, month, counts) {
+    const c = counts || new Map();
+    const first = new Date(year, month, 1);
+    // JS getDay(): 0=Sun..6=Sat. Shift so Monday=0.
+    const lead = (first.getDay() + 6) % 7;
+    const start = new Date(year, month, 1 - lead);
+    const weeks = [];
+    for (let w = 0; w < 6; w++) {
+      const row = [];
+      for (let d = 0; d < 7; d++) {
+        const cur = new Date(
+          start.getFullYear(),
+          start.getMonth(),
+          start.getDate() + w * 7 + d,
+        );
+        const key = formatDailyDate(cur);
+        const cnt = c.get(key);
+        row.push({
+          key,
+          day: cur.getDate(),
+          inMonth: cur.getMonth() === month,
+          count: (cnt && (cnt.length != null ? cnt.length : cnt)) || 0,
+        });
+      }
+      weeks.push(row);
+    }
+    return { year, month, weeks };
+  }
+
   return {
     WEBLINKS_HEADER,
     fmtSize,
@@ -208,5 +325,11 @@
     sanitizeLinkUrl,
     serializeWeblinks,
     csvToLinks,
+    normalizeVaultPath,
+    formatDailyDate,
+    applyTemplate,
+    mtimeFromVersion,
+    filesByDay,
+    buildCalendarModel,
   };
 });

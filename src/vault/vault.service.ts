@@ -814,17 +814,35 @@ export class VaultService {
   }
 
   /** Collect every file in the vault as relative paths for export. */
+  /**
+   * List every file in the vault (flat, with sizes). By default hidden dotfiles
+   * are skipped (so the calendar and graph ignore OS junk). Pass
+   * `includeHidden` for a complete backup — a full export must contain
+   * websidian's own `.websidian/settings.json` and any other user dotfiles.
+   * The soft-delete trash (`.trash`) and folder markers (`.keep`) are ALWAYS
+   * excluded: they are internal, not part of the user's vault content.
+   */
   async listAllFiles(
     username: string,
+    opts: { includeHidden?: boolean } = {},
   ): Promise<Array<{ relPath: string; version: string }>> {
     await this.ensureUserRoot(username);
     const storageId = await this.sid(username);
-    // Fast path: enumerate the whole vault in one request when supported,
-    // skipping hidden dotfiles / folder markers to mirror the recursive walk.
+    const includeHidden = Boolean(opts.includeHidden);
+    // Whether a path belongs in the listing. Trash and folder markers are never
+    // listed; other dotfiles only when hidden files are requested.
+    const keep = (relPath: string): boolean => {
+      const segs = relPath.split('/');
+      if (segs[0] === TRASH_DIR) return false;
+      if (segs[segs.length - 1] === KEEP_MARKER) return false;
+      if (!includeHidden && segs.some((seg) => seg.startsWith('.'))) return false;
+      return true;
+    };
+    // Fast path: enumerate the whole vault in one request when supported.
     const flat = await this.storage.walkFiles?.(storageId);
     if (flat) {
       return flat
-        .filter((f) => !f.relPath.split('/').some((seg) => seg.startsWith('.')))
+        .filter((f) => keep(f.relPath))
         .map((f) => ({
           relPath: f.relPath,
           version: this.versionOf({ size: f.size, mtimeMs: f.mtimeMs }),
@@ -836,8 +854,10 @@ export class VaultService {
       for (const entry of entries) {
         const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
         if (entry.type === 'dir') {
+          // Never descend into the trash.
+          if (rel === TRASH_DIR || rel.startsWith(`${TRASH_DIR}/`)) continue;
           await walk(rel);
-        } else {
+        } else if (keep(rel)) {
           const stat = await this.storage.statFile(storageId, rel);
           out.push({ relPath: rel, version: this.versionOf(stat) });
         }

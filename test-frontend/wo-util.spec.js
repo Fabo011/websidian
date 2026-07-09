@@ -155,3 +155,81 @@ describe('weblinks CSV round-trip', () => {
     });
   });
 });
+
+describe('normalizeVaultPath', () => {
+  it('trims, collapses slashes and drops leading/trailing slashes', () => {
+    expect(WOUtil.normalizeVaultPath('  /Daily//Notes/  ')).toBe('Daily/Notes');
+  });
+
+  it('strips . and .. segments so it cannot escape the vault', () => {
+    expect(WOUtil.normalizeVaultPath('../../etc/Daily')).toBe('etc/Daily');
+    expect(WOUtil.normalizeVaultPath('./Daily/./x')).toBe('Daily/x');
+  });
+
+  it('returns empty string for blank or non-string input', () => {
+    expect(WOUtil.normalizeVaultPath('   ')).toBe('');
+    expect(WOUtil.normalizeVaultPath(null)).toBe('');
+  });
+});
+
+describe('formatDailyDate', () => {
+  it('formats a Date as local YYYY-MM-DD with zero padding', () => {
+    expect(WOUtil.formatDailyDate(new Date(2026, 0, 5))).toBe('2026-01-05');
+    expect(WOUtil.formatDailyDate(new Date(2026, 11, 31))).toBe('2026-12-31');
+  });
+});
+
+describe('applyTemplate', () => {
+  it('substitutes {{date}}, {{time}} and {{title}} (case/space tolerant)', () => {
+    const now = new Date(2026, 6, 9, 8, 4);
+    const out = WOUtil.applyTemplate('# {{ TITLE }}\n{{date}} {{time}}', {
+      now,
+      title: 'My Note',
+    });
+    expect(out).toBe('# My Note\n2026-07-09 08:04');
+  });
+
+  it('leaves unknown placeholders untouched and tolerates empty input', () => {
+    expect(WOUtil.applyTemplate('{{foo}}', { title: 'x' })).toBe('{{foo}}');
+    expect(WOUtil.applyTemplate(null, {})).toBe('');
+  });
+});
+
+describe('mtimeFromVersion', () => {
+  it('parses the ms timestamp from a "mtime-size" token', () => {
+    expect(WOUtil.mtimeFromVersion('1750000000000-42')).toBe(1750000000000);
+  });
+
+  it('returns NaN for malformed or missing tokens', () => {
+    expect(Number.isNaN(WOUtil.mtimeFromVersion('abc-1'))).toBe(true);
+    expect(Number.isNaN(WOUtil.mtimeFromVersion(undefined))).toBe(true);
+  });
+});
+
+describe('filesByDay', () => {
+  it('buckets files by local mtime day and skips reserved/bad entries', () => {
+    const ms = new Date(2026, 6, 9, 12, 0).getTime();
+    const files = [
+      { path: 'a.md', version: ms + '-10' },
+      { path: 'sub/b.md', version: ms + '-20' },
+      { path: '.websidian/settings.json', version: ms + '-5' },
+      { path: 'bad.md', version: 'x-1' },
+    ];
+    const map = WOUtil.filesByDay(files, ['.websidian']);
+    expect(map.get('2026-07-09')).toEqual(['a.md', 'sub/b.md']);
+    expect(map.size).toBe(1);
+  });
+});
+
+describe('buildCalendarModel', () => {
+  it('builds a 6x7 Monday-first grid with counts and month membership', () => {
+    const counts = new Map([['2026-07-09', 3]]);
+    const model = WOUtil.buildCalendarModel(2026, 6, counts);
+    expect(model.weeks).toHaveLength(6);
+    model.weeks.forEach((w) => expect(w).toHaveLength(7));
+    // 1 July 2026 is a Wednesday -> first cell is Monday 29 June (not in month).
+    expect(model.weeks[0][0]).toMatchObject({ day: 29, inMonth: false });
+    const cell = model.weeks.flat().find((c) => c.key === '2026-07-09');
+    expect(cell).toMatchObject({ day: 9, inMonth: true, count: 3 });
+  });
+});

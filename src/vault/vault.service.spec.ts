@@ -504,6 +504,22 @@ describe('VaultService', () => {
       ]);
     });
 
+    it('includeHidden keeps user dotfiles but never trash or .keep markers', async () => {
+      const { service, storage } = makeService();
+      storage.walkFiles = jest.fn().mockResolvedValue([
+        { relPath: 'a.md', size: 1, mtimeMs: 100 },
+        { relPath: '.websidian/settings.json', size: 4, mtimeMs: 400 },
+        { relPath: '.trash/x/c.md', size: 3, mtimeMs: 300 },
+        { relPath: 'dir/.keep', size: 0, mtimeMs: 0 },
+      ]);
+      await expect(
+        service.listAllFiles('alice', { includeHidden: true }),
+      ).resolves.toEqual([
+        { relPath: 'a.md', version: '100-1' },
+        { relPath: '.websidian/settings.json', version: '400-4' },
+      ]);
+    });
+
     it('falls back to a stat-per-file walk', async () => {
       const { service, storage } = makeService();
       storage.list.mockImplementation(async (_sid, dir) =>

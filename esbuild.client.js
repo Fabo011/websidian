@@ -86,6 +86,33 @@ async function main() {
   });
   console.log('EPUB reader bundle ready.');
 
+  // Bundle the PDF reader (pdf.js). PDFs are decrypted in the browser and
+  // rendered client-side so we can track the reading page (the native browser
+  // viewer cannot report it) and resume across devices. The pdf.js worker is
+  // built as a separate classic script; its URL is handed to the viewer at
+  // runtime (with cache-busting) via GlobalWorkerOptions.workerSrc.
+  await esbuild.build({
+    entryPoints: ['client/pdf-entry.js'],
+    bundle: true,
+    format: 'iife',
+    outfile: 'public/js/pdf-bundle.js',
+    minify: true,
+    sourcemap: false,
+    define: { 'process.env.NODE_ENV': '"production"' },
+    logLevel: 'info',
+  });
+  await esbuild.build({
+    entryPoints: ['node_modules/pdfjs-dist/build/pdf.worker.mjs'],
+    bundle: true,
+    format: 'iife',
+    outfile: 'public/js/pdf-worker.js',
+    minify: true,
+    sourcemap: false,
+    define: { 'process.env.NODE_ENV': '"production"' },
+    logLevel: 'info',
+  });
+  console.log('PDF reader bundle ready.');
+
   // Bundle the client-side markdown renderer (markdown-it + highlight.js).
   // With end-to-end encryption the server can't read note contents, so the
   // former server-side render/highlight endpoints now run in the browser.
