@@ -835,7 +835,8 @@ export class VaultService {
       const segs = relPath.split('/');
       if (segs[0] === TRASH_DIR) return false;
       if (segs[segs.length - 1] === KEEP_MARKER) return false;
-      if (!includeHidden && segs.some((seg) => seg.startsWith('.'))) return false;
+      if (!includeHidden && segs.some((seg) => seg.startsWith('.')))
+        return false;
       return true;
     };
     // Fast path: enumerate the whole vault in one request when supported.

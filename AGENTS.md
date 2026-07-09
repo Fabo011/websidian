@@ -69,6 +69,30 @@ npm run lint           # eslint --fix
 npm install            # then verify: npm audit == 0 vulnerabilities
 ```
 
+### Run the CI quality gates locally before finishing — every feature or bug fix
+
+**Non-negotiable: after ANY feature or bug fix, run the full quality gate locally
+and make it green before you consider the work done.** CI (`.github/workflows/ci.yml`)
+fails the whole build on the first gate that fails, and we have shipped breakages
+that a 30-second local run would have caught (e.g. a `prettier/prettier` lint
+error, a lockfile out of sync). Run the **exact** gates CI runs, in this order,
+on **Node 24**:
+
+```bash
+npm run lint                                  # 1. auto-fix formatting first, THEN:
+npx eslint "{src,apps,libs,test}/**/*.ts"     #    CI runs eslint WITHOUT --fix — must be clean (exit 0)
+npm audit --audit-level=critical              # 2. no CRITICAL vulnerabilities
+npm run build:all                             # 3. client bundles + server build must succeed
+npm run test:backend                          # 4. backend Jest
+npm run test:frontend                         # 5. frontend Jest
+# 6. if any dependency changed, also the linux/amd64 `npm ci` check below
+```
+
+Key trap: CI's lint step is `npx eslint …` with **no `--fix`**, so a formatting
+issue that `npm run lint` would auto-fix still **fails CI** unless you actually
+ran the fix and committed it. Always run the bare `eslint` command above and see
+exit 0 before finishing. Do not rely on "it looks fine" — run the gates.
+
 ### Keep `package-lock.json` in sync (CI runs `npm ci`)
 
 CI installs with **`npm ci`**, which does a strict lockfile check and **fails the
@@ -106,6 +130,9 @@ add, remove, or change a dependency (or its version):
 
 ## Checklist before finishing a change
 
+- [ ] **Ran the full CI quality gate locally and it is green** (lint with no
+      `--fix` → `npm audit --audit-level=critical` → `npm run build:all` →
+      `test:backend` → `test:frontend`) — see "Run the CI quality gates locally"
 - [ ] No file exceeds 1000 lines of code
 - [ ] i18n updated (all languages) if UI text changed
 - [ ] `.env.example` updated if new env var
