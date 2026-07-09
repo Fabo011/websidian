@@ -20,17 +20,42 @@
 
   <div class="layout">
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-tools">
-        <button id="new-note" title="Create a new markdown note" data-i18n-attr="title:title_new_note"><i class="bi bi-file-earmark-plus"></i> <span data-i18n="tool_note">Note</span></button>
-        <button id="new-file" title="Create a new Excalidraw drawing" data-i18n-attr="title:title_new_file"><i class="bi bi-pencil-square"></i> <span data-i18n="tool_file">Drawing</span></button>
-        <button id="new-folder" title="Create a new folder" data-i18n-attr="title:title_new_folder"><i class="bi bi-folder-plus"></i> <span data-i18n="tool_folder">Folder</span></button>
-        <button id="weblinks-btn" title="Open the web link manager" data-i18n-attr="title:title_weblinks"><i class="bi bi-link-45deg"></i> <span data-i18n="tool_weblinks">Web links</span></button>
-        <button id="graph-btn" title="Open the wikilink graph" data-i18n-attr="title:title_graph"><i class="bi bi-diagram-3"></i> <span data-i18n="tool_graph">Graph</span></button>
-        <button id="upload-btn" title="Upload files from your computer" data-i18n-attr="title:title_upload"><i class="bi bi-file-earmark-arrow-up"></i> <span data-i18n="tool_upload">Upload files</span></button>
-        <button id="import-btn" title="Import folders or a whole vault (.zip)" data-i18n-attr="title:title_import"><i class="bi bi-folder-symlink"></i> <span data-i18n="tool_import">Import folder</span></button>
-        <button id="export-btn" title="Download the whole vault as a .zip" data-i18n-attr="title:title_export"><i class="bi bi-download"></i> <span data-i18n="tool_export">Export</span></button>
-        <button id="trash-btn" title="Open the trash to restore or permanently delete items" data-i18n-attr="title:title_trash"><i class="bi bi-trash3"></i> <span data-i18n="tool_trash">Trash</span></button>
+      <div class="sidebar-tools-head">
+        <button id="tools-toggle" class="tools-toggle" type="button" aria-expanded="true" title="Hide actions" aria-label="Hide actions" data-i18n-attr="title:tools_toggle_hide;aria-label:tools_toggle_hide">
+          <i class="bi bi-chevron-down tools-toggle-caret"></i>
+          <span data-i18n="tools_actions">Actions</span>
+        </button>
       </div>
+      <div class="sidebar-tools" id="sidebar-tools">
+        <div class="tool-group" data-group="create">
+          <span class="tool-group-title" data-i18n="group_create">Create</span>
+          <div class="tool-group-btns">
+            <button id="new-note" title="Create a new markdown note (optionally from a template)" data-i18n-attr="title:title_new_note"><i class="bi bi-file-earmark-plus"></i> <span data-i18n="tool_note">Note</span></button>
+            <button id="new-daily" title="Create or open today's daily note" data-i18n-attr="title:title_new_daily"><i class="bi bi-calendar-day"></i> <span data-i18n="tool_daily">Daily note</span></button>
+            <button id="new-file" title="Create a new Excalidraw drawing" data-i18n-attr="title:title_new_file"><i class="bi bi-pencil-square"></i> <span data-i18n="tool_file">Drawing</span></button>
+            <button id="new-folder" title="Create a new folder" data-i18n-attr="title:title_new_folder"><i class="bi bi-folder-plus"></i> <span data-i18n="tool_folder">Folder</span></button>
+            <button id="new-template" title="Create a reusable note template in the Templates folder" data-i18n-attr="title:title_new_template"><i class="bi bi-file-earmark-ruled"></i> <span data-i18n="tool_template">Template</span></button>
+          </div>
+        </div>
+        <div class="tool-group" data-group="view">
+          <span class="tool-group-title" data-i18n="group_view">View</span>
+          <div class="tool-group-btns">
+            <button id="graph-btn" title="Open the wikilink graph" data-i18n-attr="title:title_graph"><i class="bi bi-diagram-3"></i> <span data-i18n="tool_graph">Graph</span></button>
+            <button id="calendar-btn" title="Open the calendar of files by day" data-i18n-attr="title:title_calendar"><i class="bi bi-calendar3"></i> <span data-i18n="tool_calendar">Calendar</span></button>
+            <button id="weblinks-btn" title="Open the web link manager" data-i18n-attr="title:title_weblinks"><i class="bi bi-link-45deg"></i> <span data-i18n="tool_weblinks">Web links</span></button>
+          </div>
+        </div>
+        <div class="tool-group" data-group="manage">
+          <span class="tool-group-title" data-i18n="group_manage">Manage</span>
+          <div class="tool-group-btns">
+            <button id="upload-btn" title="Upload files from your computer" data-i18n-attr="title:title_upload"><i class="bi bi-file-earmark-arrow-up"></i> <span data-i18n="tool_upload">Upload files</span></button>
+            <button id="import-btn" title="Import folders or a whole vault (.zip)" data-i18n-attr="title:title_import"><i class="bi bi-folder-symlink"></i> <span data-i18n="tool_import">Import folder</span></button>
+            <button id="export-btn" title="Download the whole vault as a .zip" data-i18n-attr="title:title_export"><i class="bi bi-download"></i> <span data-i18n="tool_export">Export</span></button>
+            <button id="trash-btn" title="Open the trash to restore or permanently delete items" data-i18n-attr="title:title_trash"><i class="bi bi-trash3"></i> <span data-i18n="tool_trash">Trash</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="tools-resizer" id="tools-resizer" role="separator" aria-orientation="horizontal" aria-label="Resize actions area" data-i18n-attr="aria-label:tools_resize"></div>
       <div id="selected-folder" class="selected-folder breadcrumb" aria-label="Selected folder" data-i18n-attr="aria-label:selected_folder"></div>
       <nav id="tree" class="tree" aria-label="Files" data-i18n-attr="aria-label:files_aria"></nav>
     </aside>
@@ -170,6 +195,29 @@
             <p data-i18n="graph_empty">No notes to graph yet. Create notes and connect them with [[wikilinks]].</p>
           </div>
           <div id="graph-hint" class="graph-hint" data-i18n="graph_hint">Tap a dot to see its name, then tap the name to open it.</div>
+        </div>
+      </section>
+
+      <section id="calendar-view" class="view calendar-view" hidden>
+        <div class="view-header">
+          <button class="icon-btn mobile-back" data-mobile-back title="Show files" aria-label="Show files" data-i18n-attr="title:open_files_title;aria-label:open_files"><i class="bi bi-list"></i></button>
+          <span class="current-path breadcrumb"><i class="bi bi-calendar3"></i> <span data-i18n="calendar_title">Calendar</span></span>
+          <div class="view-actions">
+            <button id="calendar-prev" class="icon-btn" type="button" title="Previous month" aria-label="Previous month" data-i18n-attr="title:calendar_prev;aria-label:calendar_prev"><i class="bi bi-chevron-left"></i></button>
+            <span id="calendar-title" class="calendar-month-label" aria-live="polite"></span>
+            <button id="calendar-next" class="icon-btn" type="button" title="Next month" aria-label="Next month" data-i18n-attr="title:calendar_next;aria-label:calendar_next"><i class="bi bi-chevron-right"></i></button>
+            <button id="calendar-today" class="btn-ghost" type="button" title="Jump to today" data-i18n-attr="title:calendar_today"><i class="bi bi-calendar-check"></i> <span class="btn-label" data-i18n="calendar_today">Today</span></button>
+          </div>
+        </div>
+        <div class="calendar-body">
+          <p class="calendar-intro" data-i18n="calendar_intro">Every day shows the files you created or changed. Pick a day to see and open them.</p>
+          <div id="calendar-dow" class="calendar-dow"></div>
+          <div id="calendar-grid" class="calendar-grid" role="grid" aria-label="Calendar" data-i18n-attr="aria-label:calendar_title"></div>
+          <div id="calendar-daylist" class="calendar-daylist" hidden>
+            <h3 id="calendar-daylist-title" class="calendar-daylist-title"></h3>
+            <div id="calendar-daylist-files" class="calendar-daylist-files"></div>
+            <p id="calendar-daylist-empty" class="calendar-daylist-empty" hidden data-i18n="calendar_day_empty">No files changed on this day.</p>
+          </div>
         </div>
       </section>
     </main>
@@ -483,6 +531,17 @@
             </div>
           </div>
 
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-calendar-day"></i> <span data-i18n="daily_notes_title">Daily notes</span></h3>
+            <p class="settings-hint" data-i18n="daily_path_hint">Folder where "Daily note" saves today's note. The file is named after the date (e.g. 2026-07-09.md).</p>
+            <div class="settings-row settings-row-input">
+              <label class="settings-label" for="daily-path-input" data-i18n="daily_path_label">Daily notes folder</label>
+              <input id="daily-path-input" class="modal-input settings-inline-input" type="text" autocomplete="off" placeholder="Daily" data-i18n-attr="placeholder:daily_path_ph" />
+            </div>
+            <button id="daily-path-save" class="btn-primary settings-inline-btn" type="button" data-i18n="daily_path_save">Save daily notes folder</button>
+            <p id="daily-path-note" class="settings-hint" hidden></p>
+          </div>
+
           <div class="settings-group danger-zone">
             <h3 class="settings-group-title"><i class="bi bi-exclamation-triangle"></i> <span data-i18n="danger_zone">Danger zone</span></h3>
             <p class="settings-hint" data-i18n="delete_account_hint">Deleting your account permanently removes all your notes, files and account data. This cannot be undone.</p>
@@ -526,6 +585,20 @@
       <div id="trash-list" class="trash-list" aria-live="polite"></div>
       <div class="modal-actions">
         <button id="trash-empty-btn" class="btn-danger" type="button"><i class="bi bi-trash3"></i> <span data-i18n="trash_empty">Empty trash</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="template-overlay" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="template-modal-title">
+      <div class="dashboard-head">
+        <h3 id="template-modal-title" class="modal-title"><i class="bi bi-file-earmark-ruled"></i> <span data-i18n="template_pick_title">Choose a template</span></h3>
+        <button id="template-close" class="icon-btn" title="Close" aria-label="Close" data-i18n-attr="title:close;aria-label:close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <p class="modal-message" data-i18n="template_pick_hint">Start from a blank note, or pick one of your templates in the Templates folder.</p>
+      <div id="template-list" class="template-list"></div>
+      <div class="modal-actions">
+        <button id="template-cancel" class="btn-ghost" type="button" data-i18n="cancel">Cancel</button>
       </div>
     </div>
   </div>
@@ -585,6 +658,7 @@
   <script src="/public/js/markdown-bundle.js?v=<%= v %>"></script>
   <script src="/public/js/zip-bundle.js?v=<%= v %>"></script>
   <script src="/public/js/upload-bundle.js?v=<%= v %>"></script>
+  <script src="/public/js/wo-util.js?v=<%= v %>"></script>
   <script src="/public/js/app.js?v=<%= v %>"></script>
 </body>
 </html>

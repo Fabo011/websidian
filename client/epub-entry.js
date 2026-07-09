@@ -35,11 +35,22 @@ export function mount(container, arrayBuffer, opts = {}) {
     }
   };
   const saveLocation = (cfi) => {
-    if (!storeKey || !cfi) return;
-    try {
-      localStorage.setItem(storeKey, cfi);
-    } catch (e) {
-      /* storage full or blocked — position is best-effort */
+    if (!cfi) return;
+    if (storeKey) {
+      try {
+        localStorage.setItem(storeKey, cfi);
+      } catch (e) {
+        /* storage full or blocked — position is best-effort */
+      }
+    }
+    // Mirror to the host (e.g. the encrypted vault settings) for cross-device
+    // resume. Best-effort; never let a callback error break the reader.
+    if (typeof opts.onLocation === 'function') {
+      try {
+        opts.onLocation(cfi);
+      } catch (e) {
+        /* ignore */
+      }
     }
   };
 
@@ -102,7 +113,12 @@ export function mount(container, arrayBuffer, opts = {}) {
   // visible) re-paginates and re-displays `currentCfi` so we land on the right
   // spot. `currentCfi` tracks the position we want to be at (saved, then updated
   // as the user reads).
-  const savedCfi = loadLocation();
+  // Prefer a position handed in by the host (synced across devices) over the
+  // local cache, so opening the book on another device resumes correctly.
+  const savedCfi =
+    typeof opts.initialLocation === 'string' && opts.initialLocation
+      ? opts.initialLocation
+      : loadLocation();
   let currentCfi = savedCfi || null;
   rendition.display(savedCfi || undefined);
   book.ready.then(applyTheme);

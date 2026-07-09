@@ -1,4 +1,4 @@
-# Quality gate: install, audit (critical), lint, build, full Jest suite.
+# Quality gate: install, audit (critical), lint, build, backend + frontend Jest.
 #
 # Runs on every push to `dev` and every pull request targeting `main`. A red
 # run means the change broke something — nothing should be merged to `main`
@@ -10,6 +10,9 @@
 name: ci
 
 on:
+  push:
+    branches:
+      - dev
   pull_request:
     branches:
       - main
@@ -39,5 +42,8 @@ jobs:
       - name: Build client + server
         run: npm run build:all
 
-      - name: Run tests (quality gate)
-        run: npm test
+      - name: Run backend tests (quality gate)
+        run: npm run test:backend
+
+      - name: Run frontend tests (quality gate)
+        run: npm run test:frontend

@@ -35,6 +35,9 @@
 
       /* sidebar tools */
       tool_note: 'Note',
+      tool_daily: 'Daily note',
+      tool_template: 'Template',
+      tool_calendar: 'Calendar',
       tool_file: 'Drawing',
       tool_folder: 'Folder',
       tool_upload: 'Upload files',
@@ -42,6 +45,41 @@
       tool_export: 'Export',
       tool_weblinks: 'Web links',
       tool_graph: 'Graph',
+      group_create: 'Create',
+      group_view: 'View',
+      group_manage: 'Manage',
+      tools_actions: 'Actions',
+      tools_toggle_hide: 'Hide actions',
+      tools_toggle_show: 'Show actions',
+      tools_resize: 'Resize actions area',
+      title_new_daily: "Create or open today's daily note",
+      title_new_template: 'Create a reusable note template in the Templates folder',
+      title_calendar: 'Open the calendar of files by day',
+      calendar_title: 'Calendar',
+      calendar_intro:
+        'Every day shows the files you created or changed. Pick a day to see and open them.',
+      calendar_prev: 'Previous month',
+      calendar_next: 'Next month',
+      calendar_today: 'Today',
+      calendar_loading: 'Loading calendar…',
+      calendar_failed: 'Could not load the calendar.',
+      calendar_day_empty: 'No files changed on this day.',
+      calendar_files_n: '{n} files',
+      template_pick_title: 'Choose a template',
+      template_pick_hint:
+        'Start from a blank note, or pick one of your templates in the Templates folder.',
+      template_blank: 'Blank note',
+      template_load_failed: 'Could not load the template; created a blank note.',
+      prompt_new_template_title: 'New template',
+      prompt_new_template_msg:
+        'Templates are saved in the Templates folder. Use {{date}}, {{time}} and {{title}} as placeholders.',
+      daily_notes_title: 'Daily notes',
+      daily_path_hint:
+        'Folder where "Daily note" saves today\'s note. The file is named after the date (e.g. 2026-07-09.md).',
+      daily_path_label: 'Daily notes folder',
+      daily_path_ph: 'Daily',
+      daily_path_save: 'Save daily notes folder',
+      daily_path_saved: 'Daily notes folder saved.',
       title_graph: 'Open the wikilink graph',
       graph_title: 'Graph',
       graph_empty: 'No notes to graph yet. Create notes and connect them with [[wikilinks]].',
@@ -86,6 +124,8 @@
       weblinks_delete_msg: 'Delete this web link?',
       weblinks_invalid_url: 'Enter a valid http(s) URL.',
       weblinks_open: 'Open link',
+      weblinks_saved: 'Link saved',
+      weblinks_deleted: 'Link deleted',
       weblinks_imported_n: 'Imported {n} link(s)',
       weblinks_import_failed: 'Could not import the CSV file.',
       weblinks_load_failed: 'Could not open the web link manager.',
@@ -105,6 +145,8 @@
       excalidraw_failed: 'Failed to load Excalidraw editor.',
       epub_prev: 'Previous page',
       epub_next: 'Next page',
+      pdf_zoom_in: 'Zoom in',
+      pdf_zoom_out: 'Zoom out',
 
       /* markdown toolbar tooltips */
       md_bold_tip: 'Bold — wrap text in ** ** · e.g. **important**',
@@ -324,6 +366,7 @@
       docs_toc_encryption: 'End-to-end encryption',
       docs_toc_password: 'Recovery key & no reset',
       docs_toc_weblinks: 'Web links',
+      docs_toc_tabs: 'Open tabs & the tab limit',
       docs_toc_files: 'Supported files',
       docs_what_h: 'What websidian is (and is not)',
       docs_what_p1:
@@ -389,6 +432,13 @@
         '<strong>Why it is safer.</strong> The risky moment with any link is the <em>first</em> time &mdash; that is when you judge whether a URL really points where it claims. Vet a link once, store the exact address, and from then on you always open <em>that</em> verified URL. You are no longer re-reading a link someone pasted into an email or chat, where the visible text can hide a different, manipulated destination. The stored URL is end-to-end encrypted like the rest of your vault.',
       docs_wl_p4:
         '<strong>Independent of the browser.</strong> Because the links are kept server-side in your vault rather than in a browser profile, they are not tied to any one browser, extension or sync account. Nothing to install, nothing to export when you move devices &mdash; just log in and your trusted links are there.',
+      docs_tabs_h: 'Open tabs & the tab limit',
+      docs_tabs_p1:
+        'Files you open are kept as <strong>tabs</strong>, like in a code editor, so you can switch between several notes, drawings, the calendar, the graph and web links without anything reloading. A small counter at the left of the tab bar shows how many tabs are open and the maximum, for example <code>3/8</code>.',
+      docs_tabs_p2:
+        '<strong>Why there is a limit.</strong> Each open file holds a live connection to your storage. If too many files were open at once, your storage backend &mdash; especially a <strong>WebDAV</strong> server &mdash; could be overloaded by the many simultaneous connections and become slow or unreliable. The limit keeps that connection healthy.',
+      docs_tabs_p3:
+        '<strong>What happens when it is full.</strong> When the counter turns red you have reached the maximum. Opening another file does nothing until you <strong>close a tab</strong> first &mdash; your open files are never closed automatically and nothing is lost. Close a tab with its &times; button or a middle-click, then open the next file.',
       docs_files_h: 'Supported files',
       docs_files_p1:
         'Beyond markdown and Excalidraw, you can browse a wide range of files like in a code editor &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> and many more &mdash; with syntax highlighting. Word (<code>.docx</code>), Excel (<code>.xlsx</code>/<code>.xls</code>) and OpenDocument (<code>.odt</code>/<code>.ods</code>) files render read-only in the browser, and EPUB (<code>.epub</code>) e-books open in a paginated reader. All of them are end-to-end encrypted in your browser just like your notes.',
@@ -570,6 +620,8 @@
       close_tab: 'Close tab',
       tab_unsaved: 'Unsaved changes',
       tabs_limit: 'Tab limit reached ({max}). Close a tab to open another.',
+      tabs_count_tip:
+        'Open tabs. Up to {max} files can be open at once — this limit protects your storage connection (e.g. WebDAV) from being overloaded by too many open files. Close a tab to open another.',
       tab_unsaved_title: 'Close without saving?',
       tab_unsaved_msg: '“{name}” has unsaved changes. Close it anyway?',
       discard: 'Discard',
@@ -895,6 +947,9 @@
       resize_sidebar: 'Seitenleiste anpassen',
 
       tool_note: 'Notiz',
+      tool_daily: 'Tagesnotiz',
+      tool_template: 'Vorlage',
+      tool_calendar: 'Kalender',
       tool_file: 'Zeichnung',
       tool_folder: 'Ordner',
       tool_upload: 'Dateien hochladen',
@@ -902,6 +957,42 @@
       tool_export: 'Exportieren',
       tool_weblinks: 'Weblinks',
       tool_graph: 'Graph',
+      group_create: 'Erstellen',
+      group_view: 'Ansicht',
+      group_manage: 'Verwalten',
+      tools_actions: 'Aktionen',
+      tools_toggle_hide: 'Aktionen ausblenden',
+      tools_toggle_show: 'Aktionen einblenden',
+      tools_resize: 'Aktionsbereich anpassen',
+      title_new_daily: 'Heutige Tagesnotiz erstellen oder öffnen',
+      title_new_template: 'Wiederverwendbare Notizvorlage im Ordner „Templates“ erstellen',
+      title_calendar: 'Kalender der Dateien nach Tag öffnen',
+      calendar_title: 'Kalender',
+      calendar_intro:
+        'Jeder Tag zeigt die Dateien, die du erstellt oder geändert hast. Wähle einen Tag, um sie zu sehen und zu öffnen.',
+      calendar_prev: 'Vorheriger Monat',
+      calendar_next: 'Nächster Monat',
+      calendar_today: 'Heute',
+      calendar_loading: 'Kalender wird geladen…',
+      calendar_failed: 'Kalender konnte nicht geladen werden.',
+      calendar_day_empty: 'An diesem Tag wurden keine Dateien geändert.',
+      calendar_files_n: '{n} Dateien',
+      template_pick_title: 'Vorlage wählen',
+      template_pick_hint:
+        'Mit einer leeren Notiz beginnen oder eine deiner Vorlagen aus dem Ordner „Templates“ wählen.',
+      template_blank: 'Leere Notiz',
+      template_load_failed:
+        'Vorlage konnte nicht geladen werden; leere Notiz erstellt.',
+      prompt_new_template_title: 'Neue Vorlage',
+      prompt_new_template_msg:
+        'Vorlagen werden im Ordner „Templates“ gespeichert. Nutze {{date}}, {{time}} und {{title}} als Platzhalter.',
+      daily_notes_title: 'Tagesnotizen',
+      daily_path_hint:
+        'Ordner, in dem „Tagesnotiz“ die heutige Notiz speichert. Die Datei wird nach dem Datum benannt (z. B. 2026-07-09.md).',
+      daily_path_label: 'Ordner für Tagesnotizen',
+      daily_path_ph: 'Daily',
+      daily_path_save: 'Ordner für Tagesnotizen speichern',
+      daily_path_saved: 'Ordner für Tagesnotizen gespeichert.',
       title_graph: 'Wikilink-Graph öffnen',
       graph_title: 'Graph',
       graph_empty: 'Noch keine Notizen für den Graph. Erstelle Notizen und verbinde sie mit [[Wikilinks]].',
@@ -946,6 +1037,8 @@
       weblinks_delete_msg: 'Diesen Weblink löschen?',
       weblinks_invalid_url: 'Gib eine gültige http(s)-URL ein.',
       weblinks_open: 'Link öffnen',
+      weblinks_saved: 'Link gespeichert',
+      weblinks_deleted: 'Link gelöscht',
       weblinks_imported_n: '{n} Link(s) importiert',
       weblinks_import_failed: 'Die CSV-Datei konnte nicht importiert werden.',
       weblinks_load_failed: 'Die Weblink-Verwaltung konnte nicht geöffnet werden.',
@@ -965,6 +1058,8 @@
       excalidraw_failed: 'Der Excalidraw-Editor konnte nicht geladen werden.',
       epub_prev: 'Vorherige Seite',
       epub_next: 'Nächste Seite',
+      pdf_zoom_in: 'Vergrößern',
+      pdf_zoom_out: 'Verkleinern',
 
       /* Markdown-Werkzeugleiste */
       md_bold_tip: 'Fett — Text in ** ** einfassen · z. B. **wichtig**',
@@ -1186,6 +1281,7 @@
       docs_toc_encryption: 'Ende-zu-Ende-Verschlüsselung',
       docs_toc_password: 'Wiederherstellungsschlüssel & kein Zurücksetzen',
       docs_toc_weblinks: 'Weblinks',
+      docs_toc_tabs: 'Offene Tabs & das Tab-Limit',
       docs_toc_files: 'Unterstützte Dateien',
       docs_what_h: 'Was websidian ist (und was nicht)',
       docs_what_p1:
@@ -1254,6 +1350,13 @@
         '<strong>Warum es sicherer ist.</strong> Der riskante Moment bei jedem Link ist das <em>erste</em> Mal &mdash; da beurteilst du, ob eine URL wirklich dorthin führt, wo sie behauptet. Prüfe einen Link einmal, speichere die genaue Adresse, und ab dann öffnest du immer <em>diese</em> verifizierte URL. Du liest nicht mehr einen Link nach, den jemand in eine E-Mail oder einen Chat eingefügt hat, wo der sichtbare Text ein anderes, manipuliertes Ziel verbergen kann. Die gespeicherte URL ist wie der Rest deines Tresors Ende-zu-Ende-verschlüsselt.',
       docs_wl_p4:
         '<strong>Unabhängig vom Browser.</strong> Da die Links serverseitig in deinem Tresor liegen und nicht in einem Browserprofil, sind sie nicht an einen einzelnen Browser, eine Erweiterung oder ein Sync-Konto gebunden. Nichts zu installieren, nichts zu exportieren, wenn du das Gerät wechselst &mdash; einfach anmelden und deine vertrauten Links sind da.',
+      docs_tabs_h: 'Offene Tabs & das Tab-Limit',
+      docs_tabs_p1:
+        'Geöffnete Dateien werden als <strong>Tabs</strong> gehalten, wie in einem Code-Editor, sodass du zwischen mehreren Notizen, Zeichnungen, dem Kalender, dem Graph und den Weblinks wechseln kannst, ohne dass etwas neu lädt. Ein kleiner Zähler links in der Tab-Leiste zeigt, wie viele Tabs offen sind und wie viele maximal möglich sind, zum Beispiel <code>3/8</code>.',
+      docs_tabs_p2:
+        '<strong>Warum es ein Limit gibt.</strong> Jede offene Datei hält eine aktive Verbindung zu deinem Speicher. Wären zu viele Dateien gleichzeitig geöffnet, könnte dein Speicher-Backend &mdash; besonders ein <strong>WebDAV</strong>-Server &mdash; durch die vielen gleichzeitigen Verbindungen überlastet und langsam oder unzuverlässig werden. Das Limit hält diese Verbindung gesund.',
+      docs_tabs_p3:
+        '<strong>Was passiert, wenn es voll ist.</strong> Wird der Zähler rot, hast du das Maximum erreicht. Eine weitere Datei zu öffnen bewirkt nichts, bis du zuerst einen <strong>Tab schließt</strong> &mdash; deine offenen Dateien werden nie automatisch geschlossen und nichts geht verloren. Schließe einen Tab mit seinem &times;-Knopf oder per Mittelklick und öffne dann die nächste Datei.',
       docs_files_h: 'Unterstützte Dateien',
       docs_files_p1:
         'Über Markdown und Excalidraw hinaus kannst du eine breite Palette von Dateien wie in einem Code-Editor durchsehen &mdash; <code>.py</code>, <code>.ts</code>, <code>.js</code>, <code>.json</code>, <code>.yaml</code>, <code>.toml</code>, <code>.sh</code>, <code>.html</code>, <code>.css</code>, <code>.conf</code> und viele mehr &mdash; mit Syntaxhervorhebung. Word- (<code>.docx</code>), Excel- (<code>.xlsx</code>/<code>.xls</code>) und OpenDocument-Dateien (<code>.odt</code>/<code>.ods</code>) werden im Browser schreibgeschützt dargestellt, und EPUB-E-Books (<code>.epub</code>) öffnen sich in einem seitenweisen Reader. Sie alle werden wie deine Notizen in deinem Browser Ende-zu-Ende-verschlüsselt.',
@@ -1434,6 +1537,8 @@
       close_tab: 'Tab schließen',
       tab_unsaved: 'Nicht gespeicherte Änderungen',
       tabs_limit: 'Tab-Limit erreicht ({max}). Schließe einen Tab, um einen weiteren zu öffnen.',
+      tabs_count_tip:
+        'Offene Tabs. Es können bis zu {max} Dateien gleichzeitig geöffnet sein — dieses Limit schützt deine Speicherverbindung (z. B. WebDAV) vor Überlastung durch zu viele offene Dateien. Schließe einen Tab, um einen weiteren zu öffnen.',
       tab_unsaved_title: 'Ohne Speichern schließen?',
       tab_unsaved_msg: '„{name}“ hat nicht gespeicherte Änderungen. Trotzdem schließen?',
       discard: 'Verwerfen',

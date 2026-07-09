@@ -35,6 +35,7 @@
         <a href="#encryption" data-i18n="docs_toc_encryption">End-to-end encryption</a>
         <a href="#password" data-i18n="docs_toc_password">Recovery key &amp; no reset</a>
         <a href="#weblinks" data-i18n="docs_toc_weblinks">Web links</a>
+        <a href="#tabs" data-i18n="docs_toc_tabs">Open tabs &amp; the tab limit</a>
         <a href="#files" data-i18n="docs_toc_files">Supported files</a>
         <a href="#storage" data-i18n="toc_storage">Where your vault is stored</a>
         <a href="#connect-storage" data-i18n="toc_connect">Connecting your storage</a>
@@ -219,6 +220,28 @@
           your vault rather than in a browser profile, they are not tied to any one browser,
           extension or sync account. Nothing to install, nothing to export when you move devices
           &mdash; just log in and your trusted links are there.
+        </p>
+      </section>
+
+      <section class="legal-section" id="tabs">
+        <h2 data-i18n="docs_tabs_h">Open tabs &amp; the tab limit</h2>
+        <p data-i18n-html="docs_tabs_p1">
+          Files you open are kept as <strong>tabs</strong>, like in a code editor, so you can switch
+          between several notes, drawings, the calendar, the graph and web links without anything
+          reloading. A small counter at the left of the tab bar shows how many tabs are open and the
+          maximum, for example <code>3/8</code>.
+        </p>
+        <p data-i18n-html="docs_tabs_p2">
+          <strong>Why there is a limit.</strong> Each open file holds a live connection to your
+          storage. If too many files were open at once, your storage backend &mdash; especially a
+          <strong>WebDAV</strong> server &mdash; could be overloaded by the many simultaneous
+          connections and become slow or unreliable. The limit keeps that connection healthy.
+        </p>
+        <p data-i18n-html="docs_tabs_p3">
+          <strong>What happens when it is full.</strong> When the counter turns red you have reached
+          the maximum. Opening another file does nothing until you <strong>close a tab</strong> first
+          &mdash; your open files are never closed automatically and nothing is lost. Close a tab
+          with its &times; button or a middle-click, then open the next file.
         </p>
       </section>
 

@@ -91,16 +91,20 @@ async function bootstrap() {
   expressInstance.locals.agbEnabled = appConfig.agbEnabled;
   expressInstance.locals.imprintEnabled = appConfig.imprintEnabled;
   expressInstance.locals.privacyEnabled = appConfig.privacyEnabled;
-  // App version (from package.json), surfaced to views for the footer + the
-  // account dashboard. Read once at startup; failures degrade to an empty
-  // string so the version line is simply omitted.
-  let appVersion = '';
-  try {
-    appVersion =
-      JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'))
-        .version || '';
-  } catch {
-    appVersion = '';
+  // App version, surfaced to views for the footer + the account dashboard.
+  // Prefer APP_VERSION baked in at build time by CI/CD (MAJOR.MINOR.PATCH,
+  // matching the git tag + ghcr image); fall back to package.json for local
+  // dev. Read once at startup; failures degrade to an empty string so the
+  // version line is simply omitted.
+  let appVersion = process.env.APP_VERSION || '';
+  if (!appVersion) {
+    try {
+      appVersion =
+        JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'))
+          .version || '';
+    } catch {
+      appVersion = '';
+    }
   }
   expressInstance.locals.appVersion = appVersion;
   // Free-tier allowance in bytes, surfaced to the client (head partial) so the

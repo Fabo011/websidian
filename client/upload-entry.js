@@ -77,6 +77,16 @@ function fmtEta(seconds) {
   return `${h}h ${m % 60}m`;
 }
 
+// Escape text that lands in innerHTML. Server error messages (e.g. a reached
+// quota/size limit) can carry characters that would otherwise break the markup.
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 /* ------------------------------- styles -------------------------------- */
 
 const STYLE_ID = 'wo-up-style';
@@ -114,6 +124,7 @@ function ensureStyle() {
 .wo-up-row .p{flex:1;min-width:0;overflow:hidden}
 .wo-up-row .path{font-size:.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text,#2e3338)}
 .wo-up-row .sub{font-size:.72rem;color:var(--text-muted,#6b7280);display:flex;gap:.6rem}
+.wo-up-row .sub .wo-up-err{color:var(--danger,#d63b30);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wo-up-rbar{height:5px;border-radius:4px;background:var(--bg-alt,#eef0f3);overflow:hidden;margin-top:.2rem}
 .wo-up-rbar>i{display:block;height:100%;width:0;background:var(--accent,#6c5ce7)}
 .wo-up-st{font-size:.72rem;width:84px;text-align:right;flex:none;color:var(--text-muted,#6b7280)}
@@ -222,7 +233,9 @@ function buildPanel(t, handlers) {
     const sub =
       it.status === 'uploading' || it.status === 'resuming'
         ? `<span>${fmtSpeed(it.speed)}</span><span>${fmtEta(it.eta)}</span>`
-        : `<span>${fmtBytes(it.size)}</span>`;
+        : it.status === 'error' && it.error
+          ? `<span class="wo-up-err" title="${esc(it.error)}">${esc(it.error)}</span>`
+          : `<span>${fmtBytes(it.size)}</span>`;
     el.innerHTML = `
       <div class="p">
         <div class="path" title="${it.rel}">${it.rel}</div>
