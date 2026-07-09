@@ -20,6 +20,13 @@ FROM node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
+# App version computed by CI/CD (MAJOR.MINOR.PATCH derived from the PR title
+# bump). Baked into the image so the running container reports the same version
+# that tags the git release + ghcr image. Empty for plain local builds, in which
+# case the app falls back to package.json.
+ARG APP_VERSION=
+ENV APP_VERSION=$APP_VERSION
+
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/views ./views

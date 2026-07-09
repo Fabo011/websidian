@@ -2646,6 +2646,20 @@ async function runImport(files) {
       file,
       relativePath: file.webkitRelativePath || file.name,
     }));
+    // Per-file size is the one hard cap that still applies to folder imports:
+    // a single file over the limit can never upload (the server rejects it), so
+    // tell the user up front which file is too large instead of failing silently.
+    // Total-size / file-count caps are intentionally NOT applied here — folders
+    // upload chunked and are only bounded by the storage quota (enforced server-side).
+    const big = entries.find((en) => en.file.size > MAX_UPLOAD_FILE_BYTES);
+    if (big) {
+      await uiAlert(t('import_failed_title'), {
+        message: t('file_too_large', {
+          name: (big.relativePath || big.file.name).split('/').pop(),
+        }),
+      });
+      return;
+    }
     const dir = state.selectedDir;
     await window.WOUpload.start({
       entries,
@@ -4822,6 +4836,7 @@ async function submitWeblink(e) {
     await saveWeblinks();
     closeWeblinkModal();
     renderWeblinks();
+    flash(t('weblinks_saved'));
   } catch (err) {
     errEl.textContent = err.message || t('weblinks_load_failed');
     errEl.hidden = false;
@@ -4842,6 +4857,7 @@ async function deleteWeblink(index) {
     weblinksState.links.splice(index, 1);
     await saveWeblinks();
     renderWeblinks();
+    flash(t('weblinks_deleted'));
   } catch (err) {
     await uiAlert(t('open_failed_title'), {
       message: err.message || t('weblinks_load_failed'),

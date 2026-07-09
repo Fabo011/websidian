@@ -1242,7 +1242,9 @@ body.sidebar-resizing {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s, transform 0.2s;
-  z-index: 200;
+  /* Must sit ABOVE the upload panel overlay (.wo-up-overlay, z-index 1000) so
+     errors like a reached upload/quota limit are never hidden behind it. */
+  z-index: 1100;
 }
 .flash.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 

@@ -27,7 +27,18 @@ dependency-specific gotchas (otplib pin, cache-busting, lockfile/Node version).
    pipeline derives the next tag from the latest `v*` tag, bumped by the
    merged PR title: `MAJOR` → major, `FEATURE` → minor, `FIX` → patch (also
    the fallback). Name PRs accordingly.
-9. **Run all tests.** After every code change, bug fix, or feature
+9. **Overlay/z-index discipline.** Any full-screen overlay (dialog, panel,
+   modal) can hide user feedback painted underneath it. When adding or changing
+   an overlay, check the whole z-index stack in `public/css/style.css` and make
+   sure **user-facing feedback always sits on top of any overlay that can be
+   open at the same time.** Known layers (high → low): `.flash` toast **1100**,
+   `.wo-up-overlay` upload panel **1000**, `.flash` was **200** and rendered
+   *behind* the upload panel — the exact bug class to avoid. `#*-overlay`
+   modals **100–110**, `.loading-overlay` spinner **90**. Never introduce an
+   error/success/toast/alert whose z-index is below an overlay it can coexist
+   with, and prefer surfacing an error where the user is looking (e.g. inline in
+   the open panel) over a toast that a higher overlay could cover.
+10. **Run all tests.** After every code change, bug fix, or feature
    implementation run `npm run test` and make sure the full suite passes —
    this is the regression gate proving nothing else broke. The suite covers
    every service, storage provider, controller, and cron (`src/**/*.spec.ts`,
@@ -55,6 +66,8 @@ older Node produces a lockfile that breaks CI `npm ci`.
 - [ ] `docker-compose.yml` and `docker-stack.yaml` updated if new env var
 - [ ] README updated if new env var
 - [ ] Responsive on desktop / tablet / mobile
+- [ ] Overlay z-index checked: no toast/alert/error can be hidden behind an
+      overlay that may be open at the same time
 - [ ] `npm install` → `npm audit` shows 0 vulnerabilities
 - [ ] `npm run test` passes (full suite, after any code change)
 - [ ] New/changed behaviour has a matching `*.spec.ts` test
