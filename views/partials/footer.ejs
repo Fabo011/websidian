@@ -20,6 +20,17 @@
     <a href="/agb" data-i18n="footer_agb">AGB</a>
     <% } %>
   </nav>
+  <div class="footer-dev">
+    <span class="footer-dev-title" data-i18n="footer_dev">For contributors</span>
+    <% if (typeof codetriageBadge !== 'undefined' && codetriageBadge) { %>
+    <a href="https://www.codetriage.com/fabo011/websidian" target="_blank" rel="noopener noreferrer" data-i18n-attr="title:footer_codetriage" title="Help triage issues on CodeTriage">
+      <img src="<%= codetriageBadge %>" alt="CodeTriage contributors" />
+    </a>
+    <% } %>
+    <% if (typeof deltachatChannel !== 'undefined' && deltachatChannel) { %>
+    <a href="<%= deltachatChannel %>" target="_blank" rel="noopener noreferrer" data-i18n="footer_deltachat">DeltaChat channel</a>
+    <% } %>
+  </div>
   <p class="footer-disclaimer" data-i18n="footer_disclaimer">
     websidian is an independent, separate open-source project. It has no connection,
     affiliation, or partnership with Obsidian (obsidian.md). &ldquo;Obsidian&rdquo; is a

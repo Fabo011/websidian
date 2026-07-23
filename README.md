@@ -1,5 +1,14 @@
 # websidian
 
+## Contributors
+Found a bug, missing a feature, or have an idea? Open an issue — everyone's welcome to report or suggest anything. Want to help build it? Subscribe via CodeTriage and start contributing.
+
+[![Open Source Helpers](https://www.codetriage.com/fabo011/websidian/badges/users.svg)](https://www.codetriage.com/fabo011/websidian)
+
+DeltaChat Channel to get in touch with users and developers: [DeltaChat Websidian Channel](https://i.delta.chat/#7361B6FDF86DB28C280288C059A8AEEB279F90A5&v=3&x=3YAGrusAf0NRp4uTHqyaf4vC&j=9WYUR47cJ6DKWB3GytfcLjje&s=B8fc0tnlW04RBr9JR-5-v_IJ&a=yqudjn6h8%40nine.testrun.org&n=Seb0011&b=Websidian)
+
+---
+
 A small, self-hosted Obsidian-like markdown knowledge app.
 
 - **Backend:** NestJS 11 (Express), server-rendered EJS — runs on **Node.js 24 LTS**
@@ -124,6 +133,8 @@ Copy `.env.example` to `.env` and adjust:
 | `AGB`                | `false`              | Show AGB (German terms & conditions) page        |
 | `IMPRINT`            | `false`              | Show Imprint page                                |
 | `LEGAL_NOTICE`       | `false`              | Show Privacy policy page                         |
+| `CODETRIAGE_BADGE`   | _(upstream badge)_   | CodeTriage contribution badge URL (developer area) |
+| `DELTACHAT_CHANNEL`  | _(upstream channel)_ | DeltaChat channel invite URL (developer area)    |
 
 **Self-hosting**
 

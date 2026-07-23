@@ -9,6 +9,7 @@ data/
 skills-lock.json
 .env.prep
 .env*
+docker-stack-old.yaml
 
 # Logs
 logs

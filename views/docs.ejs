@@ -472,6 +472,32 @@ volumes:
           <code>false</code> to store vaults locally.
         </p>
       </section>
+
+      <section class="legal-section" id="developer">
+        <h2 data-i18n="dev_h">Developer area</h2>
+        <p data-i18n="dev_p">
+          websidian is open source and community-driven. Help triage issues or
+          join the contributor chat.
+        </p>
+        <% if (typeof codetriageBadge !== 'undefined' && codetriageBadge) { %>
+        <p>
+          <a href="https://www.codetriage.com/fabo011/websidian" target="_blank" rel="noopener noreferrer">
+            <img src="<%= codetriageBadge %>" alt="CodeTriage contributors" />
+          </a>
+        </p>
+        <% } %>
+        <% if (typeof deltachatChannel !== 'undefined' && deltachatChannel) { %>
+        <p>
+          <span data-i18n="dev_deltachat_pre">Chat with contributors on our</span>
+          <a href="<%= deltachatChannel %>" target="_blank" rel="noopener noreferrer" data-i18n="dev_deltachat">DeltaChat channel</a>.
+        </p>
+        <% } %>
+        <p class="docs-note" data-i18n-html="dev_env_note">
+          Both links are configurable via the <code>CODETRIAGE_BADGE</code> and
+          <code>DELTACHAT_CHANNEL</code> environment variables; unset, they fall
+          back to the upstream project's own badge and channel.
+        </p>
+      </section>
       </div><!-- /docs-cat selfhost -->
     </article>
   </main>

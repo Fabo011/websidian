@@ -91,6 +91,10 @@ async function bootstrap() {
   expressInstance.locals.agbEnabled = appConfig.agbEnabled;
   expressInstance.locals.imprintEnabled = appConfig.imprintEnabled;
   expressInstance.locals.privacyEnabled = appConfig.privacyEnabled;
+  // Developer/contributor links surfaced in the footer, account dashboard and
+  // docs. Env-overridable with a fallback to the upstream project's own links.
+  expressInstance.locals.codetriageBadge = appConfig.codetriageBadge;
+  expressInstance.locals.deltachatChannel = appConfig.deltachatChannel;
   // App version, surfaced to views for the footer + the account dashboard.
   // Prefer APP_VERSION baked in at build time by CI/CD (MAJOR.MINOR.PATCH,
   // matching the git tag + ghcr image); fall back to package.json for local

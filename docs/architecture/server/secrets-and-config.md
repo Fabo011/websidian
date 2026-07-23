@@ -18,7 +18,7 @@ secret just to change a quota).
 
 ```
 .env  ──────────────►  ${VAR} interpolation  ──►  config vars (plain env in container)
-docker secret ──────►  /run/secrets/<name>   ──►  the 5 secrets (readSecret reads the file)
+docker secret ──────►  /run/secrets/<name>   ──►  the 3 secrets (readSecret reads the file)
 ```
 
 The app's config loader (`src/config/configuration.ts` → `readSecret()`) reads
