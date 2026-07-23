@@ -799,8 +799,23 @@
       footer_imprint: 'Imprint',
       footer_privacy: 'Privacy',
       footer_agb: 'AGB',
+      footer_dev: 'For contributors',
+      footer_codetriage: 'Help triage issues on CodeTriage',
+      footer_deltachat: 'DeltaChat channel',
       footer_disclaimer:
         'websidian is an independent, separate open-source project. It has no connection, affiliation, or partnership with Obsidian (obsidian.md). “Obsidian" is a trademark of its respective owner and is referenced here only for comparison.',
+
+      /* Developer area (account dashboard + docs) */
+      dev_title: 'Developer area',
+      dev_hint:
+        'websidian is open source. Help triage issues or join the contributor chat.',
+      dev_codetriage: 'Help triage issues on CodeTriage',
+      dev_deltachat: 'DeltaChat channel',
+      dev_h: 'Developer area',
+      dev_p: 'websidian is open source and community-driven. Help triage issues or join the contributor chat.',
+      dev_deltachat_pre: 'Chat with contributors on our',
+      dev_env_note:
+        "Both links are configurable via the <code>CODETRIAGE_BADGE</code> and <code>DELTACHAT_CHANNEL</code> environment variables; unset, they fall back to the upstream project's own badge and channel.",
 
       /* Imprint page */
       imp_title: 'Legal Notice (Imprint)',
@@ -1745,8 +1760,23 @@
       footer_imprint: 'Impressum',
       footer_privacy: 'Datenschutz',
       footer_agb: 'AGB',
+      footer_dev: 'Für Developer',
+      footer_codetriage: 'Hilf mit, Issues auf CodeTriage',
+      footer_deltachat: 'DeltaChat-Kanal',
       footer_disclaimer:
         'websidian ist ein unabhängiges, eigenständiges Open-Source-Projekt. Es besteht keine Verbindung, Zugehörigkeit oder Partnerschaft mit Obsidian (obsidian.md). „Obsidian" ist eine Marke des jeweiligen Inhabers und wird hier nur zum Vergleich genannt.',
+
+      /* Entwicklerbereich (Konto-Dashboard + Doku) */
+      dev_title: 'Developer-Bereich',
+      dev_hint:
+        'websidian ist Open Source. Hilf mit, Issues zu bearbeiten, oder tritt dem DeltaChat Channel bei.',
+      dev_codetriage: 'Hilf mit, Issues auf CodeTriage zu bearbeiten',
+      dev_deltachat: 'DeltaChat-Kanal',
+      dev_h: 'Developer-Bereich',
+      dev_p: 'websidian ist Open Source und community-getrieben. Hilf mit, Issues zu bearbeiten, oder tritt dem DeltaChat Channel bei.',
+      dev_deltachat_pre: 'Chatte mit Users und Developer in unserem',
+      dev_env_note:
+        'Beide Links sind über die Umgebungsvariablen <code>CODETRIAGE_BADGE</code> und <code>DELTACHAT_CHANNEL</code> konfigurierbar; ohne Wert wird auf das Badge und den Kanal des Upstream-Projekts zurückgegriffen.',
 
       /* Impressum-Seite */
       imp_title: 'Impressum',

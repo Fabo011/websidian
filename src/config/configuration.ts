@@ -191,6 +191,16 @@ export interface AppConfig {
   imprintEnabled: boolean;
   /** Whether the Privacy policy page and its footer link are shown. */
   privacyEnabled: boolean;
+  /**
+   * URL of the CodeTriage contribution badge (SVG), shown in the developer
+   * area. Driven by CODETRIAGE_BADGE; falls back to the project's badge.
+   */
+  codetriageBadge: string;
+  /**
+   * Invite URL for the project's DeltaChat channel, shown in the developer
+   * area. Driven by DELTACHAT_CHANNEL; falls back to the project's channel.
+   */
+  deltachatChannel: string;
 }
 
 /**
@@ -367,6 +377,16 @@ export default (): { app: AppConfig } => {
   const imprintEnabled = parseBool(process.env.IMPRINT, false);
   const privacyEnabled = parseBool(process.env.LEGAL_NOTICE, false);
 
+  // Developer/contributor links surfaced in the footer, account dashboard and
+  // docs. Each is overridable via env, but falls back to the upstream project's
+  // own badge/channel so a stock deployment still points contributors here.
+  const codetriageBadge =
+    process.env.CODETRIAGE_BADGE?.trim() ||
+    'https://www.codetriage.com/fabo011/websidian/badges/users.svg';
+  const deltachatChannel =
+    process.env.DELTACHAT_CHANNEL?.trim() ||
+    'https://i.delta.chat/#7361B6FDF86DB28C280288C059A8AEEB279F90A5&v=3&x=3YAGrusAf0NRp4uTHqyaf4vC&j=9WYUR47cJ6DKWB3GytfcLjje&s=B8fc0tnlW04RBr9JR-5-v_IJ&a=yqudjn6h8%40nine.testrun.org&n=Seb0011&b=Websidian';
+
   // Billing can be switched off entirely (self-hosting). The feature flag
   // (BILLING_ENABLED) drives the tier structure and dashboard UI. Defaults to
   // on only when a Stripe secret key is present. When billing is off,
@@ -510,6 +530,8 @@ export default (): { app: AppConfig } => {
       agbEnabled,
       imprintEnabled,
       privacyEnabled,
+      codetriageBadge,
+      deltachatChannel,
     },
   };
 };

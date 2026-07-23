@@ -396,6 +396,19 @@
             <p class="settings-hint" data-i18n="discussions_hint">Join discussions and announcements — share feedback, feature ideas, and report bugs.</p>
             <a class="btn-ghost settings-inline-btn" href="https://github.com/Fabo011/websidian/discussions" target="_blank" rel="noopener noreferrer"><i class="bi bi-chat-dots"></i> <span data-i18n="open_discussions">GitHub Discussions</span></a>
           </div>
+
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-code-slash"></i> <span data-i18n="dev_title">Developer area</span></h3>
+            <p class="settings-hint" data-i18n="dev_hint">websidian is open source. Help triage issues or join the contributor chat.</p>
+            <% if (typeof codetriageBadge !== 'undefined' && codetriageBadge) { %>
+            <a class="settings-dev-badge" href="https://www.codetriage.com/fabo011/websidian" target="_blank" rel="noopener noreferrer" title="Help triage issues on CodeTriage" data-i18n-attr="title:dev_codetriage">
+              <img src="<%= codetriageBadge %>" alt="CodeTriage contributors" />
+            </a>
+            <% } %>
+            <% if (typeof deltachatChannel !== 'undefined' && deltachatChannel) { %>
+            <a class="btn-ghost settings-inline-btn" href="<%= deltachatChannel %>" target="_blank" rel="noopener noreferrer"><i class="bi bi-chat-left-text"></i> <span data-i18n="dev_deltachat">DeltaChat channel</span></a>
+            <% } %>
+          </div>
         </section>
 
         <!-- File storage -->

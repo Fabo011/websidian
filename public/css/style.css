@@ -2070,6 +2070,18 @@ body.tools-resizing { cursor: row-resize; user-select: none; }
   margin-bottom: 12px;
 }
 .footer-dot { opacity: 0.5; }
+.footer-dev {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.footer-dev-title { font-weight: 600; opacity: 0.85; }
+.footer-dev img { display: block; height: 20px; }
+.settings-dev-badge { display: inline-block; margin: 4px 0 8px; }
+.settings-dev-badge img { display: block; height: 20px; }
 .footer-disclaimer {
   max-width: 640px;
   margin: 0 auto;
