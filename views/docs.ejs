@@ -26,21 +26,36 @@
         Short and to the point: what you need to know to use websidian effectively.
       </p>
 
-      <nav class="docs-toc" aria-label="Contents">
-        <a href="#what" data-i18n="docs_toc_what">What websidian is</a>
-        <a href="#sync" data-i18n="docs_toc_sync">Changes are not real-time</a>
-        <a href="#backup" data-i18n="docs_toc_backup">Backing up your vault</a>
-        <a href="#trash" data-i18n="docs_toc_trash">Deleting files (trash)</a>
-        <a href="#twofa" data-i18n="docs_toc_twofa">Two-factor authentication</a>
-        <a href="#encryption" data-i18n="docs_toc_encryption">End-to-end encryption</a>
-        <a href="#password" data-i18n="docs_toc_password">Recovery key &amp; no reset</a>
-        <a href="#weblinks" data-i18n="docs_toc_weblinks">Web links</a>
-        <a href="#tabs" data-i18n="docs_toc_tabs">Open tabs &amp; the tab limit</a>
-        <a href="#files" data-i18n="docs_toc_files">Supported files</a>
-        <a href="#storage" data-i18n="toc_storage">Where your vault is stored</a>
-        <a href="#connect-storage" data-i18n="toc_connect">Connecting your storage</a>
-        <a href="#architecture" data-i18n="toc_architecture">Architecture</a>
+      <nav class="docs-tabs" role="tablist" aria-label="Documentation sections">
+        <button class="docs-tab active" type="button" role="tab" data-tab="user" aria-selected="true">
+          <i class="bi bi-book" aria-hidden="true"></i>
+          <span data-i18n="docs_cat_user">User Documentation</span>
+        </button>
+        <button class="docs-tab" type="button" role="tab" data-tab="arch" aria-selected="false">
+          <i class="bi bi-diagram-3" aria-hidden="true"></i>
+          <span data-i18n="docs_cat_arch">Architecture</span>
+        </button>
+        <button class="docs-tab" type="button" role="tab" data-tab="selfhost" aria-selected="false">
+          <i class="bi bi-hdd-rack" aria-hidden="true"></i>
+          <span data-i18n="docs_cat_selfhost">Self-Hosting</span>
+        </button>
       </nav>
+
+      <div class="docs-cat active" data-cat="user" role="tabpanel">
+        <nav class="docs-toc" aria-label="Contents">
+          <a href="#what" data-i18n="docs_toc_what">What websidian is</a>
+          <a href="#sync" data-i18n="docs_toc_sync">Changes are not real-time</a>
+          <a href="#backup" data-i18n="docs_toc_backup">Backing up your vault</a>
+          <a href="#trash" data-i18n="docs_toc_trash">Deleting files (trash)</a>
+          <a href="#twofa" data-i18n="docs_toc_twofa">Two-factor authentication</a>
+          <a href="#encryption" data-i18n="docs_toc_encryption">End-to-end encryption</a>
+          <a href="#password" data-i18n="docs_toc_password">Recovery key &amp; no reset</a>
+          <a href="#weblinks" data-i18n="docs_toc_weblinks">Web links</a>
+          <a href="#tabs" data-i18n="docs_toc_tabs">Open tabs &amp; the tab limit</a>
+          <a href="#files" data-i18n="docs_toc_files">Supported files</a>
+          <a href="#storage" data-i18n="toc_storage">Where your vault is stored</a>
+          <a href="#connect-storage" data-i18n="toc_connect">Connecting your storage</a>
+        </nav>
 
       <section class="legal-section" id="what">
         <h2 data-i18n="docs_what_h">What websidian is (and is not)</h2>
@@ -329,6 +344,9 @@
         </p>
       </section>
 
+      </div><!-- /docs-cat user -->
+
+      <div class="docs-cat" data-cat="arch" role="tabpanel">
       <section class="legal-section" id="architecture">
         <h2 data-i18n="arch_h">Architecture (for technical users)</h2>
         <img class="docs-architecture" src="/public/websidian-architecture.png?v=<%= v %>"
@@ -354,9 +372,192 @@
           manager node) holds accounts and the encrypted storage credentials.
         </p>
       </section>
+
+      </div><!-- /docs-cat arch -->
+
+      <div class="docs-cat" data-cat="selfhost" role="tabpanel">
+      <section class="legal-section" id="self-host">
+        <h2 data-i18n="selfhost_h">Self-hosting</h2>
+        <p data-i18n-html="selfhost_intro">
+          Two ways to run your own instance. Both use the published image
+          <code>ghcr.io/fabo011/websidian:latest</code>.
+        </p>
+
+        <p class="docs-warning" data-i18n-html="selfhost_https_warn">
+          <strong>HTTPS is required</strong> for any access other than
+          <code>http://localhost</code>. It is not only a security best practice:
+          end-to-end encryption uses the browser <strong>WebCrypto API</strong>
+          (<code>crypto.subtle</code>), which browsers only expose in a
+          <em>secure context</em> — i.e. HTTPS (or localhost). Over plain HTTP on
+          a real domain or IP the crypto API is unavailable and the app will not
+          work — this affects <strong>smartphones in particular</strong>. Put a
+          reverse proxy or tunnel with a valid TLS certificate in front (Caddy,
+          nginx, Traefik, Cloudflare Tunnel, …) and serve the app over
+          <code>https://</code>, with <code>APP_URL</code> and
+          <code>CORS_ORIGINS</code> set to your <code>https://</code> domain.
+        </p>
+
+        <p class="docs-note" data-i18n-html="selfhost_env_note">
+          You do <strong>not</strong> need Docker secrets to self-host — a plain
+          <code>.env</code> file works. The app reads each secret from
+          <code>&lt;NAME&gt;_FILE</code> when that is set, otherwise from the
+          normal environment variable. Docker secrets are only used in the
+          production Swarm deployment.
+        </p>
+
+        <h3 data-i18n="selfhost_min_h">Minimal (SQLite, local storage)</h3>
+        <p data-i18n="selfhost_min_p">
+          Everything in one container — no database, no external storage to
+          connect. Best for a single user or a small private group. Data is kept
+          in a local volume.
+        </p>
+        <p data-i18n-html="selfhost_min_create">
+          <strong>1.</strong> Create a file named <code>docker-compose.yaml</code>,
+          paste this in and save:
+        </p>
+        <pre><code>services:
+  websidian:
+    image: ghcr.io/fabo011/websidian:latest
+    container_name: websidian
+    restart: unless-stopped
+    ports:
+      - "3065:3065"
+    environment:
+      DB_TYPE: sqlite             # local SQLite, no external database
+      DATA_ROOT: /data            # database + your vault files
+      USER_STORAGE_ENABLED: "false"
+      ALLOW_REGISTRATION: "true"  # set false after you register
+      APP_URL: "http://localhost:3065"
+      JWT_SECRET: "change-me"      # change before exposing publicly
+      ENCRYPTION_KEY: "change-me"  # change before exposing publicly
+    volumes:
+      - websidian-data:/data
+
+volumes:
+  websidian-data:</code></pre>
+        <p data-i18n-html="selfhost_min_start">
+          <strong>2.</strong> Start it from the same folder:
+        </p>
+        <pre><code>docker compose up -d</code></pre>
+        <p data-i18n-html="selfhost_min_after">
+          <strong>3.</strong> Open <code>http://localhost:3065</code> and register
+          the first account. <strong>Change <code>JWT_SECRET</code> and
+          <code>ENCRYPTION_KEY</code></strong> before exposing the app publicly —
+          the defaults are public and insecure. Set
+          <code>ALLOW_REGISTRATION=false</code> after registering to stop new
+          sign-ups.
+        </p>
+        <p data-i18n="selfhost_min_alt">
+          Prefer a single command? Same setup, no compose file needed:
+        </p>
+        <pre><code>docker run -d --name websidian -p 3065:3065 \
+  -e DB_TYPE=sqlite -e DATA_ROOT=/data -e USER_STORAGE_ENABLED=false \
+  -e JWT_SECRET=change-me -e ENCRYPTION_KEY=change-me \
+  -v websidian-data:/data \
+  ghcr.io/fabo011/websidian:latest</code></pre>
+
+        <h3 data-i18n="selfhost_complete_h">Complete (PostgreSQL + tunnel)</h3>
+        <p data-i18n-html="selfhost_complete_p">
+          For a public deployment: PostgreSQL for the database and a Cloudflare
+          (or any) tunnel in front. Use
+          <code>docker-compose-complete-example.yml</code> as the starting point,
+          set your own values in a <code>.env</code> file next to it, then run:
+        </p>
+        <pre><code>docker compose -f docker-compose-complete-example.yml up -d</code></pre>
+        <p data-i18n-html="selfhost_complete_vars">
+          At minimum set <code>JWT_SECRET</code>, <code>ENCRYPTION_KEY</code>,
+          <code>DB_PASSWORD</code>, <code>APP_URL</code> and
+          <code>CORS_ORIGINS</code>. With <code>USER_STORAGE_ENABLED=true</code>
+          each account connects its own S3/WebDAV storage; leave it
+          <code>false</code> to store vaults locally.
+        </p>
+      </section>
+      </div><!-- /docs-cat selfhost -->
     </article>
   </main>
 
   <%- include('partials/footer') %>
+  <script>
+    // Category tabs: show one group of sections at a time. Deep links to a
+    // section (e.g. #self-host) open the category that contains it.
+    (function () {
+      var tabs = Array.prototype.slice.call(document.querySelectorAll('.docs-tab'));
+      var cats = Array.prototype.slice.call(document.querySelectorAll('.docs-cat'));
+      if (!tabs.length || !cats.length) return;
+
+      function activate(cat) {
+        tabs.forEach(function (t) {
+          var on = t.getAttribute('data-tab') === cat;
+          t.classList.toggle('active', on);
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        cats.forEach(function (c) {
+          c.classList.toggle('active', c.getAttribute('data-cat') === cat);
+        });
+      }
+
+      function catForId(id) {
+        var el = id && document.getElementById(id);
+        if (!el || !el.closest) return null;
+        var cat = el.closest('.docs-cat');
+        return cat ? cat.getAttribute('data-cat') : null;
+      }
+
+      function syncFromHash() {
+        var id = (location.hash || '').slice(1);
+        var cat = catForId(id);
+        if (cat) {
+          activate(cat);
+          var el = document.getElementById(id);
+          if (el) el.scrollIntoView();
+        }
+      }
+
+      tabs.forEach(function (t) {
+        t.addEventListener('click', function () {
+          activate(t.getAttribute('data-tab'));
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      });
+
+      window.addEventListener('hashchange', syncFromHash);
+
+      if (location.hash && catForId(location.hash.slice(1))) {
+        syncFromHash();
+      } else {
+        activate('user');
+      }
+
+      // One-click copy on every code block.
+      function copyLabel() {
+        return window.I18N && window.I18N.t ? window.I18N.t('code_copy') : 'Copy';
+      }
+      document.querySelectorAll('.docs pre').forEach(function (pre) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'code-copy';
+        btn.textContent = copyLabel();
+        btn.addEventListener('click', function () {
+          var code = pre.querySelector('code');
+          var text = code ? code.innerText : pre.innerText;
+          navigator.clipboard.writeText(text).then(function () {
+            btn.textContent =
+              window.I18N && window.I18N.t ? window.I18N.t('code_copied') : 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(function () {
+              btn.textContent = copyLabel();
+              btn.classList.remove('copied');
+            }, 1500);
+          }).catch(function () {});
+        });
+        pre.appendChild(btn);
+      });
+      document.addEventListener('wo-langchange', function () {
+        document.querySelectorAll('.code-copy').forEach(function (b) {
+          if (!b.classList.contains('copied')) b.textContent = copyLabel();
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

@@ -3,6 +3,7 @@ import {
   WebdavAuthType,
   WebdavConfig,
 } from '../config/configuration';
+import { assertPublicHttpUrl } from '../common/ssrf-guard';
 import { S3StorageProvider } from './s3-storage.provider';
 import { StorageProvider } from './storage.interface';
 import { WebdavStorageProvider } from './webdav-storage.provider';
@@ -81,10 +82,18 @@ function normalizeWebdav(c: UserWebdavConfig): WebdavConfig {
  */
 export function buildUserProvider(cfg: UserStorageConfig): StorageProvider {
   if (cfg.driver === 's3') {
-    return new S3StorageProvider(normalizeS3(cfg.s3));
+    const s3 = normalizeS3(cfg.s3);
+    // A custom endpoint is user-controlled; validate + guard egress (SSRF-1).
+    // An empty endpoint means the real AWS endpoint, which needs no guard.
+    if (s3.endpoint) {
+      assertPublicHttpUrl(s3.endpoint, 'S3 endpoint');
+    }
+    return new S3StorageProvider(s3, { restrictEgress: true });
   }
   if (cfg.driver === 'webdav') {
-    return new WebdavStorageProvider(normalizeWebdav(cfg.webdav));
+    const webdav = normalizeWebdav(cfg.webdav);
+    assertPublicHttpUrl(webdav.url, 'WebDAV URL');
+    return new WebdavStorageProvider(webdav, { restrictEgress: true });
   }
   throw new Error(
     'buildUserProvider cannot build the managed driver; use the global provider.',

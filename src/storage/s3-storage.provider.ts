@@ -8,9 +8,11 @@ import {
   S3Client,
   _Object,
 } from '@aws-sdk/client-s3';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { Readable } from 'stream';
 import { S3Config } from '../config/configuration';
+import { guardedHttpAgent, guardedHttpsAgent } from '../common/ssrf-guard';
 import {
   StorageEntry,
   StorageFile,
@@ -18,6 +20,15 @@ import {
   StorageReadStream,
   StorageStat,
 } from './storage.interface';
+
+/**
+ * Per-provider options. `restrictEgress` wires the SSRF-guarded HTTP(S) agents
+ * into the S3 client so a user-supplied endpoint cannot reach private/internal
+ * addresses. Left off for the operator's own (trusted) global backend.
+ */
+export interface S3ProviderOptions {
+  restrictEgress?: boolean;
+}
 
 /** Zero-byte marker object that keeps an otherwise-empty "folder" listable. */
 const KEEP_MARKER = '.keep';
@@ -64,7 +75,10 @@ export class S3StorageProvider implements StorageProvider {
   private _client?: S3Client;
   private readonly usageCache = new Map<string, UsageCacheEntry>();
 
-  constructor(private readonly cfg: S3Config) {}
+  constructor(
+    private readonly cfg: S3Config,
+    private readonly options: S3ProviderOptions = {},
+  ) {}
 
   /**
    * Lazily build the S3 client on first use. This keeps construction side-effect
@@ -90,6 +104,18 @@ export class S3StorageProvider implements StorageProvider {
                 secretAccessKey: this.cfg.secretAccessKey,
               }
             : undefined,
+        // SSRF guard: for a user-supplied endpoint, route requests through
+        // agents that refuse to connect to non-public addresses.
+        ...(this.options.restrictEgress
+          ? {
+              requestHandler: new NodeHttpHandler({
+                httpAgent: guardedHttpAgent,
+                httpsAgent: guardedHttpsAgent,
+                connectionTimeout: 5_000,
+                requestTimeout: 30_000,
+              }),
+            }
+          : {}),
       });
     }
     return this._client;

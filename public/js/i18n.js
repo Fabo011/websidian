@@ -355,6 +355,10 @@
       toc_storage: 'Where your vault is stored',
       toc_connect: 'Connecting your storage',
       toc_architecture: 'Architecture',
+      toc_selfhost: 'Self-hosting',
+      docs_cat_user: 'User Documentation',
+      docs_cat_arch: 'Architecture',
+      docs_cat_selfhost: 'Self-Hosting',
       docs_title: 'Documentation',
       docs_lead:
         'Short and to the point: what you need to know to use websidian effectively.',
@@ -487,6 +491,31 @@
       arch_scale_h: 'Scaling with Docker Swarm',
       arch_scale_p:
         "websidian is stateless at the app layer — the encrypted vault lives in each user's own storage and all shared state is in PostgreSQL — so it scales horizontally with Docker Swarm mode. The app service runs as multiple replicas across swarm nodes (load-balanced via the swarm routing mesh / DNS round-robin); to handle more load you simply raise the replica count or add nodes. Cloudflare tunnel replicas front the cluster, and a single PostgreSQL instance (on a manager node) holds accounts and the encrypted storage credentials.",
+
+      /* self-hosting */
+      selfhost_h: 'Self-hosting',
+      selfhost_intro:
+        'Two ways to run your own instance. Both use the published image <code>ghcr.io/fabo011/websidian:latest</code>.',
+      selfhost_https_warn:
+        '<strong>HTTPS is required</strong> for any access other than <code>http://localhost</code>. It is not only a security best practice: end-to-end encryption uses the browser <strong>WebCrypto API</strong> (<code>crypto.subtle</code>), which browsers only expose in a <em>secure context</em> — i.e. HTTPS (or localhost). Over plain HTTP on a real domain or IP the crypto API is unavailable and the app will not work — this affects <strong>smartphones in particular</strong>. Put a reverse proxy or tunnel with a valid TLS certificate in front (Caddy, nginx, Traefik, Cloudflare Tunnel, …) and serve the app over <code>https://</code>, with <code>APP_URL</code> and <code>CORS_ORIGINS</code> set to your <code>https://</code> domain.',
+      selfhost_env_note:
+        'You do <strong>not</strong> need Docker secrets to self-host — a plain <code>.env</code> file works. The app reads each secret from <code>&lt;NAME&gt;_FILE</code> when that is set, otherwise from the normal environment variable. Docker secrets are only used in the production Swarm deployment.',
+      selfhost_min_h: 'Minimal (SQLite, local storage)',
+      selfhost_min_p:
+        'Everything in one container — no database, no external storage to connect. Best for a single user or a small private group. Data is kept in a local volume.',
+      selfhost_min_create:
+        '<strong>1.</strong> Create a file named <code>docker-compose.yaml</code>, paste this in and save:',
+      selfhost_min_start: '<strong>2.</strong> Start it from the same folder:',
+      selfhost_min_alt: 'Prefer a single command? Same setup, no compose file needed:',
+      selfhost_min_after:
+        '<strong>3.</strong> Open <code>http://localhost:3065</code> and register the first account. <strong>Change <code>JWT_SECRET</code> and <code>ENCRYPTION_KEY</code></strong> before exposing the app publicly — the defaults are public and insecure. Set <code>ALLOW_REGISTRATION=false</code> after registering to stop new sign-ups.',
+      code_copy: 'Copy',
+      code_copied: 'Copied!',
+      selfhost_complete_h: 'Complete (PostgreSQL + tunnel)',
+      selfhost_complete_p:
+        'For a public deployment: PostgreSQL for the database and a Cloudflare (or any) tunnel in front. Use <code>docker-compose-complete-example.yml</code> as the starting point, set your own values in a <code>.env</code> file next to it, then run:',
+      selfhost_complete_vars:
+        'At minimum set <code>JWT_SECRET</code>, <code>ENCRYPTION_KEY</code>, <code>DB_PASSWORD</code>, <code>APP_URL</code> and <code>CORS_ORIGINS</code>. With <code>USER_STORAGE_ENABLED=true</code> each account connects its own S3/WebDAV storage; leave it <code>false</code> to store vaults locally.',
 
       /* plans & billing */
       plan: 'Plan',
@@ -1270,6 +1299,10 @@
       toc_storage: 'Wo dein Tresor gespeichert wird',
       toc_connect: 'Speicher verbinden',
       toc_architecture: 'Architektur',
+      toc_selfhost: 'Selbst-Hosting',
+      docs_cat_user: 'Nutzer-Dokumentation',
+      docs_cat_arch: 'Architektur',
+      docs_cat_selfhost: 'Selbst-Hosting',
       docs_title: 'Dokumentation',
       docs_lead:
         'Kurz und auf den Punkt: was du wissen musst, um websidian effektiv zu nutzen.',
@@ -1405,6 +1438,31 @@
       arch_scale_h: 'Skalierung mit Docker Swarm',
       arch_scale_p:
         'websidian ist auf App-Ebene zustandslos — der verschlüsselte Tresor liegt im eigenen Speicher jedes Nutzers und der gesamte gemeinsame Zustand in PostgreSQL — und skaliert daher horizontal mit dem Docker-Swarm-Modus. Der App-Dienst läuft als mehrere Replikas über Swarm-Knoten (lastverteilt über das Swarm-Routing-Mesh / DNS-Round-Robin); für mehr Last erhöhst du einfach die Replika-Anzahl oder fügst Knoten hinzu. Cloudflare-Tunnel-Replikas stehen vor dem Cluster, und eine einzelne PostgreSQL-Instanz (auf einem Manager-Knoten) hält Konten und die verschlüsselten Speicher-Zugangsdaten.',
+
+      /* Selbst-Hosting */
+      selfhost_h: 'Selbst-Hosting',
+      selfhost_intro:
+        'Zwei Wege, eine eigene Instanz zu betreiben. Beide nutzen das veröffentlichte Image <code>ghcr.io/fabo011/websidian:latest</code>.',
+      selfhost_https_warn:
+        '<strong>HTTPS ist erforderlich</strong> für jeden Zugriff außer <code>http://localhost</code>. Es geht nicht nur um Sicherheit: Die Ende-zu-Ende-Verschlüsselung nutzt die Browser-<strong>WebCrypto-API</strong> (<code>crypto.subtle</code>), die Browser nur in einem <em>sicheren Kontext</em> bereitstellen — also HTTPS (oder localhost). Über einfaches HTTP auf einer echten Domain oder IP ist die Krypto-API nicht verfügbar und die App funktioniert nicht — das betrifft <strong>insbesondere Smartphones</strong>. Stelle einen Reverse-Proxy oder Tunnel mit gültigem TLS-Zertifikat davor (Caddy, nginx, Traefik, Cloudflare Tunnel, …) und liefere die App über <code>https://</code> aus, mit <code>APP_URL</code> und <code>CORS_ORIGINS</code> auf deine <code>https://</code>-Domain gesetzt.',
+      selfhost_env_note:
+        'Du brauchst zum Selbst-Hosten <strong>keine</strong> Docker-Secrets — eine einfache <code>.env</code>-Datei genügt. Die App liest jedes Geheimnis aus <code>&lt;NAME&gt;_FILE</code>, falls gesetzt, sonst aus der normalen Umgebungsvariable. Docker-Secrets werden nur im produktiven Swarm-Betrieb verwendet.',
+      selfhost_min_h: 'Minimal (SQLite, lokaler Speicher)',
+      selfhost_min_p:
+        'Alles in einem Container — keine Datenbank, kein externer Speicher zu verbinden. Ideal für einen einzelnen Nutzer oder eine kleine private Gruppe. Die Daten liegen in einem lokalen Volume.',
+      selfhost_min_create:
+        '<strong>1.</strong> Erstelle eine Datei namens <code>docker-compose.yaml</code>, füge dies ein und speichere:',
+      selfhost_min_start: '<strong>2.</strong> Starte es aus demselben Ordner:',
+      selfhost_min_alt: 'Lieber ein einziger Befehl? Gleiches Setup, ohne Compose-Datei:',
+      selfhost_min_after:
+        '<strong>3.</strong> Öffne <code>http://localhost:3065</code> und registriere das erste Konto. <strong>Ändere <code>JWT_SECRET</code> und <code>ENCRYPTION_KEY</code></strong>, bevor du die App öffentlich zugänglich machst — die Standardwerte sind öffentlich und unsicher. Setze <code>ALLOW_REGISTRATION=false</code> nach der Registrierung, um weitere Anmeldungen zu unterbinden.',
+      code_copy: 'Kopieren',
+      code_copied: 'Kopiert!',
+      selfhost_complete_h: 'Komplett (PostgreSQL + Tunnel)',
+      selfhost_complete_p:
+        'Für ein öffentliches Deployment: PostgreSQL als Datenbank und ein Cloudflare- (oder beliebiger) Tunnel davor. Nutze <code>docker-compose-complete-example.yml</code> als Ausgangspunkt, trage deine eigenen Werte in eine <code>.env</code>-Datei daneben ein und führe dann aus:',
+      selfhost_complete_vars:
+        'Setze mindestens <code>JWT_SECRET</code>, <code>ENCRYPTION_KEY</code>, <code>DB_PASSWORD</code>, <code>APP_URL</code> und <code>CORS_ORIGINS</code>. Mit <code>USER_STORAGE_ENABLED=true</code> verbindet jedes Konto seinen eigenen S3-/WebDAV-Speicher; lasse es auf <code>false</code>, um Tresore lokal zu speichern.',
 
       /* Tarife & Abrechnung */
       plan: 'Tarif',

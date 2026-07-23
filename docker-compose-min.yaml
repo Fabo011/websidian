@@ -1,0 +1,43 @@
+# Minimal self-host: websidian only — SQLite + local storage, no Postgres.
+# Just run:  docker compose -f docker-compose-min.yaml up -d
+# then open  http://localhost:3065  and register the first account.
+#
+# Everything persists in the `websidian-data` volume (SQLite DB + your vault
+# files). The only two values you should change before exposing this publicly
+# are JWT_SECRET and ENCRYPTION_KEY (see the notes below).
+#
+# ⚠️ HTTPS IS REQUIRED for any access other than http://localhost.
+# It is not only for security: end-to-end encryption uses the browser WebCrypto
+# API (crypto.subtle), which browsers ONLY expose in a "secure context" — i.e.
+# HTTPS (or localhost). Over plain HTTP on a real domain/IP the crypto API is
+# undefined and the app breaks — this hits smartphones in particular. Put a
+# reverse proxy / tunnel with a valid TLS certificate in front (Caddy, nginx,
+# Traefik, Cloudflare Tunnel, …) and serve the app over https://.
+services:
+  websidian:
+    image: ghcr.io/fabo011/websidian:latest
+    container_name: websidian
+    restart: unless-stopped
+    ports:
+      - "3065:3065"
+    environment:
+      PORT: 3065
+      # No external database — data is kept in a local SQLite file under DATA_ROOT.
+      DB_TYPE: sqlite
+      DATA_ROOT: /data
+      # Store vaults locally (no external S3/WebDAV to connect). Files live in the
+      # same volume as the database.
+      USER_STORAGE_ENABLED: "false"
+      # Registration is open so you can create the first account. Set to "false"
+      # afterwards to stop anyone else signing up.
+      ALLOW_REGISTRATION: "true"
+      APP_URL: "${APP_URL:-http://localhost:3065}"
+      # CHANGE THESE before exposing the app to the internet. Defaults let it boot
+      # out of the box, but they are public and insecure.
+      JWT_SECRET: "${JWT_SECRET:-unsecureDefaultPleaseChangeMe}"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY:-unsecureDefaultPleaseChangeMe}"
+    volumes:
+      - websidian-data:/data
+
+volumes:
+  websidian-data:

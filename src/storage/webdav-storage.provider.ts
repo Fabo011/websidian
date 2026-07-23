@@ -6,6 +6,7 @@ import type {
   WebDAVClient,
 } from 'webdav';
 import { WebdavConfig } from '../config/configuration';
+import { guardedHttpAgent, guardedHttpsAgent } from '../common/ssrf-guard';
 import {
   StorageEntry,
   StorageFile,
@@ -13,6 +14,15 @@ import {
   StorageReadStream,
   StorageStat,
 } from './storage.interface';
+
+/**
+ * Per-provider options. `restrictEgress` wires the SSRF-guarded HTTP(S) agents
+ * into the WebDAV client so a user-supplied URL cannot reach private/internal
+ * addresses. Left off for the operator's own (trusted) global backend.
+ */
+export interface WebdavProviderOptions {
+  restrictEgress?: boolean;
+}
 
 /** Zero-byte folder placeholder; hidden from listings like the other backends. */
 const KEEP_MARKER = '.keep';
@@ -51,7 +61,10 @@ export class WebdavStorageProvider implements StorageProvider {
   private clientPromise?: Promise<WebDAVClient>;
   private readonly usageCache = new Map<string, UsageCacheEntry>();
 
-  constructor(private readonly cfg: WebdavConfig) {}
+  constructor(
+    private readonly cfg: WebdavConfig,
+    private readonly options: WebdavProviderOptions = {},
+  ) {}
 
   /** Lazily build (and memoize) the WebDAV client on first use. */
   private client(): Promise<WebDAVClient> {
@@ -75,6 +88,11 @@ export class WebdavStorageProvider implements StorageProvider {
       authType,
       username: useAuth ? this.cfg.username || undefined : undefined,
       password: useAuth ? this.cfg.password || undefined : undefined,
+      // SSRF guard: for user-supplied URLs, route every request (and redirect)
+      // through agents that refuse to connect to non-public addresses.
+      ...(this.options.restrictEgress
+        ? { httpAgent: guardedHttpAgent, httpsAgent: guardedHttpsAgent }
+        : {}),
     });
   }
 
