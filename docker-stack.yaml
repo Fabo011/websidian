@@ -1,12 +1,32 @@
+# Info: This docker-stack.yaml mirroring the current deployed stack on the websidian servers.
 networks:
   websidian-net:
     driver: overlay
     attachable: true
+    # INFRA-1: encrypt the overlay data plane (IPSec/ESP) so cross-node service
+    # traffic — including the app<->postgres link between separate servers — is
+    # not sent in cleartext over the underlay network. Note: changing this
+    # requires the network to be recreated (see security todo.md).
+    driver_opts:
+      encrypted: "true"
 
 volumes:
   postgres-data:
     external: true
     name: server_postgres-data
+
+# INFRA-3: secrets are provided as Docker secrets (encrypted at rest in Swarm's
+# Raft store, mounted read-only at /run/secrets/<name>, never exposed via
+# `docker inspect` or the process env). Create them once on the manager before
+# deploying (see security todo.md). Marked external so the stack references
+# operator-managed secrets rather than defining their values here.
+secrets:
+  jwt_secret:
+    external: true
+  encryption_key:
+    external: true
+  db_password:
+    external: true
 
 services:
   cloudflared:
@@ -28,85 +48,53 @@ services:
         published: 3065
         protocol: tcp
         mode: host
+    secrets:
+      - jwt_secret
+      - encryption_key
+      - db_password
     environment:
-      USER_STORAGE_ENABLED: "true"
-      # Managed storage: with USER_STORAGE_ENABLED=true and STORAGE_DRIVER=s3,
-      # this app-hosted S3 bucket is offered to users as "managed" storage
-      # (billed + quota-limited). Users may still bring their own S3/WebDAV.
-      STORAGE_DRIVER: "${STORAGE_DRIVER:-s3}"
-      S3_ENDPOINT: "${S3_ENDPOINT}"
-      S3_REGION: "${S3_REGION}"
-      S3_BUCKET: "${S3_BUCKET}"
-      S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID}"
-      S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY}"
-      S3_FORCE_PATH_STYLE: "${S3_FORCE_PATH_STYLE:-true}"
-      S3_PREFIX: "${S3_PREFIX}"
-      # Quota + billing for managed users. Free = STORAGE_QUOTA_GB (e.g. 0.125 =
-      # 125 MB); paid upgrade tops out at STORAGE_PLUS_GB.
-      STORAGE_QUOTA_GB: "${STORAGE_QUOTA_GB:-0.125}"
-      STORAGE_PLUS_GB: "${STORAGE_PLUS_GB:-3}"
-      PRICE_PLUS: "${PRICE_PLUS}"
-      BILLING_ENABLED: "${BILLING_ENABLED:-false}"
-      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY}"
-      STRIPE_PRICE_PLUS: "${STRIPE_PRICE_PLUS}"
-      ALLOW_REGISTRATION: "${ALLOW_REGISTRATION:-true}"
+      USER_STORAGE_ENABLED: "${USER_STORAGE_ENABLED}"
+      ALLOW_REGISTRATION: "${ALLOW_REGISTRATION}"
+      MAX_REGISTRATIONS: "${MAX_REGISTRATIONS}"
       PORT: 3065
-      ENCRYPTION_ENABLED: "${ENCRYPTION_ENABLED:-true}"
-      ENCRYPTION_KEY: "${ENCRYPTION_KEY}"
-      JWT_EXPIRES_IN: "${JWT_EXPIRES_IN:-7d}"
-      JWT_SECRET: "${JWT_SECRET}"
+      ENCRYPTION_ENABLED: "${ENCRYPTION_ENABLED}"
+      # ENCRYPTION_KEY provided via Docker secret (read from *_FILE).
+      ENCRYPTION_KEY_FILE: /run/secrets/encryption_key
+      JWT_EXPIRES_IN: "${JWT_EXPIRES_IN}"
+      # JWT_SECRET provided via Docker secret (read from *_FILE).
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
       APP_URL: "${APP_URL}"
       CONTACT_EMAIL: "${CONTACT_EMAIL}"
       DONATION_LINK: "${DONATION_LINK}"
       CORS_ORIGINS: "${CORS_ORIGINS}"
-      DB_TYPE: "${DB_TYPE:-postgres}"
-      DB_HOST: "${DB_HOST:-localhost}"
-      DB_PORT: "${DB_PORT:-5432}"
-      DB_USERNAME: "${DB_USERNAME:-postgres}"
-      DB_PASSWORD: "${DB_PASSWORD:-postgres}"
-      DB_DATABASE: "${DB_DATABASE:-web_obsidian}"
-      DB_SSL: "${DB_SSL:-false}"
+      DB_TYPE: "${DB_TYPE}"
+      DB_HOST: "${DB_HOST}"
+      DB_PORT: "${DB_PORT}"
+      DB_USERNAME: "${DB_USERNAME}"
+      # DB_PASSWORD provided via Docker secret (read from *_FILE).
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      DB_DATABASE: "${DB_DATABASE}"
+      DB_SSL: "${DB_SSL}"
       TRASH_RETENTION_DAYS: "${TRASH_RETENTION_DAYS}"
-      RATE_LIMIT_ENABLED: "${RATE_LIMIT_ENABLED:-true}"
+      RATE_LIMIT_ENABLED: "${RATE_LIMIT_ENABLED}"
       RATE_LIMIT_WINDOW_SECONDS: "${RATE_LIMIT_WINDOW_SECONDS}"
       RATE_LIMIT_MAX: "${RATE_LIMIT_MAX}"
       VAULT_TREE_CACHE_SECONDS: "${VAULT_TREE_CACHE_SECONDS}"
       MAX_UPLOAD_SIZE_MB: "${MAX_UPLOAD_SIZE_MB}"
-      IMPRINT: "${IMPRINT:-true}"
-      MAX_UPLOAD_FILE_MB: "${MAX_UPLOAD_FILE_MB:-200}"
-      MAX_IMPORT_FILES: "${MAX_IMPORT_FILES:-20000}"
-      MAX_IMPORT_TOTAL_MB: "${MAX_IMPORT_TOTAL_MB:-200}"
-      UPLOAD_REQUEST_TIMEOUT_MIN: "${UPLOAD_REQUEST_TIMEOUT_MIN:-15}"
-      SEARCH_CACHE_TTL_MS: "${SEARCH_CACHE_TTL_MS:-15000}"
-      RATE_LIMIT_DASH_ENABLED: "${RATE_LIMIT_DASH_ENABLED:-true}"
-      RATE_LIMIT_DASH_WINDOW_SECONDS: "${RATE_LIMIT_DASH_WINDOW_SECONDS:-60}"
-      RATE_LIMIT_DASH_MAX: "${RATE_LIMIT_DASH_MAX:-50000000}"
+      IMPRINT: "${IMPRINT}"
+      MAX_UPLOAD_FILE_MB: "${MAX_UPLOAD_FILE_MB}"
+      MAX_IMPORT_FILES: "${MAX_IMPORT_FILES}"
+      MAX_IMPORT_TOTAL_MB: "${MAX_IMPORT_TOTAL_MB}"
+      UPLOAD_REQUEST_TIMEOUT_MIN: "${UPLOAD_REQUEST_TIMEOUT_MIN}"
+      SEARCH_CACHE_TTL_MS: "${SEARCH_CACHE_TTL_MS}"
+      RATE_LIMIT_DASH_ENABLED: "${RATE_LIMIT_DASH_ENABLED}"
+      RATE_LIMIT_DASH_WINDOW_SECONDS: "${RATE_LIMIT_DASH_WINDOW_SECONDS}"
+      RATE_LIMIT_DASH_MAX: "${RATE_LIMIT_DASH_MAX}"
       UPLOAD_EXCLUDE_PATTERNS: "${UPLOAD_EXCLUDE_PATTERNS}"
-      MAX_OPEN_TABS: "${MAX_OPEN_TABS:-8}"
+      MAX_OPEN_TABS: "${MAX_OPEN_TABS}"
     deploy:
       replicas: 2
       endpoint_mode: dnsrr
-      labels:
-        shepherd.enable: "true"
-      restart_policy:
-        condition: any
-
-  shepherd:
-    image: containrrr/shepherd:latest
-    environment:
-      SLEEP_TIME: "5m"
-      WITH_REGISTRY_AUTH: "true"
-      IMAGE_AUTOCLEAN_LIMIT: "3"
-      FILTER_SERVICES: "label=shepherd.enable=true"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - websidian-net
-    deploy:
-      replicas: 1
-      placement:
-        constraints:
-          - node.role == manager
       restart_policy:
         condition: any
 
@@ -115,14 +103,17 @@ services:
     command: postgres -c unix_socket_directories=''
     networks:
       - websidian-net
+    secrets:
+      - db_password
     environment:
       POSTGRES_USER: "${DB_USERNAME}"
-      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      # INFRA-3: password from the same Docker secret the app reads.
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       POSTGRES_DB: "${DB_DATABASE}"
     volumes:
       - postgres-data:/var/lib/postgresql
     deploy:
-      replicas: 1
+      replicas: 1          # NEVER more than 1 without real replication (Patroni etc.)
       endpoint_mode: dnsrr
       placement:
         constraints:

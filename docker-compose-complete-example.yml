@@ -1,5 +1,14 @@
-# Minimal docker-compose for self-hoster
+# Complete docker-compose for self-hoster (PostgreSQL + tunnel).
+#
+# ⚠️ HTTPS IS REQUIRED. Serve the app over https:// (the tunnel / reverse proxy
+# below terminates TLS). This is not only for security: end-to-end encryption
+# uses the browser WebCrypto API (crypto.subtle), which browsers ONLY expose in
+# a "secure context" — HTTPS (or localhost). Over plain HTTP on a real domain/IP
+# the crypto API is undefined and the app breaks, notably on smartphones. Make
+# sure APP_URL / CORS_ORIGINS use https:// and the tunnel serves a valid cert.
 services:
+
+  # Cloudflare is only an example, you can use what ever you want, nginx config or other zero trust tunnel provider.
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
@@ -17,17 +26,16 @@ services:
       ALLOW_REGISTRATION: "${ALLOW_REGISTRATION:-true}" # Change to false after you and your friends have registered to prevent random people from registering
       PORT: 3065
       ENCRYPTION_ENABLED: "${ENCRYPTION_ENABLED:-true}"
-      ENCRYPTION_KEY: "${ENCRYPTION_KEY}"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY:-unsecureDefaultPleaseChangeMe}"
       JWT_EXPIRES_IN: "${JWT_EXPIRES_IN:-7d}"
-      JWT_SECRET: "${JWT_SECRET}"
+      JWT_SECRET: "${JWT_SECRET:-unsecureDefaultPleaseChangeMe}"
       APP_URL: "${APP_URL}" # Frontend url, your domain
-      CONTACT_EMAIL: "${CONTACT_EMAIL}" # You email
       CORS_ORIGINS: "${CORS_ORIGINS}" # Frontend url, your domain
       DB_TYPE: "${DB_TYPE:-postgres}"
       DB_HOST: "${DB_HOST:-localhost}"
       DB_PORT: "${DB_PORT:-5432}"
       DB_USERNAME: "${DB_USERNAME:-postgres}"
-      DB_PASSWORD: "${DB_PASSWORD:-postgres}"
+      DB_PASSWORD: "${DB_PASSWORD:-postgres}" # Change
       DB_DATABASE: "${DB_DATABASE:-web_obsidian}"
       DB_SSL: "${DB_SSL:-false}"
       TRASH_RETENTION_DAYS: "${TRASH_RETENTION_DAYS:-7}"
@@ -47,7 +55,7 @@ services:
       RATE_LIMIT_DASH_ENABLED: "${RATE_LIMIT_DASH_ENABLED:-true}"
       RATE_LIMIT_DASH_WINDOW_SECONDS: "${RATE_LIMIT_DASH_WINDOW_SECONDS:-60}"
       RATE_LIMIT_DASH_MAX: "${RATE_LIMIT_DASH_MAX:-50000000}"
-      UPLOAD_EXCLUDE_PATTERNS: "${UPLOAD_EXCLUDE_PATTERNS}"
+      UPLOAD_EXCLUDE_PATTERNS: "${UPLOAD_EXCLUDE_PATTERNS:-.DS_Store,Thumbs.db,*.tmp}" # e.g. .DS_Store,Thumbs.db,*.tmp
       MAX_OPEN_TABS: "${MAX_OPEN_TABS:-8}"
     depends_on:
       - cloudflared

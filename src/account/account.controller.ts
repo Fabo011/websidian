@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  HttpException,
   Post,
   Put,
   Req,
@@ -393,6 +394,11 @@ export class AccountController {
       await probeProvider(provider, user.storageId);
       return { ok: true };
     } catch (err) {
+      // A rejected URL (SSRF guard) is a client error — surface it as a clear
+      // 400 rather than folding it into a generic connection-failure code.
+      if (err instanceof HttpException) {
+        throw err;
+      }
       return { ok: false, code: mapStorageError(err) };
     }
   }

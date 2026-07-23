@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 import { isAbsolute, join, resolve } from 'path';
 
 const DRIVERS = ['local', 's3', 'webdav'] as const;
@@ -226,6 +227,33 @@ export interface PricingConfig {
   donationLink: string;
 }
 
+/**
+ * Read a secret, preferring a Docker secret file over a plain env var.
+ *
+ * When `${name}_FILE` is set (e.g. `DB_PASSWORD_FILE=/run/secrets/db_password`)
+ * the value is read directly from that file — the way production supplies
+ * secrets in Docker Swarm, so they never appear in `docker inspect` or the
+ * process environment. When it is not set, the plain `${name}` env var is used,
+ * which keeps local development on a simple `.env` with no container required.
+ *
+ * A single trailing newline (common when a secret file is created with an
+ * editor) is stripped; the value is otherwise returned verbatim so passwords
+ * with surrounding characters are preserved. See INFRA-3 in the 2026-07-23 audit.
+ */
+function readSecret(name: string): string | undefined {
+  const filePath = process.env[`${name}_FILE`]?.trim();
+  if (filePath) {
+    try {
+      return readFileSync(filePath, 'utf8').replace(/\r?\n$/, '');
+    } catch (err) {
+      throw new Error(
+        `Failed to read secret file for ${name} at ${filePath}: ${String(err)}`,
+      );
+    }
+  }
+  return process.env[name];
+}
+
 function parseBool(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) {
     return fallback;
@@ -293,7 +321,7 @@ function buildStorageConfig(driver: StorageDriver): StorageConfig {
         region: process.env.S3_REGION?.trim() || 'us-east-1',
         bucket: process.env.S3_BUCKET?.trim() || '',
         accessKeyId: process.env.S3_ACCESS_KEY_ID?.trim() || '',
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
+        secretAccessKey: readSecret('S3_SECRET_ACCESS_KEY') ?? '',
         forcePathStyle: parseBool(process.env.S3_FORCE_PATH_STYLE, true),
         prefix: trimPrefix(process.env.S3_PREFIX),
       },
@@ -343,7 +371,8 @@ export default (): { app: AppConfig } => {
   // (BILLING_ENABLED) drives the tier structure and dashboard UI. Defaults to
   // on only when a Stripe secret key is present. When billing is off,
   // STORAGE_QUOTA_GB is the allowance every account gets (free == max vault).
-  const hasStripeSecret = Boolean(process.env.STRIPE_SECRET_KEY?.trim());
+  const stripeSecretKey = readSecret('STRIPE_SECRET_KEY')?.trim() || '';
+  const hasStripeSecret = Boolean(stripeSecretKey);
   const billingEnabled = parseBool(
     process.env.BILLING_ENABLED,
     hasStripeSecret,
@@ -376,7 +405,7 @@ export default (): { app: AppConfig } => {
     app: {
       port: parseInt(process.env.PORT ?? '3065', 10),
       jwtSecret:
-        process.env.JWT_SECRET?.trim() || 'insecure-dev-secret-change-me',
+        readSecret('JWT_SECRET')?.trim() || 'insecure-dev-secret-change-me',
       jwtExpiresIn: process.env.JWT_EXPIRES_IN?.trim() || '7d',
       dataRoot,
       allowRegistration: parseBool(process.env.ALLOW_REGISTRATION, true),
@@ -411,7 +440,7 @@ export default (): { app: AppConfig } => {
       stripe: {
         enabled: billingEnabled,
         ready: billingEnabled && hasStripeSecret,
-        secretKey: process.env.STRIPE_SECRET_KEY?.trim() || '',
+        secretKey: stripeSecretKey,
         priceIdPlus:
           process.env.STRIPE_PRICE_PLUS?.trim() ||
           process.env.STRIPE_PRICE_5GB?.trim() ||
@@ -424,14 +453,14 @@ export default (): { app: AppConfig } => {
           host: process.env.DB_HOST?.trim() || 'localhost',
           port: parseInt(process.env.DB_PORT ?? '5432', 10),
           username: process.env.DB_USERNAME?.trim() || 'postgres',
-          password: process.env.DB_PASSWORD ?? '',
+          password: readSecret('DB_PASSWORD') ?? '',
           database: process.env.DB_DATABASE?.trim() || 'web_obsidian',
           ssl: parseBool(process.env.DB_SSL, false),
         },
       },
       encryption: {
         enabled: parseBool(process.env.ENCRYPTION_ENABLED, true),
-        key: process.env.ENCRYPTION_KEY?.trim() || '',
+        key: readSecret('ENCRYPTION_KEY')?.trim() || '',
       },
       storage: buildStorageConfig(storageDriver),
       userStorageEnabled,
