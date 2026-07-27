@@ -386,6 +386,162 @@ gone. Native folder uploads with preserved structure replace it. Removed:
   would break resume.
 - `TUS_TMP_DIR` must be writable with room for the largest in-flight upload.
 
+## Monitoring (Beszel)
+
+Host and container utilisation (CPU, RAM, disk, network) with **history** is
+tracked by [Beszel](https://beszel.dev) — a lightweight **hub** (web UI +
+storage) plus a small **agent** per machine. History lives in a single SQLite
+file, so backup = copy one folder.
+
+**We use plain `docker run` / `docker service`, not `docker compose`.** The
+agent needs the hub's **public key + token**, and those only exist **after** the
+hub's first boot — a manual copy-paste step that no compose file can automate.
+Compose adds nothing here, so it is intentionally not used.
+
+> Complements **Portainer**: Portainer *manages* containers (deploy/logs/exec,
+> real-time stats only — **no history**); Beszel *monitors* trends over time.
+> Run both.
+
+**Ports:** hub UI `8090` (bind to localhost only), agent `45876`.
+
+Each setup below is **self-contained** — it lists **every** command, hub and
+agent. Pick one.
+
+---
+
+### Setup A — Normal Docker (single host)
+
+**1. Run the hub:**
+
+```bash
+docker run -d --name beszel --restart unless-stopped \
+  -v /opt/beszel/data:/beszel_data \
+  -p 127.0.0.1:8090:8090 \
+  henrygd/beszel:latest
+```
+
+`-p 127.0.0.1:8090:8090` → UI on **localhost only**, never on the internet. Back
+up `/opt/beszel/data` — that folder is the entire history.
+
+**2. Open the UI over an SSH tunnel, register admin, copy the KEY:**
+
+```bash
+# on your laptop
+ssh -fN -L 8090:127.0.0.1:8090 <user>@<server-ip>
+# then open http://localhost:8090
+```
+
+Register the admin account. In **Add System** copy the **KEY** (the whole
+`ssh-ed25519 …` line — a stray space breaks auth).
+
+**3. Run the agent** (same box, after the hub is up):
+
+```bash
+docker run -d --name beszel-agent --restart unless-stopped \
+  --network host \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -e KEY='<hub-public-key>' \
+  -e LISTEN=45876 \
+  henrygd/beszel-agent:latest
+```
+
+**4. Add System** in the UI: Name = anything, Host = `localhost`, Port =
+`45876`. It flips **up** and charts the host + every container.
+
+> No Docker on the box? Beszel ships a **binary agent** (install script at
+> <https://beszel.dev>).
+
+---
+
+### Setup B — Docker Swarm (manager + workers)
+
+**1. Run the hub on the manager node:**
+
+```bash
+docker run -d --name beszel --restart unless-stopped \
+  -v /opt/beszel/data:/beszel_data \
+  -p 127.0.0.1:8090:8090 \
+  henrygd/beszel:latest
+```
+
+Back up `/opt/beszel/data` — that folder is the entire history.
+
+**2. Open the UI over an SSH tunnel, register admin, copy the KEY:**
+
+```bash
+# on your laptop
+ssh -fN -L 8090:127.0.0.1:8090 <user>@<manager-ip>
+# then open http://localhost:8090
+```
+
+Register the admin account. In **Add System** copy the **KEY** (same key for all
+nodes; paste the whole `ssh-ed25519 …` line).
+
+**3. Deploy the agent as ONE global service** (run on the manager). Swarm places
+one agent on **every** node — manager + all workers — and auto-adds any node
+that joins later. No per-worker setup:
+
+```bash
+docker service create \
+  --name beszel-agent \
+  --mode global \
+  --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock,ro \
+  --publish mode=host,target=45876,published=45876 \
+  --env KEY='<hub-public-key>' \
+  --env LISTEN=45876 \
+  henrygd/beszel-agent:latest
+```
+
+`--publish mode=host` binds `45876` on **each node's own IP**, so the hub reaches
+every agent. `45876` must be reachable **manager → each node** (internal
+network), **not** from the internet.
+
+**4. Add each node** in the UI → **Add System**:
+
+- **Name** — e.g. `manager`, `worker-1`.
+- **Host / IP** — manager = its host IP (or `host.docker.internal` if it
+  resolves); workers = each worker's node IP.
+- **Port** — `45876`.
+
+Find node IPs with:
+
+```bash
+docker node ls
+docker node inspect <node> --format '{{ .Status.Addr }}'
+```
+
+---
+
+### Extra — a remote server the hub can't reach (home network / NAT)
+
+Setups A and B need the hub to open a connection **in** to the agent on `45876`.
+A box behind NAT (no port-forward) is unreachable that way — Cloudflare tunnels
+don't help (they proxy HTTP, not `45876`). Use **WebSocket mode**: the agent
+dials **out** to the hub instead.
+
+Expose the hub at a URL (e.g. via your Cloudflare tunnel → `127.0.0.1:8090`),
+then on the remote box:
+
+```bash
+docker run -d --name beszel-agent --restart unless-stopped \
+  --network host \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -e KEY='<hub-public-key>' \
+  -e TOKEN='<universal-token>' \
+  -e HUB_URL='https://beszel.example.com' \
+  -e LISTEN=45876 \
+  henrygd/beszel-agent:latest
+```
+
+`HUB_URL` + `TOKEN` switch it to WebSocket; with a universal token it
+**auto-registers** (no Add System step). If a Cloudflare **Access** policy
+guards the hub hostname the agent gets **401** — exclude that hostname from
+Access or use an Access service token.
+
+> **VPS metrics look wrong** (shows the physical host's CPU/RAM)? Container-based
+> VPS (OpenVZ/LXC) leak the host's `/proc` into the Docker agent. Install the
+> agent as a **native binary** instead of in Docker, or use a **KVM** VPS.
+
 ## Continuous delivery
 
 Pushing to `main` triggers the Forgejo Actions pipeline
