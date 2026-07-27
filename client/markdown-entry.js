@@ -22,6 +22,7 @@
 const MarkdownIt = require('markdown-it');
 const hljs = require('highlight.js/lib/common');
 const createDOMPurify = require('dompurify');
+const { preserveMarkdownBlankLines } = require('../public/js/wo-util');
 
 const DOMPurify = createDOMPurify(window);
 
@@ -430,7 +431,10 @@ function render(content, opts) {
     noteDir,
     attachmentSrc: opts.attachmentSrc,
   };
-  const html = md.render(preprocessWikilinks(content), { wo: ctx });
+  const html = md.render(
+    preprocessWikilinks(preserveMarkdownBlankLines(content)),
+    { wo: ctx },
+  );
   return DOMPurify.sanitize(html, PURIFY_CONFIG);
 }
 

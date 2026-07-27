@@ -323,3 +323,32 @@ describe('buildCalendarModel', () => {
     expect(cell).toMatchObject({ day: 9, inMonth: true, count: 3 });
   });
 });
+
+describe('preserveMarkdownBlankLines', () => {
+  const NBSP = ' ';
+
+  it('keeps a single blank line as one paragraph separator (unchanged)', () => {
+    expect(WOUtil.preserveMarkdownBlankLines('a\n\nb')).toBe('a\n\nb');
+  });
+
+  it('turns each extra blank line into a non-breaking-space paragraph', () => {
+    // 5 blank lines between the two texts -> 1 separator + 4 nbsp paragraphs
+    const src = 'a\n\n\n\n\n\nb';
+    const out = WOUtil.preserveMarkdownBlankLines(src);
+    expect(out).toBe(`a\n\n${NBSP}\n\n${NBSP}\n\n${NBSP}\n\n${NBSP}\n\nb`);
+  });
+
+  it('leaves blank lines inside fenced code blocks untouched', () => {
+    const src = '```\ncode\n\n\n\nmore\n```\n\n\ntext';
+    const out = WOUtil.preserveMarkdownBlankLines(src);
+    // fence body verbatim; only the run after the fence gets nbsp padding
+    expect(out).toBe(`\`\`\`\ncode\n\n\n\nmore\n\`\`\`\n\n${NBSP}\n\ntext`);
+  });
+
+  it('normalizes CRLF and handles null input', () => {
+    expect(WOUtil.preserveMarkdownBlankLines('a\r\n\r\n\r\nb')).toBe(
+      `a\n\n${NBSP}\n\nb`,
+    );
+    expect(WOUtil.preserveMarkdownBlankLines(null)).toBe('');
+  });
+});

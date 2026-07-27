@@ -1119,9 +1119,12 @@ body.tools-resizing { cursor: row-resize; user-select: none; }
 .markdown h1 { border-bottom: 1px solid var(--border); padding-bottom: 6px; }
 .markdown code {
   background: var(--bg-alt);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 2px 5px;
+  padding: 1px 5px;
   font-size: 0.9em;
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .markdown pre {
   background: var(--bg-alt);
@@ -1130,7 +1133,7 @@ body.tools-resizing { cursor: row-resize; user-select: none; }
   padding: 14px;
   overflow: auto;
 }
-.markdown pre code { background: transparent; padding: 0; }
+.markdown pre code { background: transparent; padding: 0; border: 0; color: inherit; }
 .markdown blockquote {
   border-left: 3px solid var(--accent);
   margin: 0;

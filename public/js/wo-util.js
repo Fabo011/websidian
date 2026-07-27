@@ -466,6 +466,61 @@
   }
 
   /* ---------------------------------------------------------------------
+   * Markdown blank-line preservation
+   *
+   * CommonMark collapses any run of blank lines between two blocks into a
+   * single paragraph break, so leaving 5 empty lines in edit mode shows no
+   * extra space in reading view. Obsidian keeps those empty lines as vertical
+   * space. We mirror that: one blank line stays the normal paragraph
+   * separator, and every *additional* blank line becomes a non-breaking-space
+   * paragraph (` `) that markdown-it renders as an empty line of height.
+   *
+   * Blank lines inside fenced code blocks (``` / ~~~) are left untouched so
+   * code stays verbatim. Pure string transform — no DOM.
+   * ------------------------------------------------------------------------ */
+  function preserveMarkdownBlankLines(src) {
+    const lines = String(src == null ? '' : src)
+      .replace(/\r\n?/g, '\n')
+      .split('\n');
+    const out = [];
+    let inFence = false;
+    let fenceChar = '';
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const fence = /^\s*(`{3,}|~{3,})/.exec(line);
+      if (fence) {
+        const ch = fence[1][0];
+        if (!inFence) {
+          inFence = true;
+          fenceChar = ch;
+        } else if (ch === fenceChar) {
+          inFence = false;
+          fenceChar = '';
+        }
+        out.push(line);
+        i++;
+        continue;
+      }
+      if (!inFence && line.trim() === '') {
+        let j = i;
+        while (j < lines.length && lines[j].trim() === '') j++;
+        const count = j - i;
+        out.push(''); // normal paragraph separator
+        for (let k = 1; k < count; k++) {
+          out.push(' ');
+          out.push('');
+        }
+        i = j;
+        continue;
+      }
+      out.push(line);
+      i++;
+    }
+    return out.join('\n');
+  }
+
+  /* ---------------------------------------------------------------------
    * Kanban boards
    *
    * A board is a plain JSON object persisted as a `.kanban` file in the vault:
@@ -691,5 +746,6 @@
     mtimeFromVersion,
     filesByDay,
     buildCalendarModel,
+    preserveMarkdownBlankLines,
   };
 });
