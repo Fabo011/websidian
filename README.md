@@ -9,6 +9,11 @@ DeltaChat Channel to get in touch with users and developers: [DeltaChat Websidia
 
 ---
 
+## Self-Hosting
+https://websidian.fabo011-cloud.de/docs
+
+---
+
 A small, self-hosted Obsidian-like markdown knowledge app.
 
 - **Backend:** NestJS 11 (Express), server-rendered EJS — runs on **Node.js 24 LTS**

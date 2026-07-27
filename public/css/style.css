@@ -1265,6 +1265,8 @@ body.tools-resizing { cursor: row-resize; user-select: none; }
   .btn-label { display: none; }
   /* Give the drawing canvas a guaranteed height so it stays editable on mobile. */
   .excalidraw-root { min-height: 70vh; min-height: 70dvh; }
+  /* Same for the Kanban board: keep columns tall + scrollable on tablet/mobile. */
+  .kanban-root { min-height: 70vh; min-height: 70dvh; }
 
   /* Tabs: momentum scroll, hide the scrollbar, finger-friendly hit targets. */
   .tabbar {
@@ -2747,4 +2749,313 @@ pre.hljs.has-copy:hover .code-copy,
   font-variant-numeric: tabular-nums;
   pointer-events: none;
   z-index: 2;
+}
+
+/* ---------- Kanban board ---------- */
+.kanban-root {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+.kanban-pane {
+  height: 100%;
+}
+.kanban-board {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-height: 100%;
+}
+.kanban-col {
+  flex: 0 0 280px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  max-height: 100%;
+}
+.kanban-col-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.kanban-col-title {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 4px 6px;
+}
+.kanban-col-title:hover {
+  border-color: var(--border);
+}
+.kanban-col-title:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+.kanban-col-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+}
+.kanban-col-del {
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.kanban-col-del:hover {
+  color: #e5534b;
+}
+.kanban-cards {
+  flex: 1;
+  min-height: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 8px;
+  transition: background 0.12s ease;
+}
+.kanban-cards.drag-over {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.kanban-empty {
+  font-size: 12px;
+  padding: 8px 6px;
+  text-align: center;
+}
+.kanban-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  word-break: break-word;
+}
+.kanban-card:hover {
+  border-color: var(--accent);
+}
+.kanban-card.dragging {
+  opacity: 0.5;
+}
+.kanban-card-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.kanban-card-desc {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+.kanban-card-edit {
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kanban-edit-title,
+.kanban-edit-desc {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.kanban-edit-title:focus,
+.kanban-edit-desc:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.kanban-edit-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.kanban-edit-actions .btn-primary {
+  flex: 1;
+}
+.kanban-edit-del {
+  color: #e5534b;
+}
+.kanban-add-card,
+.kanban-add-col {
+  margin-top: 8px;
+  width: 100%;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 8px;
+  cursor: pointer;
+}
+.kanban-add-card:hover,
+.kanban-add-col:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.kanban-col-add {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.kanban-col-add .kanban-add-col {
+  margin-top: 0;
+}
+@media (max-width: 640px) {
+  .kanban-root {
+    padding: 10px;
+  }
+  .kanban-col {
+    flex-basis: 82vw;
+    max-width: 82vw;
+  }
+}
+
+/* ---------- Kanban card meta (due date + links) ---------- */
+.kanban-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  align-items: center;
+}
+.kanban-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--text);
+  white-space: nowrap;
+}
+.kanban-due.is-overdue {
+  background: color-mix(in srgb, #e5534b 24%, transparent);
+  color: #ffd7d3;
+}
+.kanban-cardlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  text-decoration: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kanban-cardlink:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.kanban-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.kanban-edit-link,
+.kanban-edit-url,
+.kanban-edit-due {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+}
+.kanban-edit-link:focus,
+.kanban-edit-url:focus,
+.kanban-edit-due:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.calendar-file.calendar-due i {
+  color: var(--accent);
+}
+
+/* ---------- Kanban editor: linked-note row (dropdown + create button) ---------- */
+.kanban-edit-linkrow {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.kanban-edit-linkrow .kanban-edit-link {
+  flex: 1;
+  min-width: 0;
+}
+.kanban-edit-newnote {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.kanban-edit-newnote:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.kanban-edit-newnote:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- Kanban column drag-reordering ---------- */
+.kanban-col-grip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  cursor: grab;
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+}
+.kanban-col-grip:active {
+  cursor: grabbing;
+}
+.kanban-col-grip:hover {
+  color: var(--text);
+}
+.kanban-col.col-dragging {
+  opacity: 0.5;
+}
+/* Insertion cue: a bright bar on the side the column will drop into. */
+.kanban-col.col-drop-before {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.kanban-col.col-drop-after {
+  box-shadow: inset -3px 0 0 var(--accent);
 }

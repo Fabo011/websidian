@@ -33,6 +33,7 @@
             <button id="new-note" title="Create a new markdown note (optionally from a template)" data-i18n-attr="title:title_new_note"><i class="bi bi-file-earmark-plus"></i> <span data-i18n="tool_note">Note</span></button>
             <button id="new-daily" title="Create or open today's daily note" data-i18n-attr="title:title_new_daily"><i class="bi bi-calendar-day"></i> <span data-i18n="tool_daily">Daily note</span></button>
             <button id="new-file" title="Create a new Excalidraw drawing" data-i18n-attr="title:title_new_file"><i class="bi bi-pencil-square"></i> <span data-i18n="tool_file">Drawing</span></button>
+            <button id="new-kanban" title="Create a new Kanban board with customizable columns" data-i18n-attr="title:title_new_kanban"><i class="bi bi-kanban"></i> <span data-i18n="tool_kanban">Kanban board</span></button>
             <button id="new-folder" title="Create a new folder" data-i18n-attr="title:title_new_folder"><i class="bi bi-folder-plus"></i> <span data-i18n="tool_folder">Folder</span></button>
             <button id="new-template" title="Create a reusable note template in the Templates folder" data-i18n-attr="title:title_new_template"><i class="bi bi-file-earmark-ruled"></i> <span data-i18n="tool_template">Template</span></button>
           </div>
@@ -147,6 +148,17 @@
         <div id="excalidraw-root" class="excalidraw-root"></div>
       </section>
 
+      <section id="kanban-view" class="view" hidden>
+        <div class="view-header">
+          <button class="icon-btn mobile-back" data-mobile-back title="Show files" aria-label="Show files" data-i18n-attr="title:open_files_title;aria-label:open_files"><i class="bi bi-list"></i></button>
+          <span id="kanban-path" class="current-path breadcrumb"></span>
+          <div class="view-actions">
+            <button id="kanban-save" class="btn-primary"><i class="bi bi-save"></i> <span class="btn-label" data-i18n="save">Save</span></button>
+          </div>
+        </div>
+        <div id="kanban-root" class="kanban-root"></div>
+      </section>
+
       <section id="weblinks-view" class="view" hidden>
         <div class="view-header">
           <button class="icon-btn mobile-back" data-mobile-back title="Show files" aria-label="Show files" data-i18n-attr="title:open_files_title;aria-label:open_files"><i class="bi bi-list"></i></button>
@@ -228,6 +240,7 @@
     <button data-action="rename"><i class="bi bi-pencil"></i> <span data-i18n="rename">Rename</span></button>
     <button data-action="new-note" data-folder-only><i class="bi bi-file-earmark-plus"></i> <span data-i18n="ctx_new_note">New note</span></button>
     <button data-action="new-file" data-folder-only><i class="bi bi-pencil-square"></i> <span data-i18n="ctx_new_file">New drawing</span></button>
+    <button data-action="new-kanban" data-folder-only><i class="bi bi-kanban"></i> <span data-i18n="ctx_new_kanban">New Kanban board</span></button>
     <button data-action="new-folder" data-folder-only><i class="bi bi-folder-plus"></i> <span data-i18n="ctx_new_folder">New folder</span></button>
     <button data-action="upload" data-folder-only><i class="bi bi-file-earmark-arrow-up"></i> <span data-i18n="ctx_upload">Upload files here</span></button>
     <button data-action="import" data-folder-only><i class="bi bi-folder-symlink"></i> <span data-i18n="ctx_import">Import folder here</span></button>
@@ -672,6 +685,7 @@
   <script src="/public/js/zip-bundle.js?v=<%= v %>"></script>
   <script src="/public/js/upload-bundle.js?v=<%= v %>"></script>
   <script src="/public/js/wo-util.js?v=<%= v %>"></script>
+  <script src="/public/js/kanban.js?v=<%= v %>"></script>
   <script src="/public/js/app.js?v=<%= v %>"></script>
 </body>
 </html>

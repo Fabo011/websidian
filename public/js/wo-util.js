@@ -316,8 +316,205 @@
     return { year, month, weeks };
   }
 
+  /* ---------------------------------------------------------------------
+   * Kanban boards
+   *
+   * A board is a plain JSON object persisted as a `.kanban` file in the vault:
+   *   { version: 1, columns: [ { id, title, cards: [ { id, title, description } ] } ] }
+   * The functions below are the whole data model — pure, DOM-free, so the
+   * browser renderer (kanban.js) and the Jest tests share the exact same logic.
+   * Every mutating helper returns the (same, mutated) board for chaining.
+   * ------------------------------------------------------------------------ */
+
+  // Collision-resistant short id (time + randomness). Prefix keeps column vs
+  // card ids readable when eyeballing a saved board file.
+  function kanbanId(prefix) {
+    return (
+      (prefix || 'k') +
+      '_' +
+      Date.now().toString(36) +
+      Math.random().toString(36).slice(2, 8)
+    );
+  }
+
+  // A fresh board. `titles` seeds the starting columns (already localized by the
+  // caller); falls back to a generic To Do / In Progress / Done.
+  function kanbanDefaultBoard(titles) {
+    const cols = titles && titles.length ? titles : ['To Do', 'In Progress', 'Done'];
+    return {
+      version: 1,
+      columns: cols.map((title) => ({ id: kanbanId('c'), title, cards: [] })),
+    };
+  }
+
+  // Coerce arbitrary/untrusted content into a valid board. Never throws: bad or
+  // empty input yields an empty (but valid) board so the UI always renders.
+  function kanbanNormalize(input) {
+    let obj = input;
+    if (typeof input === 'string') {
+      const s = input.trim();
+      if (!s) return { version: 1, columns: [] };
+      try {
+        obj = JSON.parse(s);
+      } catch {
+        return { version: 1, columns: [] };
+      }
+    }
+    if (!obj || typeof obj !== 'object' || !Array.isArray(obj.columns)) {
+      return { version: 1, columns: [] };
+    }
+    const columns = obj.columns
+      .filter((c) => c && typeof c === 'object')
+      .map((c) => ({
+        id: typeof c.id === 'string' && c.id ? c.id : kanbanId('c'),
+        title: typeof c.title === 'string' ? c.title : '',
+        cards: Array.isArray(c.cards)
+          ? c.cards
+              .filter((k) => k && typeof k === 'object')
+              .map((k) => ({
+                id: typeof k.id === 'string' && k.id ? k.id : kanbanId('k'),
+                title: typeof k.title === 'string' ? k.title : '',
+                description:
+                  typeof k.description === 'string' ? k.description : '',
+                // Vault path of a linked note (e.g. "Notes/Spec.md"), an external
+                // URL, and an optional due date (YYYY-MM-DD) shown on the calendar.
+                link: typeof k.link === 'string' ? k.link : '',
+                url: typeof k.url === 'string' ? k.url : '',
+                due: typeof k.due === 'string' ? k.due : '',
+              }))
+          : [],
+      }));
+    return { version: 1, columns };
+  }
+
+  function kanbanSerialize(board) {
+    return JSON.stringify(kanbanNormalize(board), null, 2);
+  }
+
+  function kanbanColumn(board, colId) {
+    return board.columns.find((c) => c.id === colId) || null;
+  }
+
+  function kanbanAddColumn(board, title) {
+    board.columns.push({ id: kanbanId('c'), title: title || '', cards: [] });
+    return board;
+  }
+
+  function kanbanRenameColumn(board, colId, title) {
+    const col = kanbanColumn(board, colId);
+    if (col) col.title = title;
+    return board;
+  }
+
+  function kanbanRemoveColumn(board, colId) {
+    board.columns = board.columns.filter((c) => c.id !== colId);
+    return board;
+  }
+
+  // Move a column to `toIndex` (clamped). Used by column drag-reordering.
+  function kanbanMoveColumn(board, colId, toIndex) {
+    const from = board.columns.findIndex((c) => c.id === colId);
+    if (from < 0) return board;
+    const [col] = board.columns.splice(from, 1);
+    const idx = Math.max(0, Math.min(toIndex, board.columns.length));
+    board.columns.splice(idx, 0, col);
+    return board;
+  }
+
+  function kanbanAddCard(board, colId, card) {
+    const col = kanbanColumn(board, colId);
+    if (!col) return board;
+    col.cards.push({
+      id: kanbanId('k'),
+      title: (card && card.title) || '',
+      description: (card && card.description) || '',
+      link: (card && card.link) || '',
+      url: (card && card.url) || '',
+      due: (card && card.due) || '',
+    });
+    return board;
+  }
+
+  function kanbanUpdateCard(board, cardId, patch) {
+    for (const col of board.columns) {
+      const card = col.cards.find((k) => k.id === cardId);
+      if (card) {
+        for (const f of ['title', 'description', 'link', 'url', 'due']) {
+          if (patch && typeof patch[f] === 'string') card[f] = patch[f];
+        }
+        return board;
+      }
+    }
+    return board;
+  }
+
+  // Every dated card across a board, flattened for the calendar. `boardPath`
+  // is echoed back so the calendar can open the owning .kanban file.
+  function kanbanDueEntries(board, boardPath) {
+    const out = [];
+    for (const col of kanbanNormalize(board).columns) {
+      for (const card of col.cards) {
+        if (card.due) {
+          out.push({
+            boardPath: boardPath || '',
+            due: card.due,
+            column: col.title,
+            title: card.title,
+            cardId: card.id,
+          });
+        }
+      }
+    }
+    return out;
+  }
+
+  function kanbanRemoveCard(board, cardId) {
+    for (const col of board.columns) {
+      const i = col.cards.findIndex((k) => k.id === cardId);
+      if (i >= 0) {
+        col.cards.splice(i, 1);
+        return board;
+      }
+    }
+    return board;
+  }
+
+  // Move a card to `toColId` at `toIndex` (clamped). Drag-and-drop between
+  // columns and reordering within a column both funnel through here.
+  function kanbanMoveCard(board, cardId, toColId, toIndex) {
+    let card = null;
+    for (const col of board.columns) {
+      const i = col.cards.findIndex((k) => k.id === cardId);
+      if (i >= 0) {
+        [card] = col.cards.splice(i, 1);
+        break;
+      }
+    }
+    if (!card) return board;
+    const dest = kanbanColumn(board, toColId);
+    if (!dest) return board; // card removed if destination vanished — caller guards
+    const idx =
+      toIndex == null ? dest.cards.length : Math.max(0, Math.min(toIndex, dest.cards.length));
+    dest.cards.splice(idx, 0, card);
+    return board;
+  }
+
   return {
     WEBLINKS_HEADER,
+    kanbanId,
+    kanbanDefaultBoard,
+    kanbanNormalize,
+    kanbanSerialize,
+    kanbanColumn,
+    kanbanAddColumn,
+    kanbanRenameColumn,
+    kanbanRemoveColumn,
+    kanbanMoveColumn,
+    kanbanAddCard,
+    kanbanUpdateCard,
+    kanbanRemoveCard,
+    kanbanMoveCard,
+    kanbanDueEntries,
     fmtSize,
     uploadLimitError,
     parseCsv,

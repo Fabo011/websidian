@@ -27,6 +27,7 @@ const TEXT_EXTENSIONS = new Set([
   'markdown',
   'txt',
   'excalidraw',
+  'kanban',
   'json',
   'csv',
   'tsv',

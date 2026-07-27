@@ -842,6 +842,7 @@ function fileIcon(ext) {
   if (IMAGE_EXTS.includes(ext)) return 'bi-file-earmark-image';
   if (ext === 'pdf') return 'bi-file-earmark-pdf';
   if (ext === 'excalidraw') return 'bi-pencil-square';
+  if (ext === 'kanban') return 'bi-kanban';
   if (ext === 'md' || ext === 'markdown') return 'bi-file-earmark-text';
   if (ext === 'txt') return 'bi-file-earmark';
   if (ext === 'docx') return 'bi-file-earmark-word';
@@ -995,6 +996,8 @@ $('#context-menu').addEventListener('click', async (e) => {
     await createNoteIn(node.path);
   } else if (action === 'new-file') {
     await createFileIn(node.path);
+  } else if (action === 'new-kanban') {
+    await createKanbanIn(node.path);
   } else if (action === 'new-folder') {
     await createFolderIn(node.path);
   } else if (action === 'upload') {
@@ -1135,6 +1138,7 @@ async function restoreTabs() {
 
 function tabKindFor(ext) {
   if (ext === 'excalidraw') return 'excalidraw';
+  if (ext === 'kanban') return 'kanban';
   if (TEXT_EXTS.includes(ext)) return 'editor';
   return 'viewer';
 }
@@ -1277,6 +1281,7 @@ async function openFile(path, opts = {}) {
     pane: null,
     blobUrl: null,
     excalidraw: null,
+    kanban: null,
     epub: null,
     pdf: null,
   };
@@ -1334,6 +1339,42 @@ async function loadTabContent(tab) {
     $('#excalidraw-root').appendChild(pane);
     tab.pane = pane;
     tab.excalidraw = window.ExcalidrawEditor.mount(pane, initial);
+  } else if (tab.kind === 'kanban') {
+    let initial = null;
+    try {
+      const data = await api(
+        'GET',
+        '/api/file?path=' + encodeURIComponent(tab.path),
+      );
+      tab.version = data.version;
+      const content = await decryptContent(data.content);
+      initial = content ? WOUtil.kanbanNormalize(content) : null;
+    } catch (e) {
+      initial = null;
+    }
+    const pane = document.createElement('div');
+    pane.className = 'kanban-pane';
+    pane.hidden = true;
+    $('#kanban-root').appendChild(pane);
+    tab.pane = pane;
+    tab.kanban = window.WOKanban.mount(pane, initial, {
+      t,
+      onChange: () => markTabDirty(tab),
+      confirm: (message) =>
+        uiConfirm(t('kanban_confirm_title'), {
+          message,
+          okText: t('delete'),
+          cancelText: t('cancel'),
+          danger: true,
+        }),
+      notes: mdNoteList(),
+      onOpenNote: (p) => openFile(p),
+      sanitizeUrl: (u) => WOUtil.sanitizeLinkUrl(u),
+      // Auto-save the board when a card is dragged into a different column.
+      onMove: () => saveKanban(),
+      // Create a new markdown note and hand its path back to be linked.
+      onCreateNote: (title) => createKanbanLinkedNote(title),
+    });
   } else {
     await buildViewerPane(tab);
   }
@@ -1381,6 +1422,7 @@ async function activateTab(id) {
   state.excalidraw = tab.kind === 'excalidraw' ? tab.excalidraw : null;
   if (tab.kind === 'editor') activateEditorTab(tab);
   else if (tab.kind === 'excalidraw') activateExcalidrawTab(tab);
+  else if (tab.kind === 'kanban') activateKanbanTab(tab);
   else if (tab.kind === 'weblinks') activateWeblinksTab(tab);
   else if (tab.kind === 'calendar') activateCalendarTab(tab);
   else if (tab.kind === 'graph') activateGraphTab(tab);
@@ -1438,6 +1480,28 @@ function activateExcalidrawTab(tab) {
   $('#excalidraw-root')
     .querySelectorAll('.excalidraw-pane')
     .forEach((p) => (p.hidden = p !== tab.pane));
+}
+
+function activateKanbanTab(tab) {
+  $('#kanban-view').hidden = false;
+  renderBreadcrumb($('#kanban-path'), tab.path);
+  $('#kanban-root')
+    .querySelectorAll('.kanban-pane')
+    .forEach((p) => (p.hidden = p !== tab.pane));
+}
+
+// Flag any tab (not just the active one) dirty and paint its unsaved dot.
+// Used by custom editors whose changes come from callbacks, not #editor input.
+function markTabDirty(tab) {
+  if (!tab || tab.dirty) return;
+  tab.dirty = true;
+  if (tab.id === TABS.activeId) state.dirty = true;
+  const el = $('#tabbar').querySelector('.tab[data-tab-id="' + tab.id + '"]');
+  if (el && !el.querySelector('.tab-dirty')) {
+    const dot = document.createElement('span');
+    dot.className = 'tab-dirty';
+    el.insertBefore(dot, el.querySelector('.tab-close'));
+  }
 }
 
 // Special (non-file) tabs — web links and the calendar. They open as tabs so the
@@ -1547,6 +1611,13 @@ async function closeTab(id) {
       /* ignore */
     }
   }
+  if (tab.kanban && tab.kanban.destroy) {
+    try {
+      tab.kanban.destroy();
+    } catch (e) {
+      /* ignore */
+    }
+  }
   if (tab.epub && tab.epub.destroy) {
     try {
       tab.epub.destroy();
@@ -1627,7 +1698,9 @@ function renameTabPaths(from, to) {
         ? '#current-path'
         : active.kind === 'viewer'
           ? '#viewer-path'
-          : '#excalidraw-path';
+          : active.kind === 'kanban'
+            ? '#kanban-path'
+            : '#excalidraw-path';
     renderBreadcrumb($(headerSel), active.path);
   }
   renderTabbar();
@@ -1640,6 +1713,13 @@ function forceCloseTab(tab) {
   if (tab.excalidraw && window.ExcalidrawEditor.unmount) {
     try {
       window.ExcalidrawEditor.unmount(tab.excalidraw);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  if (tab.kanban && tab.kanban.destroy) {
+    try {
+      tab.kanban.destroy();
     } catch (e) {
       /* ignore */
     }
@@ -2457,6 +2537,7 @@ document.addEventListener('keydown', (e) => {
     const tab = activeTab();
     if (tab && tab.kind === 'editor') saveCurrent();
     else if (tab && tab.kind === 'excalidraw' && state.excalidraw) saveExcalidraw();
+    else if (tab && tab.kind === 'kanban' && tab.kanban) saveKanban();
   }
 });
 
@@ -2707,6 +2788,44 @@ async function saveExcalidraw() {
 }
 $('#excalidraw-save').addEventListener('click', saveExcalidraw);
 
+async function saveKanban() {
+  const tab = activeTab();
+  if (!tab || tab.kind !== 'kanban' || !tab.kanban || !state.current) return;
+  const json = WOUtil.kanbanSerialize(tab.kanban.getBoard());
+  const payload = {
+    path: state.current.path,
+    content: await encryptContent(json),
+    baseVersion: state.current.version,
+  };
+  let result;
+  try {
+    result = await api('PUT', '/api/file', payload);
+  } catch (e) {
+    if (e.status === 409) {
+      const overwrite = await uiConfirm(t('conflict_kanban_title'), {
+        message: t('conflict_kanban_msg'),
+        okText: t('overwrite'),
+        cancelText: t('cancel'),
+      });
+      if (!overwrite) {
+        flash(t('save_cancelled'));
+        return;
+      }
+      delete payload.baseVersion;
+      result = await api('PUT', '/api/file', payload);
+    } else {
+      throw e;
+    }
+  }
+  if (result && result.version) state.current.version = result.version;
+  tab.version = state.current.version;
+  tab.dirty = false;
+  state.dirty = false;
+  renderTabbar();
+  flash(t('saved'));
+}
+$('#kanban-save').addEventListener('click', saveKanban);
+
 /* ---------- create / upload / import ---------- */
 
 async function createNoteIn(targetDir) {
@@ -2742,6 +2861,76 @@ async function createFileIn(targetDir) {
   expandAncestors(targetDir);
   await loadTree();
   openFile(path);
+}
+
+// Boards always land in the fixed `Kanban/` folder (created if missing),
+// regardless of the selected folder — mirrors how templates work.
+async function createKanbanIn() {
+  let name = await uiPrompt(t('prompt_new_kanban_title'), 'Untitled.kanban', {
+    title: t('prompt_new_kanban_title'),
+    message: t('prompt_new_kanban_msg'),
+    placeholder: t('prompt_new_kanban_ph'),
+  });
+  if (!name) return;
+  // Default to the .kanban board format when no extension is typed.
+  if (!/\.[a-z0-9]+$/i.test(name)) name += '.kanban';
+  const path = KANBAN_DIR + '/' + name;
+  // Seed with localized starter columns so a new board is immediately usable.
+  const board = WOUtil.kanbanDefaultBoard([
+    t('kanban_default_col1'),
+    t('kanban_default_col2'),
+    t('kanban_default_col3'),
+  ]);
+  await api('POST', '/api/folder', { path: KANBAN_DIR }).catch(() => {});
+  try {
+    await api('PUT', '/api/file', {
+      path,
+      content: await encryptContent(WOUtil.kanbanSerialize(board)),
+    });
+  } catch (e) {
+    flash(e.message || t('could_not_create'));
+    return;
+  }
+  expandAncestors(KANBAN_DIR);
+  await loadTree();
+  openFile(path);
+}
+
+/**
+ * Create a markdown note (in `Kanban/Notes`) to be linked to a card, and return
+ * `{ path, name }` for the kanban editor to select. Returns null if the user
+ * cancels or creation fails. `suggested` pre-fills the prompt from the card
+ * title so a card "Design spec" offers "Design spec.md".
+ */
+async function createKanbanLinkedNote(suggested) {
+  const seed = (suggested || '').trim();
+  let name = await uiPrompt(
+    t('prompt_new_kanban_note_title'),
+    seed ? seed + '.md' : 'Untitled.md',
+    {
+      title: t('prompt_new_kanban_note_title'),
+      message: t('prompt_new_kanban_note_msg'),
+      placeholder: t('prompt_new_note_ph'),
+    },
+  );
+  if (!name) return null;
+  if (!/\.[a-z0-9]+$/i.test(name)) name += '.md';
+  const dir = KANBAN_DIR + '/Notes';
+  const path = dir + '/' + name;
+  const title = name.replace(/\.[^.]+$/, '');
+  await api('POST', '/api/folder', { path: dir }).catch(() => {});
+  try {
+    await api('PUT', '/api/file', {
+      path,
+      content: await encryptContent('# ' + title + '\n'),
+    });
+  } catch (e) {
+    flash(e.message || t('could_not_create'));
+    return null;
+  }
+  expandAncestors(dir);
+  await loadTree();
+  return { path, name: title };
 }
 
 async function createFolderIn(targetDir) {
@@ -2784,6 +2973,10 @@ function treeHasDir(nodes, path) {
 }
 
 $('#new-file').addEventListener('click', () => createFileIn(state.selectedDir));
+$('#new-kanban') &&
+  $('#new-kanban').addEventListener('click', () =>
+    createKanbanIn(state.selectedDir),
+  );
 $('#new-folder').addEventListener('click', () => createFolderIn(state.selectedDir));
 
 /* ---------- notes: daily notes, templates, calendar ---------------------- */
@@ -2794,6 +2987,8 @@ const NOTES_SETTINGS_PATH = RESERVED_DIR + '/settings.json';
 // User templates live in a fixed top-level folder, mirroring Obsidian.
 const TEMPLATES_DIR = 'Templates';
 const DEFAULT_DAILY_DIR = 'Daily';
+// Kanban boards live in a fixed top-level folder, created on first use.
+const KANBAN_DIR = 'Kanban';
 
 // The full, decrypted settings object from `.websidian/settings.json`. Holds
 // everything that should follow the user across devices: the daily-note folder,
@@ -6021,7 +6216,14 @@ async function loadGraphView(opts = {}) {
 /* ---------- calendar ------------------------------------------------------ */
 
 // Which month the calendar is currently showing, and the last day->files map.
-const calendarState = { year: 0, month: 0, byDay: new Map(), selected: null };
+// `dueByDay` maps a YYYY-MM-DD key to kanban card due entries for that day.
+const calendarState = {
+  year: 0,
+  month: 0,
+  byDay: new Map(),
+  dueByDay: new Map(),
+  selected: null,
+};
 
 /** Fetch every file and bucket by local last-modified day (skips internals). */
 async function loadCalendarData() {
@@ -6029,6 +6231,47 @@ async function loadCalendarData() {
   // Show every user file (incl. templates & daily notes); only websidian's own
   // internal settings folder is hidden.
   calendarState.byDay = WOUtil.filesByDay(files, [RESERVED_DIR]);
+  calendarState.dueByDay = await loadKanbanDueDates(files);
+}
+
+/**
+ * Read every `.kanban` board and bucket its dated cards by due day, so a card's
+ * due date shows up on the calendar. Boards that fail to load/parse are skipped
+ * (a broken board must not blank the whole calendar).
+ */
+async function loadKanbanDueDates(files) {
+  const map = new Map();
+  const boards = (files || []).filter(
+    (f) => f && f.path && extOf(f.path) === 'kanban',
+  );
+  for (const f of boards) {
+    let board;
+    try {
+      const data = await api(
+        'GET',
+        '/api/file?path=' + encodeURIComponent(f.path),
+      );
+      board = WOUtil.kanbanNormalize(await decryptContent(data.content || ''));
+    } catch {
+      continue;
+    }
+    for (const entry of WOUtil.kanbanDueEntries(board, f.path)) {
+      const arr = map.get(entry.due);
+      if (arr) arr.push(entry);
+      else map.set(entry.due, [entry]);
+    }
+  }
+  return map;
+}
+
+/** Combined per-day counts (files + kanban due cards) for the month grid. */
+function calendarCounts() {
+  const merged = new Map();
+  for (const [key, arr] of calendarState.byDay) merged.set(key, arr.length);
+  for (const [key, arr] of calendarState.dueByDay) {
+    merged.set(key, (merged.get(key) || 0) + arr.length);
+  }
+  return merged;
 }
 
 /**
@@ -6075,7 +6318,7 @@ function monthLabel(year, month) {
 
 /** Render the month grid and (if a day is selected) its file list. */
 function renderCalendar() {
-  const counts = calendarState.byDay;
+  const counts = calendarCounts();
   const model = WOUtil.buildCalendarModel(
     calendarState.year,
     calendarState.month,
@@ -6155,11 +6398,30 @@ function renderCalendarDayList() {
   panel.hidden = false;
   heading.textContent = key;
   const files = calendarState.byDay.get(key) || [];
-  empty.hidden = files.length > 0;
+  const dues = calendarState.dueByDay.get(key) || [];
+  empty.hidden = files.length + dues.length > 0;
   // The month grid can be tall; make sure the day's file list is visible.
   requestAnimationFrame(() =>
     panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }),
   );
+  // Kanban cards due this day first, then files modified this day.
+  for (const entry of dues) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'calendar-file calendar-due';
+    const icon = document.createElement('i');
+    icon.className = 'bi bi-kanban';
+    const name = document.createElement('span');
+    const label = entry.title || t('kanban_card_title_ph');
+    name.textContent = t('calendar_due_card', {
+      card: label,
+      board: basename(entry.boardPath).replace(/\.kanban$/i, ''),
+    });
+    btn.append(icon, name);
+    btn.title = entry.column;
+    btn.addEventListener('click', () => openFile(entry.boardPath));
+    list.appendChild(btn);
+  }
   for (const path of files) {
     const btn = document.createElement('button');
     btn.type = 'button';
