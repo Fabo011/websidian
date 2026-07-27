@@ -54,8 +54,9 @@
     // sanitizer — all injected by the host so this module stays app-agnostic.
     const notes = Array.isArray(opts.notes) ? opts.notes : [];
     const onOpenNote = opts.onOpenNote || function () {};
-    // Fired after a card is dragged into a different column, so the host can
-    // auto-save the board. Editing a card still requires an explicit Save.
+    // Fired after any persist-worthy board change (card move, card save/delete,
+    // column reorder) so the host can auto-save the board without an extra
+    // manual Save click.
     const onMove = opts.onMove || function () {};
     // Host creates a new markdown note and resolves { path, name } (or null if
     // cancelled). Lets the editor create-and-link a note in one step.
@@ -455,12 +456,14 @@
         });
         changed();
         render();
+        onMove(); // persist the card edit immediately, like a card move
       };
       save.addEventListener('click', commit);
       del.addEventListener('click', () => {
         U.kanbanRemoveCard(board, card.id);
         changed();
         render();
+        onMove(); // deletion is persist-worthy — auto-save too
       });
       // Enter in the title commits; Escape cancels (re-render drops the form).
       titleInput.addEventListener('keydown', (e) => {
