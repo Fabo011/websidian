@@ -5541,6 +5541,21 @@ function buildWeblinkCard(link, index) {
   const actions = document.createElement('div');
   actions.className = 'weblink-actions';
 
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'icon-btn';
+  copyBtn.title = t('weblinks_copy');
+  copyBtn.setAttribute('aria-label', t('weblinks_copy'));
+  copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
+  copyBtn.addEventListener('click', async () => {
+    const ok = await copyText(link.url);
+    if (ok) flash(t('weblinks_copied'));
+    else
+      await uiAlert(t('open_failed_title'), {
+        message: t('weblinks_copy_failed'),
+      });
+  });
+  actions.appendChild(copyBtn);
+
   const editBtn = document.createElement('button');
   editBtn.className = 'icon-btn';
   editBtn.title = t('weblinks_edit');
@@ -5561,6 +5576,21 @@ function buildWeblinkCard(link, index) {
   return card;
 }
 
+/**
+ * Fill the category <datalist> with the existing category names so the modal's
+ * category field both recommends and lets the user search saved categories.
+ */
+function populateWeblinkCategories() {
+  const dl = $('#weblink-category-list');
+  if (!dl) return;
+  dl.innerHTML = '';
+  for (const cat of WOUtil.weblinkCategories(weblinksState.links)) {
+    const opt = document.createElement('option');
+    opt.value = cat;
+    dl.appendChild(opt);
+  }
+}
+
 function openWeblinkModal(index) {
   weblinksState.editIndex = typeof index === 'number' ? index : null;
   const editing = weblinksState.editIndex !== null;
@@ -5568,6 +5598,7 @@ function openWeblinkModal(index) {
   $('#weblink-modal-title').querySelector('span').textContent = editing
     ? t('weblinks_edit')
     : t('weblinks_add');
+  populateWeblinkCategories();
   $('#weblink-url').value = link ? link.url : '';
   $('#weblink-name').value = link ? link.name : '';
   $('#weblink-category').value = link ? link.category : '';
@@ -5648,18 +5679,72 @@ async function deleteWeblink(index) {
   }
 }
 
-async function importWeblinksCsv(file) {
+/**
+ * Merge CSV text into the weblinks vault file, de-duplicating by URL (existing
+ * entries win). With `opts.ensureLoaded` the current file is loaded first so
+ * callers outside the Web links tab (e.g. importing a CSV received in chat) can
+ * never clobber existing links or hit a stale version. Returns true on success.
+ */
+/**
+ * Delete a whole category: pick an existing category, confirm (the dialog shows
+ * how many links will be removed), then drop every link in it. Destructive, so
+ * it always confirms first.
+ */
+async function deleteWeblinkCategory() {
+  const cats = WOUtil.weblinkCategories(weblinksState.links);
+  if (!cats.length) {
+    await uiAlert(t('weblinks_del_cat'), {
+      message: t('weblinks_no_categories'),
+    });
+    return;
+  }
+  const cat = await pickFromList(t('weblinks_del_cat_pick'), cats);
+  if (cat == null) return;
+  const inCat = WOUtil.linksInCategory(weblinksState.links, cat);
+  const ok = await uiConfirm(t('weblinks_del_cat'), {
+    message: t('weblinks_del_cat_msg', { category: cat, n: inCat.length }),
+    okText: t('delete'),
+    danger: true,
+  });
+  if (!ok) return;
+  showLoading(t('loading'));
+  try {
+    const key = cat.trim().toLowerCase();
+    weblinksState.links = weblinksState.links.filter(
+      (l) =>
+        (l.category ? String(l.category) : '').trim().toLowerCase() !== key,
+    );
+    await saveWeblinks();
+    renderWeblinks();
+    flash(t('weblinks_del_cat_done', { n: inCat.length }));
+  } catch (err) {
+    await uiAlert(t('open_failed_title'), {
+      message: err.message || t('weblinks_load_failed'),
+    });
+  } finally {
+    hideLoading();
+  }
+}
+
+async function importWeblinksFromText(text, opts = {}) {
+  const incoming = csvToLinks(text);
+  if (!incoming.length) {
+    await uiAlert(t('import_failed_title'), {
+      message: t('weblinks_import_failed'),
+    });
+    return false;
+  }
+  if (opts.ensureLoaded) {
+    const ok = await loadWeblinksData({ silent: true });
+    if (!ok) {
+      await uiAlert(t('import_failed_title'), {
+        message: t('weblinks_load_failed'),
+      });
+      return false;
+    }
+  }
   showLoading(t('importing'));
   try {
-    const text = await file.text();
-    const incoming = csvToLinks(text);
-    if (!incoming.length) {
-      await uiAlert(t('import_failed_title'), {
-        message: t('weblinks_import_failed'),
-      });
-      return;
-    }
-    // Merge, de-duplicating by URL (existing entries win).
     const seen = new Set(weblinksState.links.map((l) => l.url));
     let added = 0;
     for (const link of incoming) {
@@ -5671,13 +5756,96 @@ async function importWeblinksCsv(file) {
     await saveWeblinks();
     renderWeblinks();
     flash(t('weblinks_imported_n', { n: added }));
+    return true;
   } catch (err) {
     await uiAlert(t('import_failed_title'), {
       message: err.message || t('weblinks_import_failed'),
     });
+    return false;
   } finally {
     hideLoading();
   }
+}
+
+async function importWeblinksCsv(file) {
+  try {
+    await importWeblinksFromText(await file.text());
+  } catch {
+    await uiAlert(t('import_failed_title'), {
+      message: t('weblinks_import_failed'),
+    });
+  }
+}
+
+/**
+ * Fetch + decrypt the weblinks CSV on demand and return its links, so features
+ * outside the Web links tab (e.g. sharing from chat) always get a fresh copy
+ * even when the tab was never opened. Returns [] on any error / missing file.
+ */
+async function getWeblinksForShare() {
+  try {
+    const data = await api(
+      'GET',
+      '/api/file?path=' + encodeURIComponent(WEBLINKS_CSV),
+    );
+    return csvToLinks(await decryptContent(data.content || ''));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Ask the user which links to include — all, or one existing category — via the
+ * shared searchable picker. Resolves to `{ category, links }` (category is ''
+ * for "all links") or null if the user cancelled.
+ */
+async function pickWeblinksScope(links) {
+  const cats = WOUtil.weblinkCategories(links);
+  const allLabel = t('weblinks_export_all');
+  const choice = await pickFromList(t('weblinks_export_pick'), [
+    allLabel,
+    ...cats,
+  ]);
+  if (choice == null) return null;
+  const category = choice === allLabel ? '' : choice;
+  return { category, links: WOUtil.linksInCategory(links, category) };
+}
+
+/** Export the current links (all or a chosen category) as a downloaded CSV. */
+async function exportWeblinks() {
+  if (!weblinksState.links.length) {
+    await uiAlert(t('weblinks_export'), { message: t('weblinks_none') });
+    return;
+  }
+  const scope = await pickWeblinksScope(weblinksState.links);
+  if (!scope) return;
+  const csv = serializeWeblinks(scope.links);
+  triggerDownload(
+    new Blob([csv], { type: 'text/csv' }),
+    WOUtil.weblinksCsvFilename(scope.category),
+  );
+  flash(t('weblinks_exported'));
+}
+
+/**
+ * Build a weblinks CSV (all or one category) as a ready-to-send chat
+ * attachment `{ name, mime, bytes }`, or null if there are no links or the
+ * user cancelled. Injected into the chat layer via `chatDeps`.
+ */
+async function pickWeblinksCsvAttachment() {
+  const links = await getWeblinksForShare();
+  if (!links.length) {
+    await uiAlert(t('weblinks_export'), { message: t('weblinks_none') });
+    return null;
+  }
+  const scope = await pickWeblinksScope(links);
+  if (!scope) return null;
+  const csv = serializeWeblinks(scope.links);
+  return {
+    name: WOUtil.weblinksCsvFilename(scope.category),
+    mime: 'text/csv',
+    bytes: new TextEncoder().encode(csv),
+  };
 }
 
 (function setupWeblinks() {
@@ -5694,6 +5862,9 @@ async function importWeblinksCsv(file) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !$('#weblink-overlay').hidden) closeWeblinkModal();
   });
+
+  $('#weblink-export').addEventListener('click', exportWeblinks);
+  $('#weblink-del-category').addEventListener('click', deleteWeblinkCategory);
 
   const importInput = $('#weblinks-import-input');
   $('#weblink-import').addEventListener('click', () => importInput.click());
@@ -6697,6 +6868,9 @@ function chatDeps() {
     openChat,
     openFile: (p) => openFile(p),
     pickVaultFile,
+    pickWeblinksCsv: pickWeblinksCsvAttachment,
+    importWeblinks: (text) =>
+      importWeblinksFromText(text, { ensureLoaded: true }),
     removeVaultPath: (p) =>
       api('DELETE', '/api/entry?path=' + encodeURIComponent(p)),
     refreshTree: () => loadTree().catch(() => {}),

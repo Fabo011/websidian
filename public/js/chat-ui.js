@@ -72,6 +72,11 @@
     attachFile.title = t('chat_attach_vault');
     attachFile.setAttribute('aria-label', t('chat_attach_vault'));
     attachFile.innerHTML = '<i class="bi bi-paperclip"></i>';
+    const attachLinks = el('button', 'chat-icon-btn');
+    attachLinks.type = 'button';
+    attachLinks.title = t('chat_send_weblinks');
+    attachLinks.setAttribute('aria-label', t('chat_send_weblinks'));
+    attachLinks.innerHTML = '<i class="bi bi-link-45deg"></i>';
     const input = el('textarea', 'chat-input');
     input.rows = 1;
     input.placeholder = t('chat_placeholder');
@@ -86,6 +91,7 @@
     fileInput.hidden = true;
     composer.appendChild(attachImg);
     composer.appendChild(attachFile);
+    if (deps.pickWeblinksCsv) composer.appendChild(attachLinks);
     composer.appendChild(input);
     composer.appendChild(send);
     composer.appendChild(fileInput);
@@ -186,6 +192,15 @@
         dl.textContent = t('chat_download');
         dl.addEventListener('click', downloadAttachment(rec));
         actions.appendChild(dl);
+        // A received weblinks*.csv can be merged straight into the recipient's
+        // own Web links with one click.
+        if (deps.importWeblinks && WOUtil.isWeblinksCsvName(rec.name)) {
+          const imp = el('button', 'chat-file-btn');
+          imp.type = 'button';
+          imp.textContent = t('chat_import_weblinks');
+          imp.addEventListener('click', () => onImportWeblinks(rec));
+          actions.appendChild(imp);
+        }
         bubble.appendChild(fileRow);
         bubble.appendChild(actions);
       } else {
@@ -208,6 +223,16 @@
 
       row.appendChild(bubble);
       log.appendChild(row);
+    }
+
+    async function onImportWeblinks(rec) {
+      try {
+        const url = await deps.attachmentUrl(rec.imgPath);
+        const text = await (await fetch(url)).text();
+        await deps.importWeblinks(text);
+      } catch {
+        showError(t('chat_err_attachment'));
+      }
     }
 
     async function onDeleteMessage(rec, row) {
@@ -302,6 +327,29 @@
       }
     }
 
+    async function doSendWeblinks() {
+      if (!deps.pickWeblinksCsv) return;
+      let att;
+      try {
+        att = await deps.pickWeblinksCsv();
+      } catch {
+        return;
+      }
+      if (!att) return;
+      try {
+        const rec = await WOChat.sendAttachment(partner, {
+          kind: 'file',
+          name: att.name,
+          mime: att.mime || 'text/csv',
+          bytes: att.bytes,
+        });
+        renderRecord(rec);
+        scrollDown();
+      } catch (e) {
+        showError(e.message || t('chat_err_send'));
+      }
+    }
+
     function autoGrow() {
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 160) + 'px';
@@ -334,6 +382,7 @@
       if (f) doSendImage(f);
     });
     attachFile.addEventListener('click', doSendVaultFile);
+    attachLinks.addEventListener('click', doSendWeblinks);
     clearBtn.addEventListener('click', onClearChat);
 
     // --- live updates -------------------------------------------------------

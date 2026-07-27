@@ -187,6 +187,12 @@
           <button type="button" id="weblink-import" class="md-btn" title="Import links from a CSV file (Linky format supported)" data-i18n-attr="title:weblinks_import_tip">
             <i class="bi bi-filetype-csv"></i> <span data-i18n="weblinks_import">Import CSV</span>
           </button>
+          <button type="button" id="weblink-export" class="md-btn" title="Export links as CSV (all or by category)" data-i18n-attr="title:weblinks_export_tip">
+            <i class="bi bi-download"></i> <span data-i18n="weblinks_export">Export CSV</span>
+          </button>
+          <button type="button" id="weblink-del-category" class="md-btn" title="Delete a category and all its links" data-i18n-attr="title:weblinks_del_cat_tip">
+            <i class="bi bi-tags"></i> <span data-i18n="weblinks_del_cat">Delete category</span>
+          </button>
           <div class="weblinks-search-wrap">
             <i class="bi bi-search"></i>
             <input id="weblinks-search" type="search" autocomplete="off" placeholder="Search links…" data-i18n-attr="placeholder:weblinks_search" />
@@ -690,7 +696,8 @@
         <label class="modal-label" for="weblink-name" data-i18n="weblinks_field_name">Name</label>
         <input id="weblink-name" class="modal-input" type="text" required />
         <label class="modal-label" for="weblink-category" data-i18n="weblinks_field_category">Category</label>
-        <input id="weblink-category" class="modal-input" type="text" />
+        <input id="weblink-category" class="modal-input" type="text" list="weblink-category-list" autocomplete="off" placeholder="Search or add a category…" data-i18n-attr="placeholder:weblinks_category_ph" />
+        <datalist id="weblink-category-list"></datalist>
         <label class="modal-label" for="weblink-description" data-i18n="weblinks_field_description">Description</label>
         <input id="weblink-description" class="modal-input" type="text" />
         <label class="modal-label" for="weblink-username" data-i18n="weblinks_field_username">Username</label>

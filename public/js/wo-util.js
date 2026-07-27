@@ -285,6 +285,69 @@
     return out;
   }
 
+  /**
+   * Distinct, case-insensitively de-duplicated, alphabetically sorted list of
+   * non-empty category names across the given links. Used to power the
+   * category suggestion/search datalist in the add/edit link modal. First seen
+   * spelling wins for a given case-folded key.
+   */
+  function weblinkCategories(links) {
+    if (!Array.isArray(links)) return [];
+    const seen = new Map();
+    for (const link of links) {
+      const cat = (link && link.category ? String(link.category) : '').trim();
+      if (!cat) continue;
+      const key = cat.toLowerCase();
+      if (!seen.has(key)) seen.set(key, cat);
+    }
+    return [...seen.values()].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' }),
+    );
+  }
+
+  /**
+   * Links whose category matches `category` (case-insensitive, trimmed). An
+   * empty/falsy category means "all links" and returns a shallow copy.
+   */
+  function linksInCategory(links, category) {
+    if (!Array.isArray(links)) return [];
+    const cat = (category ? String(category) : '').trim().toLowerCase();
+    if (!cat) return links.slice();
+    return links.filter(
+      (l) =>
+        (l && l.category ? String(l.category) : '').trim().toLowerCase() ===
+        cat,
+    );
+  }
+
+  /**
+   * Safe download filename for an exported weblinks CSV: `weblinks.csv` for the
+   * whole set, or `weblinks-<slug>.csv` for a single category (category slugged
+   * to filename-safe chars). Falls back to `weblinks.csv` if the slug is empty.
+   */
+  function weblinksCsvFilename(category) {
+    const cat = (category ? String(category) : '').trim();
+    if (!cat) return 'weblinks.csv';
+    const slug = cat
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/gi, '-')
+      .replace(/^-+|-+$/g, '');
+    return slug ? `weblinks-${slug}.csv` : 'weblinks.csv';
+  }
+
+  /**
+   * True if a filename looks like an exportable weblinks CSV (`weblinks.csv` or
+   * `weblinks-<category>.csv`), ignoring any directory part. Used to offer a
+   * one-click "import to Web links" action on a matching chat attachment.
+   */
+  function isWeblinksCsvName(name) {
+    const base = String(name || '')
+      .replace(/\\/g, '/')
+      .split('/')
+      .pop();
+    return /^weblinks[^/\\]*\.csv$/i.test(base);
+  }
+
   // ---- Notes: daily notes, templates, calendar -------------------------------
 
   /**
@@ -618,6 +681,10 @@
     sanitizeLinkUrl,
     serializeWeblinks,
     csvToLinks,
+    weblinkCategories,
+    linksInCategory,
+    weblinksCsvFilename,
+    isWeblinksCsvName,
     normalizeVaultPath,
     formatDailyDate,
     applyTemplate,
