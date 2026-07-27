@@ -52,6 +52,34 @@ describe('UsersService', () => {
     await expect(service.findAll()).resolves.toBe(all);
   });
 
+  it('setChatKeys persists the public + wrapped private key', async () => {
+    const user = { id: 1 } as User;
+    await service.setChatKeys(user, 'PUB', 'WRAPPED');
+    expect(user.chatPublicKey).toBe('PUB');
+    expect(user.wrappedChatPrivateKey).toBe('WRAPPED');
+    expect(repo.save).toHaveBeenCalledWith(user);
+  });
+
+  it('findPublicKeyByUsername returns only the public key, lowercased lookup', async () => {
+    repo.findOne.mockResolvedValue({
+      username: 'bob',
+      chatPublicKey: 'PUB',
+    } as User);
+    await expect(service.findPublicKeyByUsername('Bob')).resolves.toEqual({
+      username: 'bob',
+      publicKey: 'PUB',
+    });
+    expect(repo.findOne).toHaveBeenCalledWith({ where: { username: 'bob' } });
+  });
+
+  it('findPublicKeyByUsername returns null when chat is not set up', async () => {
+    repo.findOne.mockResolvedValue({
+      username: 'bob',
+      chatPublicKey: null,
+    } as User);
+    await expect(service.findPublicKeyByUsername('bob')).resolves.toBeNull();
+  });
+
   it('count delegates to the repository', async () => {
     repo.count.mockResolvedValue(3);
     await expect(service.count()).resolves.toBe(3);

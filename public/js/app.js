@@ -842,6 +842,8 @@ function fileIcon(ext) {
   if (IMAGE_EXTS.includes(ext)) return 'bi-file-earmark-image';
   if (ext === 'pdf') return 'bi-file-earmark-pdf';
   if (ext === 'excalidraw') return 'bi-pencil-square';
+  if (ext === 'kanban') return 'bi-kanban';
+  if (ext === 'chat') return 'bi-chat-dots';
   if (ext === 'md' || ext === 'markdown') return 'bi-file-earmark-text';
   if (ext === 'txt') return 'bi-file-earmark';
   if (ext === 'docx') return 'bi-file-earmark-word';
@@ -995,6 +997,8 @@ $('#context-menu').addEventListener('click', async (e) => {
     await createNoteIn(node.path);
   } else if (action === 'new-file') {
     await createFileIn(node.path);
+  } else if (action === 'new-kanban') {
+    await createKanbanIn(node.path);
   } else if (action === 'new-folder') {
     await createFolderIn(node.path);
   } else if (action === 'upload') {
@@ -1075,6 +1079,10 @@ const TABS = {
   activeId: null,
 };
 const MAX_OPEN_TABS = Math.max(1, Number(window.__WO_MAX_OPEN_TABS__) || 8);
+// Whether the operator enabled end-to-end encrypted chat (surfaced from the
+// server). When false, the Chat button + settings are hidden and no socket is
+// opened.
+const CHAT_ENABLED = window.__WO_CHAT_ENABLED__ !== false;
 let tabSeq = 0;
 
 function activeTab() {
@@ -1135,6 +1143,8 @@ async function restoreTabs() {
 
 function tabKindFor(ext) {
   if (ext === 'excalidraw') return 'excalidraw';
+  if (ext === 'kanban') return 'kanban';
+  if (ext === 'chat') return 'chat';
   if (TEXT_EXTS.includes(ext)) return 'editor';
   return 'viewer';
 }
@@ -1277,8 +1287,10 @@ async function openFile(path, opts = {}) {
     pane: null,
     blobUrl: null,
     excalidraw: null,
+    kanban: null,
     epub: null,
     pdf: null,
+    chat: null,
   };
   TABS.list.push(tab);
   renderTabbar();
@@ -1334,9 +1346,63 @@ async function loadTabContent(tab) {
     $('#excalidraw-root').appendChild(pane);
     tab.pane = pane;
     tab.excalidraw = window.ExcalidrawEditor.mount(pane, initial);
+  } else if (tab.kind === 'kanban') {
+    let initial = null;
+    try {
+      const data = await api(
+        'GET',
+        '/api/file?path=' + encodeURIComponent(tab.path),
+      );
+      tab.version = data.version;
+      const content = await decryptContent(data.content);
+      initial = content ? WOUtil.kanbanNormalize(content) : null;
+    } catch (e) {
+      initial = null;
+    }
+    const pane = document.createElement('div');
+    pane.className = 'kanban-pane';
+    pane.hidden = true;
+    $('#kanban-root').appendChild(pane);
+    tab.pane = pane;
+    tab.kanban = window.WOKanban.mount(pane, initial, {
+      t,
+      onChange: () => markTabDirty(tab),
+      confirm: (message) =>
+        uiConfirm(t('kanban_confirm_title'), {
+          message,
+          okText: t('delete'),
+          cancelText: t('cancel'),
+          danger: true,
+        }),
+      notes: mdNoteList(),
+      onOpenNote: (p) => openFile(p),
+      sanitizeUrl: (u) => WOUtil.sanitizeLinkUrl(u),
+      // Auto-save the board when a card is dragged into a different column.
+      onMove: () => saveKanban(),
+      // Create a new markdown note and hand its path back to be linked.
+      onCreateNote: (title) => createKanbanLinkedNote(title),
+    });
+  } else if (tab.kind === 'chat') {
+    await buildChatPane(tab);
   } else {
     await buildViewerPane(tab);
   }
+}
+
+// Build a persistent chat pane for a conversation tab. The partner is derived
+// from the file path (chats/<partner>/<partner>.chat). The heavy lifting (keys,
+// socket, history, persistence) lives in WOChat/WOChatUI.
+async function buildChatPane(tab) {
+  const partner = WOUtil.partnerFromChatPath(tab.path);
+  if (!partner) throw new Error(t('chat_err_bad_username'));
+  await ensureChatReady();
+  const pane = document.createElement('div');
+  pane.className = 'chat-root-pane';
+  pane.hidden = true;
+  $('#chat-root').appendChild(pane);
+  tab.pane = pane;
+  tab.partner = partner;
+  tab.chat = window.WOChatUI.mountTab(pane, { partner, deps: chatDeps() });
 }
 
 // Build the persistent viewer pane (image / pdf / office) for a tab. Kept
@@ -1381,6 +1447,8 @@ async function activateTab(id) {
   state.excalidraw = tab.kind === 'excalidraw' ? tab.excalidraw : null;
   if (tab.kind === 'editor') activateEditorTab(tab);
   else if (tab.kind === 'excalidraw') activateExcalidrawTab(tab);
+  else if (tab.kind === 'kanban') activateKanbanTab(tab);
+  else if (tab.kind === 'chat') activateChatTab(tab);
   else if (tab.kind === 'weblinks') activateWeblinksTab(tab);
   else if (tab.kind === 'calendar') activateCalendarTab(tab);
   else if (tab.kind === 'graph') activateGraphTab(tab);
@@ -1438,6 +1506,44 @@ function activateExcalidrawTab(tab) {
   $('#excalidraw-root')
     .querySelectorAll('.excalidraw-pane')
     .forEach((p) => (p.hidden = p !== tab.pane));
+}
+
+function activateKanbanTab(tab) {
+  $('#kanban-view').hidden = false;
+  renderBreadcrumb($('#kanban-path'), tab.path);
+  $('#kanban-root')
+    .querySelectorAll('.kanban-pane')
+    .forEach((p) => (p.hidden = p !== tab.pane));
+}
+
+// Which conversation is currently on screen (used to suppress notifications for
+// the chat the user is already looking at).
+function currentChatPartner() {
+  const tab = activeTab();
+  return tab && tab.kind === 'chat' ? tab.partner : null;
+}
+
+function activateChatTab(tab) {
+  $('#chat-view').hidden = false;
+  renderBreadcrumb($('#chat-path'), tab.path);
+  $('#chat-root')
+    .querySelectorAll('.chat-root-pane')
+    .forEach((p) => (p.hidden = p !== tab.pane));
+  if (tab.chat && tab.chat.activate) tab.chat.activate();
+}
+
+// Flag any tab (not just the active one) dirty and paint its unsaved dot.
+// Used by custom editors whose changes come from callbacks, not #editor input.
+function markTabDirty(tab) {
+  if (!tab || tab.dirty) return;
+  tab.dirty = true;
+  if (tab.id === TABS.activeId) state.dirty = true;
+  const el = $('#tabbar').querySelector('.tab[data-tab-id="' + tab.id + '"]');
+  if (el && !el.querySelector('.tab-dirty')) {
+    const dot = document.createElement('span');
+    dot.className = 'tab-dirty';
+    el.insertBefore(dot, el.querySelector('.tab-close'));
+  }
 }
 
 // Special (non-file) tabs — web links and the calendar. They open as tabs so the
@@ -1547,6 +1653,13 @@ async function closeTab(id) {
       /* ignore */
     }
   }
+  if (tab.kanban && tab.kanban.destroy) {
+    try {
+      tab.kanban.destroy();
+    } catch (e) {
+      /* ignore */
+    }
+  }
   if (tab.epub && tab.epub.destroy) {
     try {
       tab.epub.destroy();
@@ -1557,6 +1670,13 @@ async function closeTab(id) {
   if (tab.pdf && tab.pdf.destroy) {
     try {
       tab.pdf.destroy();
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  if (tab.chat && tab.chat.destroy) {
+    try {
+      tab.chat.destroy();
     } catch (e) {
       /* ignore */
     }
@@ -1627,7 +1747,9 @@ function renameTabPaths(from, to) {
         ? '#current-path'
         : active.kind === 'viewer'
           ? '#viewer-path'
-          : '#excalidraw-path';
+          : active.kind === 'kanban'
+            ? '#kanban-path'
+            : '#excalidraw-path';
     renderBreadcrumb($(headerSel), active.path);
   }
   renderTabbar();
@@ -1644,6 +1766,13 @@ function forceCloseTab(tab) {
       /* ignore */
     }
   }
+  if (tab.kanban && tab.kanban.destroy) {
+    try {
+      tab.kanban.destroy();
+    } catch (e) {
+      /* ignore */
+    }
+  }
   if (tab.epub && tab.epub.destroy) {
     try {
       tab.epub.destroy();
@@ -1654,6 +1783,13 @@ function forceCloseTab(tab) {
   if (tab.pdf && tab.pdf.destroy) {
     try {
       tab.pdf.destroy();
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  if (tab.chat && tab.chat.destroy) {
+    try {
+      tab.chat.destroy();
     } catch (e) {
       /* ignore */
     }
@@ -2457,6 +2593,7 @@ document.addEventListener('keydown', (e) => {
     const tab = activeTab();
     if (tab && tab.kind === 'editor') saveCurrent();
     else if (tab && tab.kind === 'excalidraw' && state.excalidraw) saveExcalidraw();
+    else if (tab && tab.kind === 'kanban' && tab.kanban) saveKanban();
   }
 });
 
@@ -2707,6 +2844,44 @@ async function saveExcalidraw() {
 }
 $('#excalidraw-save').addEventListener('click', saveExcalidraw);
 
+async function saveKanban() {
+  const tab = activeTab();
+  if (!tab || tab.kind !== 'kanban' || !tab.kanban || !state.current) return;
+  const json = WOUtil.kanbanSerialize(tab.kanban.getBoard());
+  const payload = {
+    path: state.current.path,
+    content: await encryptContent(json),
+    baseVersion: state.current.version,
+  };
+  let result;
+  try {
+    result = await api('PUT', '/api/file', payload);
+  } catch (e) {
+    if (e.status === 409) {
+      const overwrite = await uiConfirm(t('conflict_kanban_title'), {
+        message: t('conflict_kanban_msg'),
+        okText: t('overwrite'),
+        cancelText: t('cancel'),
+      });
+      if (!overwrite) {
+        flash(t('save_cancelled'));
+        return;
+      }
+      delete payload.baseVersion;
+      result = await api('PUT', '/api/file', payload);
+    } else {
+      throw e;
+    }
+  }
+  if (result && result.version) state.current.version = result.version;
+  tab.version = state.current.version;
+  tab.dirty = false;
+  state.dirty = false;
+  renderTabbar();
+  flash(t('saved'));
+}
+$('#kanban-save').addEventListener('click', saveKanban);
+
 /* ---------- create / upload / import ---------- */
 
 async function createNoteIn(targetDir) {
@@ -2742,6 +2917,76 @@ async function createFileIn(targetDir) {
   expandAncestors(targetDir);
   await loadTree();
   openFile(path);
+}
+
+// Boards always land in the fixed `Kanban/` folder (created if missing),
+// regardless of the selected folder — mirrors how templates work.
+async function createKanbanIn() {
+  let name = await uiPrompt(t('prompt_new_kanban_title'), 'Untitled.kanban', {
+    title: t('prompt_new_kanban_title'),
+    message: t('prompt_new_kanban_msg'),
+    placeholder: t('prompt_new_kanban_ph'),
+  });
+  if (!name) return;
+  // Default to the .kanban board format when no extension is typed.
+  if (!/\.[a-z0-9]+$/i.test(name)) name += '.kanban';
+  const path = KANBAN_DIR + '/' + name;
+  // Seed with localized starter columns so a new board is immediately usable.
+  const board = WOUtil.kanbanDefaultBoard([
+    t('kanban_default_col1'),
+    t('kanban_default_col2'),
+    t('kanban_default_col3'),
+  ]);
+  await api('POST', '/api/folder', { path: KANBAN_DIR }).catch(() => {});
+  try {
+    await api('PUT', '/api/file', {
+      path,
+      content: await encryptContent(WOUtil.kanbanSerialize(board)),
+    });
+  } catch (e) {
+    flash(e.message || t('could_not_create'));
+    return;
+  }
+  expandAncestors(KANBAN_DIR);
+  await loadTree();
+  openFile(path);
+}
+
+/**
+ * Create a markdown note (in `Kanban/Notes`) to be linked to a card, and return
+ * `{ path, name }` for the kanban editor to select. Returns null if the user
+ * cancels or creation fails. `suggested` pre-fills the prompt from the card
+ * title so a card "Design spec" offers "Design spec.md".
+ */
+async function createKanbanLinkedNote(suggested) {
+  const seed = (suggested || '').trim();
+  let name = await uiPrompt(
+    t('prompt_new_kanban_note_title'),
+    seed ? seed + '.md' : 'Untitled.md',
+    {
+      title: t('prompt_new_kanban_note_title'),
+      message: t('prompt_new_kanban_note_msg'),
+      placeholder: t('prompt_new_note_ph'),
+    },
+  );
+  if (!name) return null;
+  if (!/\.[a-z0-9]+$/i.test(name)) name += '.md';
+  const dir = KANBAN_DIR + '/Notes';
+  const path = dir + '/' + name;
+  const title = name.replace(/\.[^.]+$/, '');
+  await api('POST', '/api/folder', { path: dir }).catch(() => {});
+  try {
+    await api('PUT', '/api/file', {
+      path,
+      content: await encryptContent('# ' + title + '\n'),
+    });
+  } catch (e) {
+    flash(e.message || t('could_not_create'));
+    return null;
+  }
+  expandAncestors(dir);
+  await loadTree();
+  return { path, name: title };
 }
 
 async function createFolderIn(targetDir) {
@@ -2784,6 +3029,10 @@ function treeHasDir(nodes, path) {
 }
 
 $('#new-file').addEventListener('click', () => createFileIn(state.selectedDir));
+$('#new-kanban') &&
+  $('#new-kanban').addEventListener('click', () =>
+    createKanbanIn(state.selectedDir),
+  );
 $('#new-folder').addEventListener('click', () => createFolderIn(state.selectedDir));
 
 /* ---------- notes: daily notes, templates, calendar ---------------------- */
@@ -2794,6 +3043,8 @@ const NOTES_SETTINGS_PATH = RESERVED_DIR + '/settings.json';
 // User templates live in a fixed top-level folder, mirroring Obsidian.
 const TEMPLATES_DIR = 'Templates';
 const DEFAULT_DAILY_DIR = 'Daily';
+// Kanban boards live in a fixed top-level folder, created on first use.
+const KANBAN_DIR = 'Kanban';
 
 // The full, decrypted settings object from `.websidian/settings.json`. Holds
 // everything that should follow the user across devices: the daily-note folder,
@@ -4271,6 +4522,7 @@ function openDashboard() {
   syncThemeButtons();
   loadAccount();
   loadDailyPathSetting();
+  if (CHAT_ENABLED) loadChatBlocks();
 }
 
 /** Populate the daily-note folder field from the (encrypted) settings. */
@@ -5289,6 +5541,21 @@ function buildWeblinkCard(link, index) {
   const actions = document.createElement('div');
   actions.className = 'weblink-actions';
 
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'icon-btn';
+  copyBtn.title = t('weblinks_copy');
+  copyBtn.setAttribute('aria-label', t('weblinks_copy'));
+  copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
+  copyBtn.addEventListener('click', async () => {
+    const ok = await copyText(link.url);
+    if (ok) flash(t('weblinks_copied'));
+    else
+      await uiAlert(t('open_failed_title'), {
+        message: t('weblinks_copy_failed'),
+      });
+  });
+  actions.appendChild(copyBtn);
+
   const editBtn = document.createElement('button');
   editBtn.className = 'icon-btn';
   editBtn.title = t('weblinks_edit');
@@ -5309,6 +5576,21 @@ function buildWeblinkCard(link, index) {
   return card;
 }
 
+/**
+ * Fill the category <datalist> with the existing category names so the modal's
+ * category field both recommends and lets the user search saved categories.
+ */
+function populateWeblinkCategories() {
+  const dl = $('#weblink-category-list');
+  if (!dl) return;
+  dl.innerHTML = '';
+  for (const cat of WOUtil.weblinkCategories(weblinksState.links)) {
+    const opt = document.createElement('option');
+    opt.value = cat;
+    dl.appendChild(opt);
+  }
+}
+
 function openWeblinkModal(index) {
   weblinksState.editIndex = typeof index === 'number' ? index : null;
   const editing = weblinksState.editIndex !== null;
@@ -5316,6 +5598,7 @@ function openWeblinkModal(index) {
   $('#weblink-modal-title').querySelector('span').textContent = editing
     ? t('weblinks_edit')
     : t('weblinks_add');
+  populateWeblinkCategories();
   $('#weblink-url').value = link ? link.url : '';
   $('#weblink-name').value = link ? link.name : '';
   $('#weblink-category').value = link ? link.category : '';
@@ -5396,18 +5679,72 @@ async function deleteWeblink(index) {
   }
 }
 
-async function importWeblinksCsv(file) {
+/**
+ * Merge CSV text into the weblinks vault file, de-duplicating by URL (existing
+ * entries win). With `opts.ensureLoaded` the current file is loaded first so
+ * callers outside the Web links tab (e.g. importing a CSV received in chat) can
+ * never clobber existing links or hit a stale version. Returns true on success.
+ */
+/**
+ * Delete a whole category: pick an existing category, confirm (the dialog shows
+ * how many links will be removed), then drop every link in it. Destructive, so
+ * it always confirms first.
+ */
+async function deleteWeblinkCategory() {
+  const cats = WOUtil.weblinkCategories(weblinksState.links);
+  if (!cats.length) {
+    await uiAlert(t('weblinks_del_cat'), {
+      message: t('weblinks_no_categories'),
+    });
+    return;
+  }
+  const cat = await pickFromList(t('weblinks_del_cat_pick'), cats);
+  if (cat == null) return;
+  const inCat = WOUtil.linksInCategory(weblinksState.links, cat);
+  const ok = await uiConfirm(t('weblinks_del_cat'), {
+    message: t('weblinks_del_cat_msg', { category: cat, n: inCat.length }),
+    okText: t('delete'),
+    danger: true,
+  });
+  if (!ok) return;
+  showLoading(t('loading'));
+  try {
+    const key = cat.trim().toLowerCase();
+    weblinksState.links = weblinksState.links.filter(
+      (l) =>
+        (l.category ? String(l.category) : '').trim().toLowerCase() !== key,
+    );
+    await saveWeblinks();
+    renderWeblinks();
+    flash(t('weblinks_del_cat_done', { n: inCat.length }));
+  } catch (err) {
+    await uiAlert(t('open_failed_title'), {
+      message: err.message || t('weblinks_load_failed'),
+    });
+  } finally {
+    hideLoading();
+  }
+}
+
+async function importWeblinksFromText(text, opts = {}) {
+  const incoming = csvToLinks(text);
+  if (!incoming.length) {
+    await uiAlert(t('import_failed_title'), {
+      message: t('weblinks_import_failed'),
+    });
+    return false;
+  }
+  if (opts.ensureLoaded) {
+    const ok = await loadWeblinksData({ silent: true });
+    if (!ok) {
+      await uiAlert(t('import_failed_title'), {
+        message: t('weblinks_load_failed'),
+      });
+      return false;
+    }
+  }
   showLoading(t('importing'));
   try {
-    const text = await file.text();
-    const incoming = csvToLinks(text);
-    if (!incoming.length) {
-      await uiAlert(t('import_failed_title'), {
-        message: t('weblinks_import_failed'),
-      });
-      return;
-    }
-    // Merge, de-duplicating by URL (existing entries win).
     const seen = new Set(weblinksState.links.map((l) => l.url));
     let added = 0;
     for (const link of incoming) {
@@ -5419,13 +5756,96 @@ async function importWeblinksCsv(file) {
     await saveWeblinks();
     renderWeblinks();
     flash(t('weblinks_imported_n', { n: added }));
+    return true;
   } catch (err) {
     await uiAlert(t('import_failed_title'), {
       message: err.message || t('weblinks_import_failed'),
     });
+    return false;
   } finally {
     hideLoading();
   }
+}
+
+async function importWeblinksCsv(file) {
+  try {
+    await importWeblinksFromText(await file.text());
+  } catch {
+    await uiAlert(t('import_failed_title'), {
+      message: t('weblinks_import_failed'),
+    });
+  }
+}
+
+/**
+ * Fetch + decrypt the weblinks CSV on demand and return its links, so features
+ * outside the Web links tab (e.g. sharing from chat) always get a fresh copy
+ * even when the tab was never opened. Returns [] on any error / missing file.
+ */
+async function getWeblinksForShare() {
+  try {
+    const data = await api(
+      'GET',
+      '/api/file?path=' + encodeURIComponent(WEBLINKS_CSV),
+    );
+    return csvToLinks(await decryptContent(data.content || ''));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Ask the user which links to include — all, or one existing category — via the
+ * shared searchable picker. Resolves to `{ category, links }` (category is ''
+ * for "all links") or null if the user cancelled.
+ */
+async function pickWeblinksScope(links) {
+  const cats = WOUtil.weblinkCategories(links);
+  const allLabel = t('weblinks_export_all');
+  const choice = await pickFromList(t('weblinks_export_pick'), [
+    allLabel,
+    ...cats,
+  ]);
+  if (choice == null) return null;
+  const category = choice === allLabel ? '' : choice;
+  return { category, links: WOUtil.linksInCategory(links, category) };
+}
+
+/** Export the current links (all or a chosen category) as a downloaded CSV. */
+async function exportWeblinks() {
+  if (!weblinksState.links.length) {
+    await uiAlert(t('weblinks_export'), { message: t('weblinks_none') });
+    return;
+  }
+  const scope = await pickWeblinksScope(weblinksState.links);
+  if (!scope) return;
+  const csv = serializeWeblinks(scope.links);
+  triggerDownload(
+    new Blob([csv], { type: 'text/csv' }),
+    WOUtil.weblinksCsvFilename(scope.category),
+  );
+  flash(t('weblinks_exported'));
+}
+
+/**
+ * Build a weblinks CSV (all or one category) as a ready-to-send chat
+ * attachment `{ name, mime, bytes }`, or null if there are no links or the
+ * user cancelled. Injected into the chat layer via `chatDeps`.
+ */
+async function pickWeblinksCsvAttachment() {
+  const links = await getWeblinksForShare();
+  if (!links.length) {
+    await uiAlert(t('weblinks_export'), { message: t('weblinks_none') });
+    return null;
+  }
+  const scope = await pickWeblinksScope(links);
+  if (!scope) return null;
+  const csv = serializeWeblinks(scope.links);
+  return {
+    name: WOUtil.weblinksCsvFilename(scope.category),
+    mime: 'text/csv',
+    bytes: new TextEncoder().encode(csv),
+  };
 }
 
 (function setupWeblinks() {
@@ -5442,6 +5862,9 @@ async function importWeblinksCsv(file) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !$('#weblink-overlay').hidden) closeWeblinkModal();
   });
+
+  $('#weblink-export').addEventListener('click', exportWeblinks);
+  $('#weblink-del-category').addEventListener('click', deleteWeblinkCategory);
 
   const importInput = $('#weblinks-import-input');
   $('#weblink-import').addEventListener('click', () => importInput.click());
@@ -6021,7 +6444,14 @@ async function loadGraphView(opts = {}) {
 /* ---------- calendar ------------------------------------------------------ */
 
 // Which month the calendar is currently showing, and the last day->files map.
-const calendarState = { year: 0, month: 0, byDay: new Map(), selected: null };
+// `dueByDay` maps a YYYY-MM-DD key to kanban card due entries for that day.
+const calendarState = {
+  year: 0,
+  month: 0,
+  byDay: new Map(),
+  dueByDay: new Map(),
+  selected: null,
+};
 
 /** Fetch every file and bucket by local last-modified day (skips internals). */
 async function loadCalendarData() {
@@ -6029,6 +6459,47 @@ async function loadCalendarData() {
   // Show every user file (incl. templates & daily notes); only websidian's own
   // internal settings folder is hidden.
   calendarState.byDay = WOUtil.filesByDay(files, [RESERVED_DIR]);
+  calendarState.dueByDay = await loadKanbanDueDates(files);
+}
+
+/**
+ * Read every `.kanban` board and bucket its dated cards by due day, so a card's
+ * due date shows up on the calendar. Boards that fail to load/parse are skipped
+ * (a broken board must not blank the whole calendar).
+ */
+async function loadKanbanDueDates(files) {
+  const map = new Map();
+  const boards = (files || []).filter(
+    (f) => f && f.path && extOf(f.path) === 'kanban',
+  );
+  for (const f of boards) {
+    let board;
+    try {
+      const data = await api(
+        'GET',
+        '/api/file?path=' + encodeURIComponent(f.path),
+      );
+      board = WOUtil.kanbanNormalize(await decryptContent(data.content || ''));
+    } catch {
+      continue;
+    }
+    for (const entry of WOUtil.kanbanDueEntries(board, f.path)) {
+      const arr = map.get(entry.due);
+      if (arr) arr.push(entry);
+      else map.set(entry.due, [entry]);
+    }
+  }
+  return map;
+}
+
+/** Combined per-day counts (files + kanban due cards) for the month grid. */
+function calendarCounts() {
+  const merged = new Map();
+  for (const [key, arr] of calendarState.byDay) merged.set(key, arr.length);
+  for (const [key, arr] of calendarState.dueByDay) {
+    merged.set(key, (merged.get(key) || 0) + arr.length);
+  }
+  return merged;
 }
 
 /**
@@ -6075,7 +6546,7 @@ function monthLabel(year, month) {
 
 /** Render the month grid and (if a day is selected) its file list. */
 function renderCalendar() {
-  const counts = calendarState.byDay;
+  const counts = calendarCounts();
   const model = WOUtil.buildCalendarModel(
     calendarState.year,
     calendarState.month,
@@ -6155,11 +6626,30 @@ function renderCalendarDayList() {
   panel.hidden = false;
   heading.textContent = key;
   const files = calendarState.byDay.get(key) || [];
-  empty.hidden = files.length > 0;
+  const dues = calendarState.dueByDay.get(key) || [];
+  empty.hidden = files.length + dues.length > 0;
   // The month grid can be tall; make sure the day's file list is visible.
   requestAnimationFrame(() =>
     panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }),
   );
+  // Kanban cards due this day first, then files modified this day.
+  for (const entry of dues) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'calendar-file calendar-due';
+    const icon = document.createElement('i');
+    icon.className = 'bi bi-kanban';
+    const name = document.createElement('span');
+    const label = entry.title || t('kanban_card_title_ph');
+    name.textContent = t('calendar_due_card', {
+      card: label,
+      board: basename(entry.boardPath).replace(/\.kanban$/i, ''),
+    });
+    btn.append(icon, name);
+    btn.title = entry.column;
+    btn.addEventListener('click', () => openFile(entry.boardPath));
+    list.appendChild(btn);
+  }
   for (const path of files) {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -6312,6 +6802,7 @@ ensureVaultKey()
   // Reconcile UI prefs + load reading positions from the vault before restoring
   // tabs, so a reopened epub/pdf can jump to where it was left off.
   .then(() => syncSettingsFromVault())
+  .then(() => initChat())
   .then(() => restoreTabs())
   .then(() => {
     // Warm the content index in the background once the UI is up, so the first
@@ -6358,3 +6849,318 @@ async function handleCheckoutReturn() {
   }
   openDashboard();
 }
+
+/* ---------- chat (end-to-end encrypted) ---------- */
+
+// Build the dependency bundle handed to the chat modules so they never reach
+// into app.js globals directly.
+function chatDeps() {
+  return {
+    api,
+    t,
+    username: (document.body.dataset.username || '').toLowerCase(),
+    getVaultKey: ensureVaultKey,
+    saveAttachment: saveChatAttachment,
+    attachmentUrl: (p) => attachmentBlobUrl(p),
+    getNotifPref: chatNotifPref,
+    setNotifPref: setChatNotifPref,
+    activePartner: currentChatPartner,
+    openChat,
+    openFile: (p) => openFile(p),
+    pickVaultFile,
+    pickWeblinksCsv: pickWeblinksCsvAttachment,
+    importWeblinks: (text) =>
+      importWeblinksFromText(text, { ensureLoaded: true }),
+    removeVaultPath: (p) =>
+      api('DELETE', '/api/entry?path=' + encodeURIComponent(p)),
+    refreshTree: () => loadTree().catch(() => {}),
+    confirm: (message) =>
+      uiConfirm(t('chat_confirm_title'), {
+        message,
+        okText: t('delete'),
+        cancelText: t('cancel'),
+        danger: true,
+      }),
+    flash,
+  };
+}
+
+let chatInitPromise = null;
+// Bootstrap the chat identity + socket exactly once; callers await readiness.
+async function ensureChatReady() {
+  if (!CHAT_ENABLED) throw new Error(t('chat_disabled'));
+  if (window.WOChat.isReady()) return;
+  if (!chatInitPromise) chatInitPromise = window.WOChat.init(chatDeps());
+  await chatInitPromise;
+}
+
+// Called during app boot: connect in the background so incoming messages +
+// notifications work even before the user opens a conversation. Best-effort.
+async function initChat() {
+  if (!CHAT_ENABLED) return;
+  try {
+    await ensureChatReady();
+  } catch (e) {
+    console.warn('chat init failed', e);
+  }
+  const toggle = document.getElementById('chat-notifications');
+  if (toggle) toggle.checked = window.WOChat.getNotificationsEnabled();
+}
+
+/** Read/write the (cross-device) "browser notifications" preference. */
+function chatNotifPref() {
+  return !!getPref('chatNotifications');
+}
+function setChatNotifPref(v) {
+  persistPref('chatNotifications', !!v);
+}
+
+// Start (or focus) a conversation with another user: validate the username,
+// confirm they exist + have chat set up, create the folder + file, then open it.
+async function createChatWith() {
+  if (!CHAT_ENABLED) return;
+  const raw = await uiPrompt(t('chat_new_title'), '', {
+    okText: t('chat_start'),
+    placeholder: t('chat_new_placeholder'),
+  });
+  if (raw == null) return;
+  const partner = WOUtil.sanitizeChatUsername(raw);
+  if (!partner) {
+    await uiAlert(t('chat_new_title'), { message: t('chat_err_bad_username') });
+    return;
+  }
+  if (partner === (document.body.dataset.username || '').toLowerCase()) {
+    await uiAlert(t('chat_new_title'), { message: t('chat_err_self') });
+    return;
+  }
+  showLoading(t('chat_starting'));
+  try {
+    await ensureChatReady();
+    await window.WOChat.verifyPartner(partner);
+    await api('POST', '/api/folder', {
+      path: WOUtil.chatDir(partner),
+    }).catch(() => {});
+    const chatPath = WOUtil.chatFilePath(partner);
+    await ensureChatFile(chatPath);
+    hideLoading();
+    await loadTree().catch(() => {});
+    await openFile(chatPath);
+  } catch (e) {
+    hideLoading();
+    await uiAlert(t('chat_new_title'), {
+      message: e.message || t('chat_err_no_user'),
+    });
+  }
+}
+
+// Ensure the conversation file exists (create an empty encrypted one if not).
+async function ensureChatFile(path) {
+  try {
+    await api('GET', '/api/file?path=' + encodeURIComponent(path));
+    return;
+  } catch {
+    /* not created yet */
+  }
+  const content = await encryptContent('');
+  await api('PUT', '/api/file', { path, content });
+}
+
+// Open (or focus) the conversation tab for a partner.
+async function openChat(partner) {
+  const p = WOUtil.sanitizeChatUsername(partner);
+  if (!p) return;
+  await openFile(WOUtil.chatFilePath(p));
+}
+
+// Encrypt + store attachment bytes into the user's own vault (chat-images).
+async function saveChatAttachment(path, bytes, mime) {
+  const folder = dirname(path);
+  const name = basename(path);
+  const file = new File([bytes], name, {
+    type: mime || 'application/octet-stream',
+  });
+  const fd = new FormData();
+  fd.append('file', await encryptFileBlob(file), name);
+  fd.append('folder', folder);
+  await api('POST', '/api/upload', fd, true);
+}
+
+// Let the user pick an existing vault file to send. Returns { name, mime, bytes }
+// (decrypted) or null if cancelled.
+async function pickVaultFile() {
+  const list = (await api('GET', '/api/files')) || [];
+  const files = list
+    .map((e) => e.path)
+    .filter((p) => p && !p.startsWith(RESERVED_DIR + '/'))
+    .sort();
+  if (!files.length) {
+    await uiAlert(t('chat_attach_vault'), { message: t('chat_no_vault_files') });
+    return null;
+  }
+  const path = await pickFromList(t('chat_pick_vault'), files);
+  if (!path) return null;
+  const key = await ensureVaultKey();
+  const res = await fetch(attachmentUrl(path), { credentials: 'same-origin' });
+  if (!res.ok) throw new Error(t('chat_err_attachment'));
+  const cipher = new Uint8Array(await res.arrayBuffer());
+  const bytes = await window.WOCrypto.decryptBytesMaybe(key, cipher);
+  return { name: basename(path), mime: mimeForPath(path), bytes };
+}
+
+// Minimal searchable list picker (used to choose a vault file). Resolves to the
+// chosen string or null. Rendered above every other overlay (see style.css).
+function pickFromList(title, items) {
+  return new Promise((resolve) => {
+    const ov = document.createElement('div');
+    ov.className = 'wo-picker-overlay';
+    const box = document.createElement('div');
+    box.className = 'wo-picker';
+    const h = document.createElement('div');
+    h.className = 'wo-picker-title';
+    h.textContent = title;
+    const search = document.createElement('input');
+    search.className = 'wo-picker-search';
+    search.type = 'search';
+    search.placeholder = t('chat_pick_search');
+    const listEl = document.createElement('div');
+    listEl.className = 'wo-picker-list';
+
+    function render(filter) {
+      listEl.innerHTML = '';
+      const f = (filter || '').toLowerCase();
+      items
+        .filter((x) => x.toLowerCase().includes(f))
+        .slice(0, 300)
+        .forEach((x) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'wo-picker-item';
+          b.textContent = x;
+          b.addEventListener('click', () => done(x));
+          listEl.appendChild(b);
+        });
+    }
+    function done(val) {
+      if (ov.parentNode) document.body.removeChild(ov);
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') done(null);
+    }
+    search.addEventListener('input', () => render(search.value));
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov) done(null);
+    });
+    document.addEventListener('keydown', onKey);
+    box.appendChild(h);
+    box.appendChild(search);
+    box.appendChild(listEl);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+    render('');
+    setTimeout(() => search.focus(), 0);
+  });
+}
+
+// --- chat block list (settings > Chat) ------------------------------------
+
+// Load + render the current user's blocklist into the Chat settings pane.
+async function loadChatBlocks() {
+  const list = document.getElementById('chat-block-list');
+  if (!list) return;
+  try {
+    await ensureChatReady();
+    renderChatBlocks(await window.WOChat.listBlocks());
+  } catch {
+    renderChatBlocks([]);
+  }
+}
+
+function renderChatBlocks(users) {
+  const list = document.getElementById('chat-block-list');
+  const empty = document.getElementById('chat-block-empty');
+  if (!list) return;
+  list.innerHTML = '';
+  if (empty) empty.hidden = users.length > 0;
+  for (const name of users) {
+    const li = document.createElement('li');
+    li.className = 'chat-block-item';
+    const label = document.createElement('span');
+    label.textContent = '@' + name;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-ghost';
+    btn.textContent = t('chat_unblock');
+    btn.addEventListener('click', () => unblockChatUser(name));
+    li.appendChild(label);
+    li.appendChild(btn);
+    list.appendChild(li);
+  }
+}
+
+async function blockChatUser() {
+  const input = document.getElementById('chat-block-input');
+  if (!input) return;
+  const name = WOUtil.sanitizeChatUsername(input.value);
+  if (!name) {
+    await uiAlert(t('chat_block_group'), { message: t('chat_err_bad_username') });
+    return;
+  }
+  try {
+    await ensureChatReady();
+    await window.WOChat.blockUser(name);
+    input.value = '';
+    renderChatBlocks(await window.WOChat.listBlocks());
+  } catch (e) {
+    await uiAlert(t('chat_block_group'), {
+      message: e.message || t('chat_err_send'),
+    });
+  }
+}
+
+async function unblockChatUser(name) {
+  try {
+    await ensureChatReady();
+    await window.WOChat.unblockUser(name);
+    renderChatBlocks(await window.WOChat.listBlocks());
+  } catch (e) {
+    await uiAlert(t('chat_block_group'), {
+      message: e.message || t('chat_err_send'),
+    });
+  }
+}
+
+// Wire the Chat create button + the notifications toggle (both present only
+// when chat is enabled server-side).
+(function wireChat() {
+  const btn = document.getElementById('new-chat');
+  if (btn) btn.addEventListener('click', createChatWith);
+  const blockAdd = document.getElementById('chat-block-add');
+  if (blockAdd) blockAdd.addEventListener('click', blockChatUser);
+  const blockInput = document.getElementById('chat-block-input');
+  if (blockInput) {
+    blockInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        blockChatUser();
+      }
+    });
+  }
+  const toggle = document.getElementById('chat-notifications');
+  if (toggle) {
+    toggle.addEventListener('change', async () => {
+      const want = toggle.checked;
+      try {
+        await ensureChatReady();
+      } catch {
+        /* still record the preference below */
+      }
+      const on = await window.WOChat.setNotificationsEnabled(want);
+      toggle.checked = !!on;
+      if (want && !on) {
+        flash(t('chat_notif_denied'));
+      }
+    });
+  }
+})();

@@ -36,6 +36,7 @@ import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
 import { VaultService } from '../vault/vault.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ChatKeysDto } from './dto/chat-keys.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
 import { BeginResetTotpDto, ConfirmResetTotpDto } from './dto/reset-totp.dto';
 
@@ -157,7 +158,36 @@ export class AccountController {
     return {
       kdfSalt: dbUser.kdfSalt,
       wrappedVaultKey: dbUser.wrappedVaultKey,
+      // Chat identity keypair (null until the client bootstraps it). The client
+      // unwraps the private key locally with the vault key; the server never
+      // sees it in the clear.
+      chatPublicKey: dbUser.chatPublicKey ?? null,
+      wrappedChatPrivateKey: dbUser.wrappedChatPrivateKey ?? null,
     };
+  }
+
+  /**
+   * Persist the client-generated chat identity keypair (lazy bootstrap on first
+   * chat use). The private key arrives already wrapped with the vault key, so
+   * the server only ever stores opaque material it cannot unwrap. Idempotent:
+   * clients only call it when they find no keypair yet.
+   */
+  @Post('chat-keys')
+  @HttpCode(200)
+  async setChatKeys(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ChatKeysDto,
+  ) {
+    const dbUser = await this.users.findByUsername(user.username);
+    if (!dbUser) {
+      throw new UnauthorizedException('Account no longer exists.');
+    }
+    await this.users.setChatKeys(
+      dbUser,
+      dto.chatPublicKey,
+      dto.wrappedChatPrivateKey,
+    );
+    return { ok: true };
   }
 
   /**

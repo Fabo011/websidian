@@ -57,6 +57,8 @@ services:
       RATE_LIMIT_DASH_MAX: "${RATE_LIMIT_DASH_MAX:-50000000}"
       UPLOAD_EXCLUDE_PATTERNS: "${UPLOAD_EXCLUDE_PATTERNS:-.DS_Store,Thumbs.db,*.tmp}" # e.g. .DS_Store,Thumbs.db,*.tmp
       MAX_OPEN_TABS: "${MAX_OPEN_TABS:-8}"
+      CHAT_ENABLED: "${CHAT_ENABLED:-true}"
+      CHAT_PENDING_TTL_DAYS: "${CHAT_PENDING_TTL_DAYS:-30}"
     depends_on:
       - cloudflared
       - postgres

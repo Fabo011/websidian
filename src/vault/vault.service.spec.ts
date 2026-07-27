@@ -100,13 +100,17 @@ describe('VaultService', () => {
   });
 
   describe('isTextFile', () => {
-    it.each(['note.md', 'a/b/c.markdown', 'x.JSON', 'script.ts', 'q.sql'])(
-      'treats %s as text',
-      (name) => {
-        const { service } = makeService();
-        expect(service.isTextFile(name)).toBe(true);
-      },
-    );
+    it.each([
+      'note.md',
+      'a/b/c.markdown',
+      'x.JSON',
+      'script.ts',
+      'q.sql',
+      'board.kanban',
+    ])('treats %s as text', (name) => {
+      const { service } = makeService();
+      expect(service.isTextFile(name)).toBe(true);
+    });
 
     it.each(['image.png', 'doc.pdf', 'archive.zip', 'noext'])(
       'treats %s as binary',

@@ -29,6 +29,92 @@
     'notes',
   ];
 
+  // ---- chat -----------------------------------------------------------------
+  // Pure helpers for the end-to-end encrypted chat. Path builders, the
+  // append-only log (JSON-lines) format, and input validation live here so they
+  // are unit-tested without a DOM, socket, or crypto. Everything real-time or
+  // cryptographic stays in chat.js / crypto.js.
+
+  const CHATS_DIR = 'chats';
+  const CHAT_USERNAME_RE = /^[a-z0-9_-]{3,32}$/;
+  const CHAT_MAX_TEXT = 8000;
+
+  /** Normalise + validate a partner username (mirrors the server's rule). Returns
+   *  the lowercased handle, or '' when invalid. */
+  function sanitizeChatUsername(name) {
+    const n = String(name || '')
+      .trim()
+      .toLowerCase();
+    return CHAT_USERNAME_RE.test(n) ? n : '';
+  }
+
+  /** Folder holding a single conversation: chats/<partner>. */
+  function chatDir(partner) {
+    return CHATS_DIR + '/' + partner;
+  }
+
+  /** The conversation file: chats/<partner>/<partner>.chat. */
+  function chatFilePath(partner) {
+    return chatDir(partner) + '/' + partner + '.chat';
+  }
+
+  /** Where images/attachments for a conversation are stored. */
+  function chatImagesDir(partner) {
+    return chatDir(partner) + '/chat-images';
+  }
+
+  /** True when a vault path is a conversation file (chats/<p>/<p>.chat). */
+  function isChatPath(path) {
+    return partnerFromChatPath(path) !== '';
+  }
+
+  /** Extract the partner username from a conversation file path, or '' if the
+   *  path is not a well-formed chat file. */
+  function partnerFromChatPath(path) {
+    const parts = String(path || '').split('/');
+    if (parts.length !== 3) return '';
+    if (parts[0] !== CHATS_DIR) return '';
+    const partner = parts[1];
+    if (parts[2] !== partner + '.chat') return '';
+    return sanitizeChatUsername(partner);
+  }
+
+  /** Validate outgoing chat text. Returns the trimmed text or '' when empty /
+   *  too long (the caller shows an error for the too-long case). */
+  function chatTextValid(text) {
+    const t = String(text || '').trim();
+    if (!t || t.length > CHAT_MAX_TEXT) return '';
+    return t;
+  }
+
+  /** Serialize one message record as a single JSON-line (no embedded newline). */
+  function chatSerializeLine(record) {
+    return JSON.stringify(record);
+  }
+
+  /** Parse an append-only chat log into an array of records, skipping any blank
+   *  or malformed lines (never throws). */
+  function chatParseLog(text) {
+    const out = [];
+    for (const line of String(text || '').split('\n')) {
+      const s = line.trim();
+      if (!s) continue;
+      try {
+        const rec = JSON.parse(s);
+        if (rec && typeof rec === 'object') out.push(rec);
+      } catch {
+        /* skip corrupt line */
+      }
+    }
+    return out;
+  }
+
+  /** Append a record to an existing log text, returning the new text. */
+  function chatAppendLine(existingText, record) {
+    const base = existingText ? existingText.replace(/\n*$/, '\n') : '';
+    return base + chatSerializeLine(record) + '\n';
+  }
+
   // Human-readable byte size, e.g. 360 MB / 1.4 GB.
   function fmtSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
@@ -199,6 +285,69 @@
     return out;
   }
 
+  /**
+   * Distinct, case-insensitively de-duplicated, alphabetically sorted list of
+   * non-empty category names across the given links. Used to power the
+   * category suggestion/search datalist in the add/edit link modal. First seen
+   * spelling wins for a given case-folded key.
+   */
+  function weblinkCategories(links) {
+    if (!Array.isArray(links)) return [];
+    const seen = new Map();
+    for (const link of links) {
+      const cat = (link && link.category ? String(link.category) : '').trim();
+      if (!cat) continue;
+      const key = cat.toLowerCase();
+      if (!seen.has(key)) seen.set(key, cat);
+    }
+    return [...seen.values()].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' }),
+    );
+  }
+
+  /**
+   * Links whose category matches `category` (case-insensitive, trimmed). An
+   * empty/falsy category means "all links" and returns a shallow copy.
+   */
+  function linksInCategory(links, category) {
+    if (!Array.isArray(links)) return [];
+    const cat = (category ? String(category) : '').trim().toLowerCase();
+    if (!cat) return links.slice();
+    return links.filter(
+      (l) =>
+        (l && l.category ? String(l.category) : '').trim().toLowerCase() ===
+        cat,
+    );
+  }
+
+  /**
+   * Safe download filename for an exported weblinks CSV: `weblinks.csv` for the
+   * whole set, or `weblinks-<slug>.csv` for a single category (category slugged
+   * to filename-safe chars). Falls back to `weblinks.csv` if the slug is empty.
+   */
+  function weblinksCsvFilename(category) {
+    const cat = (category ? String(category) : '').trim();
+    if (!cat) return 'weblinks.csv';
+    const slug = cat
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/gi, '-')
+      .replace(/^-+|-+$/g, '');
+    return slug ? `weblinks-${slug}.csv` : 'weblinks.csv';
+  }
+
+  /**
+   * True if a filename looks like an exportable weblinks CSV (`weblinks.csv` or
+   * `weblinks-<category>.csv`), ignoring any directory part. Used to offer a
+   * one-click "import to Web links" action on a matching chat attachment.
+   */
+  function isWeblinksCsvName(name) {
+    const base = String(name || '')
+      .replace(/\\/g, '/')
+      .split('/')
+      .pop();
+    return /^weblinks[^/\\]*\.csv$/i.test(base);
+  }
+
   // ---- Notes: daily notes, templates, calendar -------------------------------
 
   /**
@@ -316,8 +465,270 @@
     return { year, month, weeks };
   }
 
+  /* ---------------------------------------------------------------------
+   * Markdown blank-line preservation
+   *
+   * CommonMark collapses any run of blank lines between two blocks into a
+   * single paragraph break, so leaving 5 empty lines in edit mode shows no
+   * extra space in reading view. Obsidian keeps those empty lines as vertical
+   * space. We mirror that: one blank line stays the normal paragraph
+   * separator, and every *additional* blank line becomes a non-breaking-space
+   * paragraph (` `) that markdown-it renders as an empty line of height.
+   *
+   * Blank lines inside fenced code blocks (``` / ~~~) are left untouched so
+   * code stays verbatim. Pure string transform — no DOM.
+   * ------------------------------------------------------------------------ */
+  function preserveMarkdownBlankLines(src) {
+    const lines = String(src == null ? '' : src)
+      .replace(/\r\n?/g, '\n')
+      .split('\n');
+    const out = [];
+    let inFence = false;
+    let fenceChar = '';
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const fence = /^\s*(`{3,}|~{3,})/.exec(line);
+      if (fence) {
+        const ch = fence[1][0];
+        if (!inFence) {
+          inFence = true;
+          fenceChar = ch;
+        } else if (ch === fenceChar) {
+          inFence = false;
+          fenceChar = '';
+        }
+        out.push(line);
+        i++;
+        continue;
+      }
+      if (!inFence && line.trim() === '') {
+        let j = i;
+        while (j < lines.length && lines[j].trim() === '') j++;
+        const count = j - i;
+        out.push(''); // normal paragraph separator
+        for (let k = 1; k < count; k++) {
+          out.push(' ');
+          out.push('');
+        }
+        i = j;
+        continue;
+      }
+      out.push(line);
+      i++;
+    }
+    return out.join('\n');
+  }
+
+  /* ---------------------------------------------------------------------
+   * Kanban boards
+   *
+   * A board is a plain JSON object persisted as a `.kanban` file in the vault:
+   *   { version: 1, columns: [ { id, title, cards: [ { id, title, description } ] } ] }
+   * The functions below are the whole data model — pure, DOM-free, so the
+   * browser renderer (kanban.js) and the Jest tests share the exact same logic.
+   * Every mutating helper returns the (same, mutated) board for chaining.
+   * ------------------------------------------------------------------------ */
+
+  // Collision-resistant short id (time + randomness). Prefix keeps column vs
+  // card ids readable when eyeballing a saved board file.
+  function kanbanId(prefix) {
+    return (
+      (prefix || 'k') +
+      '_' +
+      Date.now().toString(36) +
+      Math.random().toString(36).slice(2, 8)
+    );
+  }
+
+  // A fresh board. `titles` seeds the starting columns (already localized by the
+  // caller); falls back to a generic To Do / In Progress / Done.
+  function kanbanDefaultBoard(titles) {
+    const cols = titles && titles.length ? titles : ['To Do', 'In Progress', 'Done'];
+    return {
+      version: 1,
+      columns: cols.map((title) => ({ id: kanbanId('c'), title, cards: [] })),
+    };
+  }
+
+  // Coerce arbitrary/untrusted content into a valid board. Never throws: bad or
+  // empty input yields an empty (but valid) board so the UI always renders.
+  function kanbanNormalize(input) {
+    let obj = input;
+    if (typeof input === 'string') {
+      const s = input.trim();
+      if (!s) return { version: 1, columns: [] };
+      try {
+        obj = JSON.parse(s);
+      } catch {
+        return { version: 1, columns: [] };
+      }
+    }
+    if (!obj || typeof obj !== 'object' || !Array.isArray(obj.columns)) {
+      return { version: 1, columns: [] };
+    }
+    const columns = obj.columns
+      .filter((c) => c && typeof c === 'object')
+      .map((c) => ({
+        id: typeof c.id === 'string' && c.id ? c.id : kanbanId('c'),
+        title: typeof c.title === 'string' ? c.title : '',
+        cards: Array.isArray(c.cards)
+          ? c.cards
+              .filter((k) => k && typeof k === 'object')
+              .map((k) => ({
+                id: typeof k.id === 'string' && k.id ? k.id : kanbanId('k'),
+                title: typeof k.title === 'string' ? k.title : '',
+                description:
+                  typeof k.description === 'string' ? k.description : '',
+                // Vault path of a linked note (e.g. "Notes/Spec.md"), an external
+                // URL, and an optional due date (YYYY-MM-DD) shown on the calendar.
+                link: typeof k.link === 'string' ? k.link : '',
+                url: typeof k.url === 'string' ? k.url : '',
+                due: typeof k.due === 'string' ? k.due : '',
+              }))
+          : [],
+      }));
+    return { version: 1, columns };
+  }
+
+  function kanbanSerialize(board) {
+    return JSON.stringify(kanbanNormalize(board), null, 2);
+  }
+
+  function kanbanColumn(board, colId) {
+    return board.columns.find((c) => c.id === colId) || null;
+  }
+
+  function kanbanAddColumn(board, title) {
+    board.columns.push({ id: kanbanId('c'), title: title || '', cards: [] });
+    return board;
+  }
+
+  function kanbanRenameColumn(board, colId, title) {
+    const col = kanbanColumn(board, colId);
+    if (col) col.title = title;
+    return board;
+  }
+
+  function kanbanRemoveColumn(board, colId) {
+    board.columns = board.columns.filter((c) => c.id !== colId);
+    return board;
+  }
+
+  // Move a column to `toIndex` (clamped). Used by column drag-reordering.
+  function kanbanMoveColumn(board, colId, toIndex) {
+    const from = board.columns.findIndex((c) => c.id === colId);
+    if (from < 0) return board;
+    const [col] = board.columns.splice(from, 1);
+    const idx = Math.max(0, Math.min(toIndex, board.columns.length));
+    board.columns.splice(idx, 0, col);
+    return board;
+  }
+
+  function kanbanAddCard(board, colId, card) {
+    const col = kanbanColumn(board, colId);
+    if (!col) return board;
+    col.cards.push({
+      id: kanbanId('k'),
+      title: (card && card.title) || '',
+      description: (card && card.description) || '',
+      link: (card && card.link) || '',
+      url: (card && card.url) || '',
+      due: (card && card.due) || '',
+    });
+    return board;
+  }
+
+  function kanbanUpdateCard(board, cardId, patch) {
+    for (const col of board.columns) {
+      const card = col.cards.find((k) => k.id === cardId);
+      if (card) {
+        for (const f of ['title', 'description', 'link', 'url', 'due']) {
+          if (patch && typeof patch[f] === 'string') card[f] = patch[f];
+        }
+        return board;
+      }
+    }
+    return board;
+  }
+
+  // Every dated card across a board, flattened for the calendar. `boardPath`
+  // is echoed back so the calendar can open the owning .kanban file.
+  function kanbanDueEntries(board, boardPath) {
+    const out = [];
+    for (const col of kanbanNormalize(board).columns) {
+      for (const card of col.cards) {
+        if (card.due) {
+          out.push({
+            boardPath: boardPath || '',
+            due: card.due,
+            column: col.title,
+            title: card.title,
+            cardId: card.id,
+          });
+        }
+      }
+    }
+    return out;
+  }
+
+  function kanbanRemoveCard(board, cardId) {
+    for (const col of board.columns) {
+      const i = col.cards.findIndex((k) => k.id === cardId);
+      if (i >= 0) {
+        col.cards.splice(i, 1);
+        return board;
+      }
+    }
+    return board;
+  }
+
+  // Move a card to `toColId` at `toIndex` (clamped). Drag-and-drop between
+  // columns and reordering within a column both funnel through here.
+  function kanbanMoveCard(board, cardId, toColId, toIndex) {
+    let card = null;
+    for (const col of board.columns) {
+      const i = col.cards.findIndex((k) => k.id === cardId);
+      if (i >= 0) {
+        [card] = col.cards.splice(i, 1);
+        break;
+      }
+    }
+    if (!card) return board;
+    const dest = kanbanColumn(board, toColId);
+    if (!dest) return board; // card removed if destination vanished — caller guards
+    const idx =
+      toIndex == null ? dest.cards.length : Math.max(0, Math.min(toIndex, dest.cards.length));
+    dest.cards.splice(idx, 0, card);
+    return board;
+  }
+
   return {
     WEBLINKS_HEADER,
+    kanbanId,
+    kanbanDefaultBoard,
+    kanbanNormalize,
+    kanbanSerialize,
+    kanbanColumn,
+    kanbanAddColumn,
+    kanbanRenameColumn,
+    kanbanRemoveColumn,
+    kanbanMoveColumn,
+    kanbanAddCard,
+    kanbanUpdateCard,
+    kanbanRemoveCard,
+    kanbanMoveCard,
+    kanbanDueEntries,
+    sanitizeChatUsername,
+    chatDir,
+    chatFilePath,
+    chatImagesDir,
+    isChatPath,
+    partnerFromChatPath,
+    chatTextValid,
+    chatSerializeLine,
+    chatParseLog,
+    chatAppendLine,
     fmtSize,
     uploadLimitError,
     parseCsv,
@@ -325,11 +736,16 @@
     sanitizeLinkUrl,
     serializeWeblinks,
     csvToLinks,
+    weblinkCategories,
+    linksInCategory,
+    weblinksCsvFilename,
+    isWeblinksCsvName,
     normalizeVaultPath,
     formatDailyDate,
     applyTemplate,
     mtimeFromVersion,
     filesByDay,
     buildCalendarModel,
+    preserveMarkdownBlankLines,
   };
 });

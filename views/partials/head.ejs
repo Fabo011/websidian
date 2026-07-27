@@ -77,6 +77,9 @@
   // Max file tabs kept open at once, set by the server from MAX_OPEN_TABS.
   // app.js reads this to cap the tab bar.
   window.__WO_MAX_OPEN_TABS__ = <%= typeof maxOpenTabs !== 'undefined' ? maxOpenTabs : 8 %>;
+  // Whether end-to-end encrypted chat is enabled, set by the server from
+  // CHAT_ENABLED. app.js hides the Chat UI + skips the socket when false.
+  window.__WO_CHAT_ENABLED__ = <%= (typeof chatEnabled === 'undefined' || chatEnabled) ? 'true' : 'false' %>;
   // Junk-file glob patterns (macOS ._*, .DS_Store, …), set by the server from
   // UPLOAD_EXCLUDE_PATTERNS. The folder uploader skips matching files.
   window.__WO_UPLOAD_EXCLUDE__ = <%- JSON.stringify(typeof uploadExcludePatterns !== 'undefined' ? uploadExcludePatterns : []) %>;

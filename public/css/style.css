@@ -1119,9 +1119,12 @@ body.tools-resizing { cursor: row-resize; user-select: none; }
 .markdown h1 { border-bottom: 1px solid var(--border); padding-bottom: 6px; }
 .markdown code {
   background: var(--bg-alt);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 2px 5px;
+  padding: 1px 5px;
   font-size: 0.9em;
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .markdown pre {
   background: var(--bg-alt);
@@ -1130,7 +1133,7 @@ body.tools-resizing { cursor: row-resize; user-select: none; }
   padding: 14px;
   overflow: auto;
 }
-.markdown pre code { background: transparent; padding: 0; }
+.markdown pre code { background: transparent; padding: 0; border: 0; color: inherit; }
 .markdown blockquote {
   border-left: 3px solid var(--accent);
   margin: 0;
@@ -1265,6 +1268,8 @@ body.tools-resizing { cursor: row-resize; user-select: none; }
   .btn-label { display: none; }
   /* Give the drawing canvas a guaranteed height so it stays editable on mobile. */
   .excalidraw-root { min-height: 70vh; min-height: 70dvh; }
+  /* Same for the Kanban board: keep columns tall + scrollable on tablet/mobile. */
+  .kanban-root { min-height: 70vh; min-height: 70dvh; }
 
   /* Tabs: momentum scroll, hide the scrollbar, finger-friendly hit targets. */
   .tabbar {
@@ -2747,4 +2752,687 @@ pre.hljs.has-copy:hover .code-copy,
   font-variant-numeric: tabular-nums;
   pointer-events: none;
   z-index: 2;
+}
+
+/* ---------- Kanban board ---------- */
+.kanban-root {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+.kanban-pane {
+  height: 100%;
+}
+.kanban-board {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-height: 100%;
+}
+.kanban-col {
+  flex: 0 0 280px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  max-height: 100%;
+}
+.kanban-col-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.kanban-col-title {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 4px 6px;
+}
+.kanban-col-title:hover {
+  border-color: var(--border);
+}
+.kanban-col-title:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+.kanban-col-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+}
+.kanban-col-del {
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.kanban-col-del:hover {
+  color: #e5534b;
+}
+.kanban-cards {
+  flex: 1;
+  min-height: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 8px;
+  transition: background 0.12s ease;
+}
+.kanban-cards.drag-over {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.kanban-empty {
+  font-size: 12px;
+  padding: 8px 6px;
+  text-align: center;
+}
+.kanban-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  word-break: break-word;
+}
+.kanban-card:hover {
+  border-color: var(--accent);
+}
+.kanban-card.dragging {
+  opacity: 0.5;
+}
+.kanban-card-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.kanban-card-desc {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+.kanban-card-edit {
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kanban-edit-title,
+.kanban-edit-desc {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.kanban-edit-title:focus,
+.kanban-edit-desc:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.kanban-edit-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.kanban-edit-actions .btn-primary {
+  flex: 1;
+}
+.kanban-edit-del {
+  color: #e5534b;
+}
+.kanban-add-card,
+.kanban-add-col {
+  margin-top: 8px;
+  width: 100%;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 8px;
+  cursor: pointer;
+}
+.kanban-add-card:hover,
+.kanban-add-col:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.kanban-col-add {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.kanban-col-add .kanban-add-col {
+  margin-top: 0;
+}
+@media (max-width: 640px) {
+  .kanban-root {
+    padding: 10px;
+  }
+  .kanban-col {
+    flex-basis: 82vw;
+    max-width: 82vw;
+  }
+}
+
+/* ---------- Kanban card meta (due date + links) ---------- */
+.kanban-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  align-items: center;
+}
+.kanban-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--text);
+  white-space: nowrap;
+}
+.kanban-due.is-overdue {
+  background: color-mix(in srgb, #e5534b 24%, transparent);
+  color: #ffd7d3;
+}
+.kanban-cardlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  text-decoration: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kanban-cardlink:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.kanban-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.kanban-edit-link,
+.kanban-edit-url,
+.kanban-edit-due {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+}
+.kanban-edit-link:focus,
+.kanban-edit-url:focus,
+.kanban-edit-due:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.calendar-file.calendar-due i {
+  color: var(--accent);
+}
+
+/* ---------- Kanban editor: linked-note row (dropdown + create button) ---------- */
+.kanban-edit-linkrow {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.kanban-edit-linkrow .kanban-edit-link {
+  flex: 1;
+  min-width: 0;
+}
+.kanban-edit-newnote {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.kanban-edit-newnote:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.kanban-edit-newnote:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- Kanban column drag-reordering ---------- */
+.kanban-col-grip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  cursor: grab;
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+}
+.kanban-col-grip:active {
+  cursor: grabbing;
+}
+.kanban-col-grip:hover {
+  color: var(--text);
+}
+.kanban-col.col-dragging {
+  opacity: 0.5;
+}
+/* Insertion cue: a bright bar on the side the column will drop into. */
+.kanban-col.col-drop-before {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.kanban-col.col-drop-after {
+  box-shadow: inset -3px 0 0 var(--accent);
+}
+
+/* ===== end-to-end encrypted chat ===================================== */
+
+.chat-root {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+.chat-root-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.chat-pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.chat-title {
+  font-weight: 600;
+  color: var(--text);
+}
+.chat-status {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.chat-status.online {
+  background: #3fb950;
+}
+.chat-status.offline {
+  background: var(--danger);
+}
+.chat-log {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat-msg {
+  display: flex;
+  max-width: 100%;
+}
+.chat-msg.in {
+  justify-content: flex-start;
+}
+.chat-msg.out {
+  justify-content: flex-end;
+}
+.chat-bubble {
+  max-width: min(78%, 560px);
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.chat-msg.out .chat-bubble {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.chat-text {
+  white-space: pre-wrap;
+}
+.chat-img {
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 8px;
+  display: block;
+}
+.chat-file {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+}
+.chat-file-size {
+  opacity: 0.7;
+  font-size: 0.85em;
+}
+.chat-meta {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  opacity: 0.7;
+}
+.chat-typing {
+  padding: 2px 16px 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
+.chat-error {
+  margin: 0 14px 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.85rem;
+  flex: 0 0 auto;
+}
+.chat-composer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-alt);
+}
+.chat-icon-btn,
+.chat-send {
+  flex: 0 0 auto;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1.05rem;
+}
+.chat-send {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.chat-icon-btn:hover {
+  background: var(--row-hover);
+}
+.chat-send:hover {
+  background: var(--accent-hover);
+}
+.chat-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  resize: none;
+  max-height: 160px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.4;
+}
+
+/* chat settings toggle */
+.settings-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  color: var(--text);
+}
+.settings-check input {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+
+/* vault-file picker (sits above modals, below the flash toast) */
+.wo-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 16px;
+}
+.wo-picker {
+  width: min(560px, 100%);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px var(--shadow);
+  overflow: hidden;
+}
+.wo-picker-title {
+  padding: 14px 16px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.wo-picker-search {
+  margin: 12px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.wo-picker-list {
+  overflow-y: auto;
+  padding: 0 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wo-picker-item {
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  word-break: break-all;
+}
+.wo-picker-item:hover {
+  background: var(--row-hover);
+}
+
+@media (max-width: 640px) {
+  .chat-bubble {
+    max-width: 88%;
+  }
+  .chat-log {
+    padding: 12px;
+  }
+}
+
+/* chat: header actions, privacy note, delete + file actions */
+.chat-header-spacer {
+  flex: 1 1 auto;
+}
+.chat-clear {
+  height: 32px;
+  min-width: 32px;
+  font-size: 0.95rem;
+}
+.chat-note {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+}
+.chat-msg {
+  align-items: center;
+  gap: 6px;
+}
+.chat-msg-del {
+  flex: 0 0 auto;
+  order: 2;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  padding: 4px;
+  font-size: 0.9rem;
+  border-radius: 6px;
+}
+.chat-msg.out .chat-msg-del {
+  order: 0;
+}
+.chat-msg:hover .chat-msg-del {
+  opacity: 0.75;
+}
+.chat-msg-del:hover {
+  opacity: 1;
+  color: var(--danger);
+  background: var(--row-hover);
+}
+.chat-msg .chat-bubble {
+  order: 1;
+}
+.chat-file-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.chat-file-btn {
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  border-radius: 7px;
+  padding: 3px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  opacity: 0.9;
+}
+.chat-file-btn:hover {
+  opacity: 1;
+}
+
+/* Touch devices have no hover — keep the per-message delete reachable */
+@media (hover: none) {
+  .chat-msg-del {
+    opacity: 0.55;
+  }
+}
+
+/* chat: image actions + block list (settings) */
+.chat-img-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.chat-block-add {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+  align-items: stretch;
+}
+.chat-block-add .modal-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* the shared .btn-primary is width:100% — keep the Block button compact so it
+   sits inline next to the input at every width */
+.chat-block-add .btn-primary {
+  width: auto;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 9px 16px;
+}
+.chat-block-item .btn-ghost {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+}
+.chat-block-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chat-block-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--text);
 }

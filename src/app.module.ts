@@ -6,6 +6,9 @@ import { mkdirSync } from 'fs';
 import { AccountModule } from './account/account.module';
 import { AuthModule } from './auth/auth.module';
 import { BillingModule } from './billing/billing.module';
+import { ChatBlock } from './chat/chat-block.entity';
+import { ChatModule } from './chat/chat.module';
+import { PendingMessage } from './chat/pending-message.entity';
 import configuration, { AppConfig, databaseFile } from './config/configuration';
 import { StorageModule } from './storage/storage.module';
 import { BlacklistedUser } from './users/blacklisted-user.entity';
@@ -15,7 +18,13 @@ import { UsersModule } from './users/users.module';
 import { VaultModule } from './vault/vault.module';
 import { ViewsModule } from './views/views.module';
 
-const ENTITIES = [User, PrivilegedUser, BlacklistedUser];
+const ENTITIES = [
+  User,
+  PrivilegedUser,
+  BlacklistedUser,
+  PendingMessage,
+  ChatBlock,
+];
 
 @Module({
   imports: [
@@ -58,6 +67,7 @@ const ENTITIES = [User, PrivilegedUser, BlacklistedUser];
     VaultModule,
     AccountModule,
     BillingModule,
+    ChatModule,
     ViewsModule,
   ],
 })

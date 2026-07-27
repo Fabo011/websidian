@@ -156,6 +156,96 @@ describe('weblinks CSV round-trip', () => {
   });
 });
 
+describe('weblinkCategories', () => {
+  it('returns distinct, sorted, non-empty categories', () => {
+    const links = [
+      { category: 'Work' },
+      { category: 'Personal' },
+      { category: '' },
+      { category: 'Work' },
+      { category: '  Finance  ' },
+    ];
+    expect(WOUtil.weblinkCategories(links)).toEqual([
+      'Finance',
+      'Personal',
+      'Work',
+    ]);
+  });
+
+  it('de-duplicates case-insensitively, keeping first-seen spelling', () => {
+    const links = [{ category: 'News' }, { category: 'news' }];
+    expect(WOUtil.weblinkCategories(links)).toEqual(['News']);
+  });
+
+  it('tolerates non-array / missing category', () => {
+    expect(WOUtil.weblinkCategories(null)).toEqual([]);
+    expect(WOUtil.weblinkCategories([{}, { category: null }])).toEqual([]);
+  });
+});
+
+describe('linksInCategory', () => {
+  const links = [
+    { url: 'a', category: 'Work' },
+    { url: 'b', category: 'personal' },
+    { url: 'c', category: 'work' },
+    { url: 'd', category: '' },
+  ];
+
+  it('returns a copy of all links for empty category', () => {
+    const out = WOUtil.linksInCategory(links, '');
+    expect(out).toHaveLength(4);
+    expect(out).not.toBe(links);
+  });
+
+  it('filters case-insensitively by category', () => {
+    expect(WOUtil.linksInCategory(links, 'Work').map((l) => l.url)).toEqual([
+      'a',
+      'c',
+    ]);
+  });
+
+  it('tolerates non-array input', () => {
+    expect(WOUtil.linksInCategory(null, 'x')).toEqual([]);
+  });
+});
+
+describe('weblinksCsvFilename', () => {
+  it('uses weblinks.csv for all links', () => {
+    expect(WOUtil.weblinksCsvFilename('')).toBe('weblinks.csv');
+    expect(WOUtil.weblinksCsvFilename(null)).toBe('weblinks.csv');
+  });
+
+  it('slugs the category into a safe filename', () => {
+    expect(WOUtil.weblinksCsvFilename('Work Stuff')).toBe(
+      'weblinks-work-stuff.csv',
+    );
+    expect(WOUtil.weblinksCsvFilename('  Résumé/CV!  ')).toBe(
+      'weblinks-r-sum-cv.csv',
+    );
+  });
+
+  it('falls back to weblinks.csv when the slug is empty', () => {
+    expect(WOUtil.weblinksCsvFilename('!!!')).toBe('weblinks.csv');
+  });
+});
+
+describe('isWeblinksCsvName', () => {
+  it('matches exported weblinks CSV names', () => {
+    expect(WOUtil.isWeblinksCsvName('weblinks.csv')).toBe(true);
+    expect(WOUtil.isWeblinksCsvName('weblinks-work.csv')).toBe(true);
+    expect(WOUtil.isWeblinksCsvName('WEBLINKS-Work.CSV')).toBe(true);
+    expect(WOUtil.isWeblinksCsvName('chat-images/x/weblinks.csv')).toBe(true);
+  });
+
+  it('rejects other names', () => {
+    expect(WOUtil.isWeblinksCsvName('links.csv')).toBe(false);
+    expect(WOUtil.isWeblinksCsvName('weblinks.txt')).toBe(false);
+    expect(WOUtil.isWeblinksCsvName('myweblinks.csv')).toBe(false);
+    expect(WOUtil.isWeblinksCsvName('')).toBe(false);
+    expect(WOUtil.isWeblinksCsvName(null)).toBe(false);
+  });
+});
+
 describe('normalizeVaultPath', () => {
   it('trims, collapses slashes and drops leading/trailing slashes', () => {
     expect(WOUtil.normalizeVaultPath('  /Daily//Notes/  ')).toBe('Daily/Notes');
@@ -231,5 +321,34 @@ describe('buildCalendarModel', () => {
     expect(model.weeks[0][0]).toMatchObject({ day: 29, inMonth: false });
     const cell = model.weeks.flat().find((c) => c.key === '2026-07-09');
     expect(cell).toMatchObject({ day: 9, inMonth: true, count: 3 });
+  });
+});
+
+describe('preserveMarkdownBlankLines', () => {
+  const NBSP = ' ';
+
+  it('keeps a single blank line as one paragraph separator (unchanged)', () => {
+    expect(WOUtil.preserveMarkdownBlankLines('a\n\nb')).toBe('a\n\nb');
+  });
+
+  it('turns each extra blank line into a non-breaking-space paragraph', () => {
+    // 5 blank lines between the two texts -> 1 separator + 4 nbsp paragraphs
+    const src = 'a\n\n\n\n\n\nb';
+    const out = WOUtil.preserveMarkdownBlankLines(src);
+    expect(out).toBe(`a\n\n${NBSP}\n\n${NBSP}\n\n${NBSP}\n\n${NBSP}\n\nb`);
+  });
+
+  it('leaves blank lines inside fenced code blocks untouched', () => {
+    const src = '```\ncode\n\n\n\nmore\n```\n\n\ntext';
+    const out = WOUtil.preserveMarkdownBlankLines(src);
+    // fence body verbatim; only the run after the fence gets nbsp padding
+    expect(out).toBe(`\`\`\`\ncode\n\n\n\nmore\n\`\`\`\n\n${NBSP}\n\ntext`);
+  });
+
+  it('normalizes CRLF and handles null input', () => {
+    expect(WOUtil.preserveMarkdownBlankLines('a\r\n\r\n\r\nb')).toBe(
+      `a\n\n${NBSP}\n\nb`,
+    );
+    expect(WOUtil.preserveMarkdownBlankLines(null)).toBe('');
   });
 });
