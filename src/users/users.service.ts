@@ -85,6 +85,37 @@ export class UsersService {
     return this.users.save(user);
   }
 
+  /**
+   * Persist a user's chat identity keypair. `chatPublicKey` is base64 SPKI
+   * (plaintext, looked up by other users); `wrappedChatPrivateKey` is the
+   * VK-wrapped private key (opaque to the server). Generated once by the client
+   * and never overwritten unless the client explicitly rotates them.
+   */
+  async setChatKeys(
+    user: User,
+    chatPublicKey: string,
+    wrappedChatPrivateKey: string,
+  ): Promise<User> {
+    user.chatPublicKey = chatPublicKey;
+    user.wrappedChatPrivateKey = wrappedChatPrivateKey;
+    return this.users.save(user);
+  }
+
+  /**
+   * Look up a user's public chat key by username. Returns null when the user
+   * does not exist or has not set up chat yet. Only the public key leaves this
+   * boundary — never the wrapped private key of another user.
+   */
+  async findPublicKeyByUsername(
+    username: string,
+  ): Promise<{ username: string; publicKey: string } | null> {
+    const user = await this.users.findOne({
+      where: { username: username.toLowerCase() },
+    });
+    if (!user || !user.chatPublicKey) return null;
+    return { username: user.username, publicKey: user.chatPublicKey };
+  }
+
   async save(user: User): Promise<User> {
     return this.users.save(user);
   }

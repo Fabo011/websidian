@@ -252,6 +252,25 @@ describe('AccountController', () => {
       await expect(controller.keys(CURRENT)).resolves.toEqual({
         kdfSalt: 'kdf',
         wrappedVaultKey: 'wvk',
+        chatPublicKey: null,
+        wrappedChatPrivateKey: null,
+      });
+    });
+
+    it('includes chat keys once set', async () => {
+      const { controller } = makeController({
+        user: {
+          kdfSalt: 'kdf',
+          wrappedVaultKey: 'wvk',
+          chatPublicKey: 'PUB',
+          wrappedChatPrivateKey: 'WRAPPED',
+        },
+      });
+      await expect(controller.keys(CURRENT)).resolves.toEqual({
+        kdfSalt: 'kdf',
+        wrappedVaultKey: 'wvk',
+        chatPublicKey: 'PUB',
+        wrappedChatPrivateKey: 'WRAPPED',
       });
     });
   });

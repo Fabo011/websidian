@@ -2,6 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { WsAdapter } from '@nestjs/platform-ws';
 import cookieParser from 'cookie-parser';
 import * as express from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
@@ -27,6 +28,11 @@ async function bootstrap() {
   // Wire encrypted DB columns to the active encryption service before any
   // database read/write occurs.
   registerColumnEncryptor(app.get(EncryptionService));
+
+  // Real-time chat runs over a native WebSocket gateway (path /ws/chat). It
+  // shares the HTTP server, so it coexists with the tus upload mount and the
+  // Express routes on their own upgrade path.
+  app.useWebSocketAdapter(new WsAdapter(app));
 
   const bodyLimit = `${appConfig.maxUploadSizeMb}mb`;
   app.use(express.json({ limit: bodyLimit }));
@@ -122,6 +128,9 @@ async function bootstrap() {
   // Max file tabs the client keeps open at once, surfaced to the client so the
   // tab bar can refuse to open more than this. Driven by MAX_OPEN_TABS.
   expressInstance.locals.maxOpenTabs = appConfig.maxOpenTabs;
+  // Whether end-to-end encrypted chat is enabled, surfaced to the client so the
+  // UI can hide the Chat button + settings when the operator disabled it.
+  expressInstance.locals.chatEnabled = appConfig.chatEnabled;
   // Junk-file patterns (macOS ._*, .DS_Store, …), surfaced to the client so the
   // folder uploader can skip them before queueing instead of letting them fail
   // server-side. Mirrors the guard in tus.setup. Driven by UPLOAD_EXCLUDE_PATTERNS.

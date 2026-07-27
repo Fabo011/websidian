@@ -80,6 +80,8 @@ Copy `.env.example` to `.env` and adjust:
 | `SEARCH_CACHE_TTL_MS` | `15000`             | How long (ms) the server caches a user's flat file list for name search; `0` disables. New/renamed files may take up to this long to appear in name search |
 | `GRAPH_CACHE_TTL_MS` | `300000`             | How long (ms) the client reuses an already-built wikilink graph before rebuilding; `0` disables |
 | `MAX_OPEN_TABS`      | `8`                  | Max files open as tabs at once. Open tabs are cached in the browser so switching never reloads; opening more is refused until a tab is closed (minimum `1`) |
+| `CHAT_ENABLED`      | `true`               | Enable end-to-end encrypted 1:1 chat (WebSocket at `/ws/chat`). Messages are encrypted in the browser with an ECDH-derived key; the server only relays/queues ciphertext and history lives in each user's own vault storage. `false` hides the feature entirely |
+| `CHAT_PENDING_TTL_DAYS` | `30`             | Days an undelivered (recipient offline) encrypted envelope stays in the transient server queue before the nightly job purges it. Only opaque ciphertext is queued (minimum `1`) |
 
 **Encryption (DB columns at rest)**
 

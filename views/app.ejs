@@ -36,6 +36,9 @@
             <button id="new-kanban" title="Create a new Kanban board with customizable columns" data-i18n-attr="title:title_new_kanban"><i class="bi bi-kanban"></i> <span data-i18n="tool_kanban">Kanban board</span></button>
             <button id="new-folder" title="Create a new folder" data-i18n-attr="title:title_new_folder"><i class="bi bi-folder-plus"></i> <span data-i18n="tool_folder">Folder</span></button>
             <button id="new-template" title="Create a reusable note template in the Templates folder" data-i18n-attr="title:title_new_template"><i class="bi bi-file-earmark-ruled"></i> <span data-i18n="tool_template">Template</span></button>
+            <% if (typeof chatEnabled === 'undefined' || chatEnabled) { %>
+            <button id="new-chat" title="Start an end-to-end encrypted chat" data-i18n-attr="title:title_new_chat"><i class="bi bi-chat-dots"></i> <span data-i18n="tool_chat">Chat</span></button>
+            <% } %>
           </div>
         </div>
         <div class="tool-group" data-group="view">
@@ -158,6 +161,16 @@
         </div>
         <div id="kanban-root" class="kanban-root"></div>
       </section>
+
+      <% if (typeof chatEnabled === 'undefined' || chatEnabled) { %>
+      <section id="chat-view" class="view" hidden>
+        <div class="view-header">
+          <button class="icon-btn mobile-back" data-mobile-back title="Show files" aria-label="Show files" data-i18n-attr="title:open_files_title;aria-label:open_files"><i class="bi bi-list"></i></button>
+          <span id="chat-path" class="current-path breadcrumb"></span>
+        </div>
+        <div id="chat-root" class="chat-root"></div>
+      </section>
+      <% } %>
 
       <section id="weblinks-view" class="view" hidden>
         <div class="view-header">
@@ -354,6 +367,9 @@
         <nav class="settings-nav-list" role="tablist" aria-label="Settings sections">
           <button class="settings-nav-item active" type="button" data-pane="general" role="tab"><i class="bi bi-house-door"></i> <span data-i18n="nav_general">General</span></button>
           <button class="settings-nav-item" type="button" data-pane="storage" role="tab"><i class="bi bi-hdd"></i> <span data-i18n="nav_storage">File storage</span></button>
+          <% if (typeof chatEnabled === 'undefined' || chatEnabled) { %>
+          <button class="settings-nav-item" type="button" data-pane="chat" role="tab"><i class="bi bi-chat-dots"></i> <span data-i18n="nav_chat">Chat</span></button>
+          <% } %>
           <button class="settings-nav-item" type="button" data-pane="plan" role="tab" hidden><i class="bi bi-stars"></i> <span data-i18n="plan">Plan</span></button>
           <button class="settings-nav-item" type="button" data-pane="security" role="tab"><i class="bi bi-shield-lock"></i> <span data-i18n="security">Security</span></button>
           <button class="settings-nav-item" type="button" data-pane="account" role="tab"><i class="bi bi-person-gear"></i> <span data-i18n="nav_account">Account</span></button>
@@ -376,6 +392,7 @@
               <span id="dashboard-username" class="settings-value"></span>
             </div>
           </div>
+
 
           <% if (typeof donationLink !== 'undefined' && donationLink) { %>
           <div class="settings-group">
@@ -423,6 +440,34 @@
             <% } %>
           </div>
         </section>
+
+        <!-- Chat -->
+        <% if (typeof chatEnabled === 'undefined' || chatEnabled) { %>
+        <section class="settings-pane" data-pane="chat" role="tabpanel" hidden>
+          <h2 class="settings-pane-title"><span data-i18n="nav_chat">Chat</span></h2>
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-bell"></i> <span data-i18n="chat_notif_group">Notifications</span></h3>
+            <label class="settings-check">
+              <input type="checkbox" id="chat-notifications" />
+              <span data-i18n="chat_notif_setting">Show a browser notification when a chat message arrives</span>
+            </label>
+            <p class="settings-hint" data-i18n="chat_notif_hint">Notifications appear while websidian is open in your browser. You can turn them off any time.</p>
+          </div>
+          <div class="settings-group">
+            <h3 class="settings-group-title"><i class="bi bi-slash-circle"></i> <span data-i18n="chat_block_group">Blocked users</span></h3>
+            <p class="settings-hint" data-i18n="chat_block_hint">Blocked users cannot send you messages. They are not told they are blocked.</p>
+            <div class="chat-block-add">
+              <input id="chat-block-input" class="modal-input" type="text" autocomplete="off" placeholder="username" data-i18n-attr="placeholder:chat_block_placeholder" />
+              <button id="chat-block-add" class="btn-primary" type="button" data-i18n="chat_block_btn">Block</button>
+            </div>
+            <ul id="chat-block-list" class="chat-block-list"></ul>
+            <p id="chat-block-empty" class="settings-hint" data-i18n="chat_block_none">You have not blocked anyone.</p>
+          </div>
+          <div class="settings-group">
+            <p class="settings-hint" data-i18n="chat_settings_about">Chats are end-to-end encrypted. Messages are encrypted in your browser and the history is stored only in your own connected file storage — never on the server.</p>
+          </div>
+        </section>
+        <% } %>
 
         <!-- File storage -->
         <section class="settings-pane" data-pane="storage" role="tabpanel" hidden>
@@ -686,6 +731,10 @@
   <script src="/public/js/upload-bundle.js?v=<%= v %>"></script>
   <script src="/public/js/wo-util.js?v=<%= v %>"></script>
   <script src="/public/js/kanban.js?v=<%= v %>"></script>
+  <% if (typeof chatEnabled === 'undefined' || chatEnabled) { %>
+  <script src="/public/js/chat.js?v=<%= v %>"></script>
+  <script src="/public/js/chat-ui.js?v=<%= v %>"></script>
+  <% } %>
   <script src="/public/js/app.js?v=<%= v %>"></script>
 </body>
 </html>

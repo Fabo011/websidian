@@ -64,6 +64,22 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   recoveryWrappedVaultKey: string | null;
 
+  // --- Chat identity keypair (ECDH P-256, zero-knowledge) -------------------
+  // For end-to-end chat between two *different* users the symmetric vault key
+  // is useless. Each user owns an ECDH P-256 identity keypair generated in the
+  // browser. The public key is stored in plaintext so other users can look it
+  // up by username to derive a shared conversation key; the private key is
+  // exported and wrapped with the owner's VK (opaque to the server). Both are
+  // null until the client lazily bootstraps them on first chat use.
+
+  /** Public identity key as base64 SPKI. Plaintext — it is meant to be shared. */
+  @Column({ type: 'varchar', nullable: true })
+  chatPublicKey: string | null;
+
+  /** Private identity key wrapped (AES-GCM) with the vault key. Opaque blob. */
+  @Column({ type: 'varchar', nullable: true })
+  wrappedChatPrivateKey: string | null;
+
   /** Base32 TOTP secret, encrypted at rest. */
   @Column({ type: 'varchar', transformer: encryptedColumn })
   totpSecret: string;

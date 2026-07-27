@@ -183,6 +183,19 @@ export interface AppConfig {
    * MAX_OPEN_TABS. Default 8.
    */
   maxOpenTabs: number;
+  /**
+   * Whether the end-to-end encrypted chat feature is enabled. When off, the
+   * WebSocket gateway rejects connections and the client hides the Chat UI.
+   * Configured via CHAT_ENABLED. Default true.
+   */
+  chatEnabled: boolean;
+  /**
+   * How long an undelivered (recipient offline) encrypted chat envelope is kept
+   * in the transient server queue before it is purged. The server only ever
+   * holds ciphertext it cannot read; this bounds how long that queue can grow.
+   * Configured via CHAT_PENDING_TTL_DAYS. Default 30.
+   */
+  chatPendingTtlDays: number;
   /** Marketing/pricing copy surfaced on the public landing page. */
   pricing: PricingConfig;
   /** Whether the AGB (terms) page and its footer link are shown. */
@@ -520,6 +533,14 @@ export default (): { app: AppConfig } => {
       ),
       // Max file tabs the client keeps open at once. Default 8; floor of 1.
       maxOpenTabs: Math.max(1, parseNumber(process.env.MAX_OPEN_TABS, 8)),
+      // End-to-end encrypted chat. On by default; the gateway only relays
+      // ciphertext it cannot read. Undelivered envelopes for offline recipients
+      // are purged after CHAT_PENDING_TTL_DAYS (floor of 1).
+      chatEnabled: parseBool(process.env.CHAT_ENABLED, true),
+      chatPendingTtlDays: Math.max(
+        1,
+        parseNumber(process.env.CHAT_PENDING_TTL_DAYS, 30),
+      ),
       pricing: {
         pricePlus:
           process.env.PRICE_PLUS?.trim() || process.env.PRICE_5GB?.trim() || '',

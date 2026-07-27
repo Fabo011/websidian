@@ -843,6 +843,7 @@ function fileIcon(ext) {
   if (ext === 'pdf') return 'bi-file-earmark-pdf';
   if (ext === 'excalidraw') return 'bi-pencil-square';
   if (ext === 'kanban') return 'bi-kanban';
+  if (ext === 'chat') return 'bi-chat-dots';
   if (ext === 'md' || ext === 'markdown') return 'bi-file-earmark-text';
   if (ext === 'txt') return 'bi-file-earmark';
   if (ext === 'docx') return 'bi-file-earmark-word';
@@ -1078,6 +1079,10 @@ const TABS = {
   activeId: null,
 };
 const MAX_OPEN_TABS = Math.max(1, Number(window.__WO_MAX_OPEN_TABS__) || 8);
+// Whether the operator enabled end-to-end encrypted chat (surfaced from the
+// server). When false, the Chat button + settings are hidden and no socket is
+// opened.
+const CHAT_ENABLED = window.__WO_CHAT_ENABLED__ !== false;
 let tabSeq = 0;
 
 function activeTab() {
@@ -1139,6 +1144,7 @@ async function restoreTabs() {
 function tabKindFor(ext) {
   if (ext === 'excalidraw') return 'excalidraw';
   if (ext === 'kanban') return 'kanban';
+  if (ext === 'chat') return 'chat';
   if (TEXT_EXTS.includes(ext)) return 'editor';
   return 'viewer';
 }
@@ -1284,6 +1290,7 @@ async function openFile(path, opts = {}) {
     kanban: null,
     epub: null,
     pdf: null,
+    chat: null,
   };
   TABS.list.push(tab);
   renderTabbar();
@@ -1375,9 +1382,27 @@ async function loadTabContent(tab) {
       // Create a new markdown note and hand its path back to be linked.
       onCreateNote: (title) => createKanbanLinkedNote(title),
     });
+  } else if (tab.kind === 'chat') {
+    await buildChatPane(tab);
   } else {
     await buildViewerPane(tab);
   }
+}
+
+// Build a persistent chat pane for a conversation tab. The partner is derived
+// from the file path (chats/<partner>/<partner>.chat). The heavy lifting (keys,
+// socket, history, persistence) lives in WOChat/WOChatUI.
+async function buildChatPane(tab) {
+  const partner = WOUtil.partnerFromChatPath(tab.path);
+  if (!partner) throw new Error(t('chat_err_bad_username'));
+  await ensureChatReady();
+  const pane = document.createElement('div');
+  pane.className = 'chat-root-pane';
+  pane.hidden = true;
+  $('#chat-root').appendChild(pane);
+  tab.pane = pane;
+  tab.partner = partner;
+  tab.chat = window.WOChatUI.mountTab(pane, { partner, deps: chatDeps() });
 }
 
 // Build the persistent viewer pane (image / pdf / office) for a tab. Kept
@@ -1423,6 +1448,7 @@ async function activateTab(id) {
   if (tab.kind === 'editor') activateEditorTab(tab);
   else if (tab.kind === 'excalidraw') activateExcalidrawTab(tab);
   else if (tab.kind === 'kanban') activateKanbanTab(tab);
+  else if (tab.kind === 'chat') activateChatTab(tab);
   else if (tab.kind === 'weblinks') activateWeblinksTab(tab);
   else if (tab.kind === 'calendar') activateCalendarTab(tab);
   else if (tab.kind === 'graph') activateGraphTab(tab);
@@ -1488,6 +1514,22 @@ function activateKanbanTab(tab) {
   $('#kanban-root')
     .querySelectorAll('.kanban-pane')
     .forEach((p) => (p.hidden = p !== tab.pane));
+}
+
+// Which conversation is currently on screen (used to suppress notifications for
+// the chat the user is already looking at).
+function currentChatPartner() {
+  const tab = activeTab();
+  return tab && tab.kind === 'chat' ? tab.partner : null;
+}
+
+function activateChatTab(tab) {
+  $('#chat-view').hidden = false;
+  renderBreadcrumb($('#chat-path'), tab.path);
+  $('#chat-root')
+    .querySelectorAll('.chat-root-pane')
+    .forEach((p) => (p.hidden = p !== tab.pane));
+  if (tab.chat && tab.chat.activate) tab.chat.activate();
 }
 
 // Flag any tab (not just the active one) dirty and paint its unsaved dot.
@@ -1632,6 +1674,13 @@ async function closeTab(id) {
       /* ignore */
     }
   }
+  if (tab.chat && tab.chat.destroy) {
+    try {
+      tab.chat.destroy();
+    } catch (e) {
+      /* ignore */
+    }
+  }
   if (tab.pane && tab.pane.parentNode) tab.pane.parentNode.removeChild(tab.pane);
   const wasActive = tab.id === TABS.activeId;
   TABS.list.splice(idx, 1);
@@ -1734,6 +1783,13 @@ function forceCloseTab(tab) {
   if (tab.pdf && tab.pdf.destroy) {
     try {
       tab.pdf.destroy();
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  if (tab.chat && tab.chat.destroy) {
+    try {
+      tab.chat.destroy();
     } catch (e) {
       /* ignore */
     }
@@ -4466,6 +4522,7 @@ function openDashboard() {
   syncThemeButtons();
   loadAccount();
   loadDailyPathSetting();
+  if (CHAT_ENABLED) loadChatBlocks();
 }
 
 /** Populate the daily-note folder field from the (encrypted) settings. */
@@ -6574,6 +6631,7 @@ ensureVaultKey()
   // Reconcile UI prefs + load reading positions from the vault before restoring
   // tabs, so a reopened epub/pdf can jump to where it was left off.
   .then(() => syncSettingsFromVault())
+  .then(() => initChat())
   .then(() => restoreTabs())
   .then(() => {
     // Warm the content index in the background once the UI is up, so the first
@@ -6620,3 +6678,315 @@ async function handleCheckoutReturn() {
   }
   openDashboard();
 }
+
+/* ---------- chat (end-to-end encrypted) ---------- */
+
+// Build the dependency bundle handed to the chat modules so they never reach
+// into app.js globals directly.
+function chatDeps() {
+  return {
+    api,
+    t,
+    username: (document.body.dataset.username || '').toLowerCase(),
+    getVaultKey: ensureVaultKey,
+    saveAttachment: saveChatAttachment,
+    attachmentUrl: (p) => attachmentBlobUrl(p),
+    getNotifPref: chatNotifPref,
+    setNotifPref: setChatNotifPref,
+    activePartner: currentChatPartner,
+    openChat,
+    openFile: (p) => openFile(p),
+    pickVaultFile,
+    removeVaultPath: (p) =>
+      api('DELETE', '/api/entry?path=' + encodeURIComponent(p)),
+    refreshTree: () => loadTree().catch(() => {}),
+    confirm: (message) =>
+      uiConfirm(t('chat_confirm_title'), {
+        message,
+        okText: t('delete'),
+        cancelText: t('cancel'),
+        danger: true,
+      }),
+    flash,
+  };
+}
+
+let chatInitPromise = null;
+// Bootstrap the chat identity + socket exactly once; callers await readiness.
+async function ensureChatReady() {
+  if (!CHAT_ENABLED) throw new Error(t('chat_disabled'));
+  if (window.WOChat.isReady()) return;
+  if (!chatInitPromise) chatInitPromise = window.WOChat.init(chatDeps());
+  await chatInitPromise;
+}
+
+// Called during app boot: connect in the background so incoming messages +
+// notifications work even before the user opens a conversation. Best-effort.
+async function initChat() {
+  if (!CHAT_ENABLED) return;
+  try {
+    await ensureChatReady();
+  } catch (e) {
+    console.warn('chat init failed', e);
+  }
+  const toggle = document.getElementById('chat-notifications');
+  if (toggle) toggle.checked = window.WOChat.getNotificationsEnabled();
+}
+
+/** Read/write the (cross-device) "browser notifications" preference. */
+function chatNotifPref() {
+  return !!getPref('chatNotifications');
+}
+function setChatNotifPref(v) {
+  persistPref('chatNotifications', !!v);
+}
+
+// Start (or focus) a conversation with another user: validate the username,
+// confirm they exist + have chat set up, create the folder + file, then open it.
+async function createChatWith() {
+  if (!CHAT_ENABLED) return;
+  const raw = await uiPrompt(t('chat_new_title'), '', {
+    okText: t('chat_start'),
+    placeholder: t('chat_new_placeholder'),
+  });
+  if (raw == null) return;
+  const partner = WOUtil.sanitizeChatUsername(raw);
+  if (!partner) {
+    await uiAlert(t('chat_new_title'), { message: t('chat_err_bad_username') });
+    return;
+  }
+  if (partner === (document.body.dataset.username || '').toLowerCase()) {
+    await uiAlert(t('chat_new_title'), { message: t('chat_err_self') });
+    return;
+  }
+  showLoading(t('chat_starting'));
+  try {
+    await ensureChatReady();
+    await window.WOChat.verifyPartner(partner);
+    await api('POST', '/api/folder', {
+      path: WOUtil.chatDir(partner),
+    }).catch(() => {});
+    const chatPath = WOUtil.chatFilePath(partner);
+    await ensureChatFile(chatPath);
+    hideLoading();
+    await loadTree().catch(() => {});
+    await openFile(chatPath);
+  } catch (e) {
+    hideLoading();
+    await uiAlert(t('chat_new_title'), {
+      message: e.message || t('chat_err_no_user'),
+    });
+  }
+}
+
+// Ensure the conversation file exists (create an empty encrypted one if not).
+async function ensureChatFile(path) {
+  try {
+    await api('GET', '/api/file?path=' + encodeURIComponent(path));
+    return;
+  } catch {
+    /* not created yet */
+  }
+  const content = await encryptContent('');
+  await api('PUT', '/api/file', { path, content });
+}
+
+// Open (or focus) the conversation tab for a partner.
+async function openChat(partner) {
+  const p = WOUtil.sanitizeChatUsername(partner);
+  if (!p) return;
+  await openFile(WOUtil.chatFilePath(p));
+}
+
+// Encrypt + store attachment bytes into the user's own vault (chat-images).
+async function saveChatAttachment(path, bytes, mime) {
+  const folder = dirname(path);
+  const name = basename(path);
+  const file = new File([bytes], name, {
+    type: mime || 'application/octet-stream',
+  });
+  const fd = new FormData();
+  fd.append('file', await encryptFileBlob(file), name);
+  fd.append('folder', folder);
+  await api('POST', '/api/upload', fd, true);
+}
+
+// Let the user pick an existing vault file to send. Returns { name, mime, bytes }
+// (decrypted) or null if cancelled.
+async function pickVaultFile() {
+  const list = (await api('GET', '/api/files')) || [];
+  const files = list
+    .map((e) => e.path)
+    .filter((p) => p && !p.startsWith(RESERVED_DIR + '/'))
+    .sort();
+  if (!files.length) {
+    await uiAlert(t('chat_attach_vault'), { message: t('chat_no_vault_files') });
+    return null;
+  }
+  const path = await pickFromList(t('chat_pick_vault'), files);
+  if (!path) return null;
+  const key = await ensureVaultKey();
+  const res = await fetch(attachmentUrl(path), { credentials: 'same-origin' });
+  if (!res.ok) throw new Error(t('chat_err_attachment'));
+  const cipher = new Uint8Array(await res.arrayBuffer());
+  const bytes = await window.WOCrypto.decryptBytesMaybe(key, cipher);
+  return { name: basename(path), mime: mimeForPath(path), bytes };
+}
+
+// Minimal searchable list picker (used to choose a vault file). Resolves to the
+// chosen string or null. Rendered above every other overlay (see style.css).
+function pickFromList(title, items) {
+  return new Promise((resolve) => {
+    const ov = document.createElement('div');
+    ov.className = 'wo-picker-overlay';
+    const box = document.createElement('div');
+    box.className = 'wo-picker';
+    const h = document.createElement('div');
+    h.className = 'wo-picker-title';
+    h.textContent = title;
+    const search = document.createElement('input');
+    search.className = 'wo-picker-search';
+    search.type = 'search';
+    search.placeholder = t('chat_pick_search');
+    const listEl = document.createElement('div');
+    listEl.className = 'wo-picker-list';
+
+    function render(filter) {
+      listEl.innerHTML = '';
+      const f = (filter || '').toLowerCase();
+      items
+        .filter((x) => x.toLowerCase().includes(f))
+        .slice(0, 300)
+        .forEach((x) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'wo-picker-item';
+          b.textContent = x;
+          b.addEventListener('click', () => done(x));
+          listEl.appendChild(b);
+        });
+    }
+    function done(val) {
+      if (ov.parentNode) document.body.removeChild(ov);
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') done(null);
+    }
+    search.addEventListener('input', () => render(search.value));
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov) done(null);
+    });
+    document.addEventListener('keydown', onKey);
+    box.appendChild(h);
+    box.appendChild(search);
+    box.appendChild(listEl);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+    render('');
+    setTimeout(() => search.focus(), 0);
+  });
+}
+
+// --- chat block list (settings > Chat) ------------------------------------
+
+// Load + render the current user's blocklist into the Chat settings pane.
+async function loadChatBlocks() {
+  const list = document.getElementById('chat-block-list');
+  if (!list) return;
+  try {
+    await ensureChatReady();
+    renderChatBlocks(await window.WOChat.listBlocks());
+  } catch {
+    renderChatBlocks([]);
+  }
+}
+
+function renderChatBlocks(users) {
+  const list = document.getElementById('chat-block-list');
+  const empty = document.getElementById('chat-block-empty');
+  if (!list) return;
+  list.innerHTML = '';
+  if (empty) empty.hidden = users.length > 0;
+  for (const name of users) {
+    const li = document.createElement('li');
+    li.className = 'chat-block-item';
+    const label = document.createElement('span');
+    label.textContent = '@' + name;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-ghost';
+    btn.textContent = t('chat_unblock');
+    btn.addEventListener('click', () => unblockChatUser(name));
+    li.appendChild(label);
+    li.appendChild(btn);
+    list.appendChild(li);
+  }
+}
+
+async function blockChatUser() {
+  const input = document.getElementById('chat-block-input');
+  if (!input) return;
+  const name = WOUtil.sanitizeChatUsername(input.value);
+  if (!name) {
+    await uiAlert(t('chat_block_group'), { message: t('chat_err_bad_username') });
+    return;
+  }
+  try {
+    await ensureChatReady();
+    await window.WOChat.blockUser(name);
+    input.value = '';
+    renderChatBlocks(await window.WOChat.listBlocks());
+  } catch (e) {
+    await uiAlert(t('chat_block_group'), {
+      message: e.message || t('chat_err_send'),
+    });
+  }
+}
+
+async function unblockChatUser(name) {
+  try {
+    await ensureChatReady();
+    await window.WOChat.unblockUser(name);
+    renderChatBlocks(await window.WOChat.listBlocks());
+  } catch (e) {
+    await uiAlert(t('chat_block_group'), {
+      message: e.message || t('chat_err_send'),
+    });
+  }
+}
+
+// Wire the Chat create button + the notifications toggle (both present only
+// when chat is enabled server-side).
+(function wireChat() {
+  const btn = document.getElementById('new-chat');
+  if (btn) btn.addEventListener('click', createChatWith);
+  const blockAdd = document.getElementById('chat-block-add');
+  if (blockAdd) blockAdd.addEventListener('click', blockChatUser);
+  const blockInput = document.getElementById('chat-block-input');
+  if (blockInput) {
+    blockInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        blockChatUser();
+      }
+    });
+  }
+  const toggle = document.getElementById('chat-notifications');
+  if (toggle) {
+    toggle.addEventListener('change', async () => {
+      const want = toggle.checked;
+      try {
+        await ensureChatReady();
+      } catch {
+        /* still record the preference below */
+      }
+      const on = await window.WOChat.setNotificationsEnabled(want);
+      toggle.checked = !!on;
+      if (want && !on) {
+        flash(t('chat_notif_denied'));
+      }
+    });
+  }
+})();

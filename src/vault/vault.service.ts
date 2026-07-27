@@ -28,6 +28,10 @@ const TEXT_EXTENSIONS = new Set([
   'txt',
   'excalidraw',
   'kanban',
+  // Encrypted chat conversation log (append-only JSON-lines). Must be readable
+  // as text so history survives a reload — writeTextFile stores it, readTextFile
+  // must be allowed to return it.
+  'chat',
   'json',
   'csv',
   'tsv',

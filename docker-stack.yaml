@@ -92,6 +92,13 @@ services:
       RATE_LIMIT_DASH_MAX: "${RATE_LIMIT_DASH_MAX}"
       UPLOAD_EXCLUDE_PATTERNS: "${UPLOAD_EXCLUDE_PATTERNS}"
       MAX_OPEN_TABS: "${MAX_OPEN_TABS}"
+      # End-to-end encrypted chat. NOTE: the WebSocket relay keeps its live
+      # socket registry in-process, so real-time delivery assumes a single app
+      # instance. With replicas > 1 (below) peers on different replicas fall back
+      # to the offline queue (delivered on reconnect); use CHAT_ENABLED=false or
+      # run a single replica / sticky routing for instant cross-user delivery.
+      CHAT_ENABLED: "${CHAT_ENABLED:-true}"
+      CHAT_PENDING_TTL_DAYS: "${CHAT_PENDING_TTL_DAYS:-30}"
     deploy:
       replicas: 2
       endpoint_mode: dnsrr

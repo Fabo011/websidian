@@ -29,6 +29,92 @@
     'notes',
   ];
 
+  // ---- chat -----------------------------------------------------------------
+  // Pure helpers for the end-to-end encrypted chat. Path builders, the
+  // append-only log (JSON-lines) format, and input validation live here so they
+  // are unit-tested without a DOM, socket, or crypto. Everything real-time or
+  // cryptographic stays in chat.js / crypto.js.
+
+  const CHATS_DIR = 'chats';
+  const CHAT_USERNAME_RE = /^[a-z0-9_-]{3,32}$/;
+  const CHAT_MAX_TEXT = 8000;
+
+  /** Normalise + validate a partner username (mirrors the server's rule). Returns
+   *  the lowercased handle, or '' when invalid. */
+  function sanitizeChatUsername(name) {
+    const n = String(name || '')
+      .trim()
+      .toLowerCase();
+    return CHAT_USERNAME_RE.test(n) ? n : '';
+  }
+
+  /** Folder holding a single conversation: chats/<partner>. */
+  function chatDir(partner) {
+    return CHATS_DIR + '/' + partner;
+  }
+
+  /** The conversation file: chats/<partner>/<partner>.chat. */
+  function chatFilePath(partner) {
+    return chatDir(partner) + '/' + partner + '.chat';
+  }
+
+  /** Where images/attachments for a conversation are stored. */
+  function chatImagesDir(partner) {
+    return chatDir(partner) + '/chat-images';
+  }
+
+  /** True when a vault path is a conversation file (chats/<p>/<p>.chat). */
+  function isChatPath(path) {
+    return partnerFromChatPath(path) !== '';
+  }
+
+  /** Extract the partner username from a conversation file path, or '' if the
+   *  path is not a well-formed chat file. */
+  function partnerFromChatPath(path) {
+    const parts = String(path || '').split('/');
+    if (parts.length !== 3) return '';
+    if (parts[0] !== CHATS_DIR) return '';
+    const partner = parts[1];
+    if (parts[2] !== partner + '.chat') return '';
+    return sanitizeChatUsername(partner);
+  }
+
+  /** Validate outgoing chat text. Returns the trimmed text or '' when empty /
+   *  too long (the caller shows an error for the too-long case). */
+  function chatTextValid(text) {
+    const t = String(text || '').trim();
+    if (!t || t.length > CHAT_MAX_TEXT) return '';
+    return t;
+  }
+
+  /** Serialize one message record as a single JSON-line (no embedded newline). */
+  function chatSerializeLine(record) {
+    return JSON.stringify(record);
+  }
+
+  /** Parse an append-only chat log into an array of records, skipping any blank
+   *  or malformed lines (never throws). */
+  function chatParseLog(text) {
+    const out = [];
+    for (const line of String(text || '').split('\n')) {
+      const s = line.trim();
+      if (!s) continue;
+      try {
+        const rec = JSON.parse(s);
+        if (rec && typeof rec === 'object') out.push(rec);
+      } catch {
+        /* skip corrupt line */
+      }
+    }
+    return out;
+  }
+
+  /** Append a record to an existing log text, returning the new text. */
+  function chatAppendLine(existingText, record) {
+    const base = existingText ? existingText.replace(/\n*$/, '\n') : '';
+    return base + chatSerializeLine(record) + '\n';
+  }
+
   // Human-readable byte size, e.g. 360 MB / 1.4 GB.
   function fmtSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
@@ -515,6 +601,16 @@
     kanbanRemoveCard,
     kanbanMoveCard,
     kanbanDueEntries,
+    sanitizeChatUsername,
+    chatDir,
+    chatFilePath,
+    chatImagesDir,
+    isChatPath,
+    partnerFromChatPath,
+    chatTextValid,
+    chatSerializeLine,
+    chatParseLog,
+    chatAppendLine,
     fmtSize,
     uploadLimitError,
     parseCsv,

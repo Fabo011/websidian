@@ -255,6 +255,97 @@
     return dec.decode(await decryptBytesMaybe(vaultCryptoKey, b64ToBytes(b64)));
   }
 
+  // --- chat identity keys (ECDH P-256, zero-knowledge) ----------------------
+  //
+  // For end-to-end chat between two *different* users the symmetric vault key
+  // is useless — neither user can read the other's VK. Each user therefore owns
+  // an ECDH P-256 identity keypair generated in the browser. The public key
+  // (SPKI, base64) is published to the server so other users can look it up;
+  // the private key is exported to PKCS8 and wrapped with the owner's VK exactly
+  // like any other vault secret, so the server only ever stores an opaque blob
+  // it can never unwrap. A per-conversation AES-GCM key is derived from
+  // ECDH(myPrivate, theirPublic) + HKDF-SHA256; both sides derive the identical
+  // key, so messages encrypt/decrypt symmetrically once the key exists.
+
+  const CHAT_HKDF_INFO = enc.encode('websidian-chat-v1');
+
+  /** Generate a fresh ECDH P-256 identity keypair (private key is extractable so
+   *  it can be wrapped with the VK; callers wrap it immediately). */
+  function generateIdentityKeyPair() {
+    return subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
+      'deriveKey',
+      'deriveBits',
+    ]);
+  }
+
+  /** Export a keypair's public key as base64 SPKI (published to the server). */
+  async function exportPublicKeySpkiB64(keyPair) {
+    const spki = await subtle.exportKey('spki', keyPair.publicKey);
+    return bytesToB64(new Uint8Array(spki));
+  }
+
+  /** Wrap the private key (PKCS8) with the VK; returns a base64 WOE1 blob. */
+  async function wrapPrivateKey(vaultCryptoKey, keyPair) {
+    const pkcs8 = await subtle.exportKey('pkcs8', keyPair.privateKey);
+    return bytesToB64(await encryptBytes(vaultCryptoKey, new Uint8Array(pkcs8)));
+  }
+
+  /** Unwrap a base64 blob from {@link wrapPrivateKey} into a usable, non-
+   *  extractable ECDH private CryptoKey. */
+  async function unwrapPrivateKey(vaultCryptoKey, wrappedB64) {
+    const pkcs8 = await decryptBytes(vaultCryptoKey, b64ToBytes(wrappedB64));
+    return subtle.importKey(
+      'pkcs8',
+      pkcs8,
+      { name: 'ECDH', namedCurve: 'P-256' },
+      false,
+      ['deriveKey', 'deriveBits'],
+    );
+  }
+
+  /** Import a base64 SPKI public key for ECDH. */
+  function importPublicKeySpkiB64(b64) {
+    return subtle.importKey(
+      'spki',
+      b64ToBytes(b64),
+      { name: 'ECDH', namedCurve: 'P-256' },
+      false,
+      [],
+    );
+  }
+
+  /**
+   * Derive the shared per-conversation AES-256-GCM key from my private key and
+   * the partner's public SPKI key. ECDH yields the raw shared secret, HKDF-
+   * SHA256 stretches it into an AES-GCM key with a fixed context string. Both
+   * participants derive the identical key. The result is a normal AES-GCM
+   * CryptoKey, so {@link encryptBytesToB64}/{@link decryptB64ToBytes} and the
+   * text helpers work with it unchanged.
+   */
+  async function deriveChatKey(myPrivateKey, theirPublicSpkiB64) {
+    const theirPub = await importPublicKeySpkiB64(theirPublicSpkiB64);
+    const bits = await subtle.deriveBits(
+      { name: 'ECDH', public: theirPub },
+      myPrivateKey,
+      256,
+    );
+    const hkdfBase = await subtle.importKey('raw', bits, 'HKDF', false, [
+      'deriveKey',
+    ]);
+    return subtle.deriveKey(
+      {
+        name: 'HKDF',
+        hash: 'SHA-256',
+        salt: new Uint8Array(0),
+        info: CHAT_HKDF_INFO,
+      },
+      hkdfBase,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt'],
+    );
+  }
+
   // --- recovery key formatting ----------------------------------------------
 
   /**
@@ -456,6 +547,13 @@
     decryptBytesMaybe,
     decryptB64ToTextMaybe,
     hasMagic,
+    // chat identity keys (ECDH P-256)
+    generateIdentityKeyPair,
+    exportPublicKeySpkiB64,
+    wrapPrivateKey,
+    unwrapPrivateKey,
+    importPublicKeySpkiB64,
+    deriveChatKey,
     // recovery
     generateRecoveryKey,
     normalizeRecoveryKey,
