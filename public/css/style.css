@@ -781,6 +781,36 @@ body.tools-resizing { cursor: row-resize; user-select: none; }
   background: var(--danger);
   border-color: var(--danger);
 }
+.tab-count.is-clickable {
+  cursor: pointer;
+}
+.tab-count.is-clickable:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.tab-count.is-clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.max-tabs-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.max-tabs-row .modal-input {
+  width: 96px;
+  flex: 0 0 auto;
+}
+.max-tabs-row .btn-primary {
+  width: auto;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .max-tabs-row {
+    flex-wrap: wrap;
+  }
+}
 .tab {
   display: flex;
   align-items: center;
@@ -3301,6 +3331,45 @@ pre.hljs.has-copy:hover .code-copy,
 }
 .wo-picker-item:hover {
   background: var(--row-hover);
+}
+.wo-picker-group {
+  padding: 10px 16px 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.wo-picker-empty {
+  padding: 8px 16px 16px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.wo-launcher-row {
+  display: flex;
+  gap: 8px;
+  margin: 8px 12px 4px;
+  align-items: stretch;
+}
+.wo-launcher-input {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* The shared .btn-primary is width:100% — override so the button hugs its
+   label instead of eating the whole row and squashing the input to zero. */
+.wo-launcher-start {
+  width: auto;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .wo-launcher-row {
+    flex-wrap: wrap;
+  }
+  .wo-launcher-start {
+    width: 100%;
+  }
 }
 
 @media (max-width: 640px) {

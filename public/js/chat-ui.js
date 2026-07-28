@@ -72,6 +72,11 @@
     attachFile.title = t('chat_attach_vault');
     attachFile.setAttribute('aria-label', t('chat_attach_vault'));
     attachFile.innerHTML = '<i class="bi bi-paperclip"></i>';
+    const attachFolder = el('button', 'chat-icon-btn');
+    attachFolder.type = 'button';
+    attachFolder.title = t('chat_attach_folder');
+    attachFolder.setAttribute('aria-label', t('chat_attach_folder'));
+    attachFolder.innerHTML = '<i class="bi bi-folder"></i>';
     const attachLinks = el('button', 'chat-icon-btn');
     attachLinks.type = 'button';
     attachLinks.title = t('chat_send_weblinks');
@@ -91,6 +96,7 @@
     fileInput.hidden = true;
     composer.appendChild(attachImg);
     composer.appendChild(attachFile);
+    if (deps.pickVaultFolder) composer.appendChild(attachFolder);
     if (deps.pickWeblinksCsv) composer.appendChild(attachLinks);
     composer.appendChild(input);
     composer.appendChild(send);
@@ -201,6 +207,23 @@
           imp.addEventListener('click', () => onImportWeblinks(rec));
           actions.appendChild(imp);
         }
+        // A received folder arrives as a .zip; offer to unpack it straight into
+        // the recipient's own vault (structure preserved), not just download.
+        if (deps.importVaultFolder && WOUtil.isZipName(rec.name)) {
+          const imp = el('button', 'chat-file-btn');
+          imp.type = 'button';
+          imp.textContent = t('chat_import_folder');
+          imp.addEventListener('click', () => onImportFolder(rec));
+          actions.appendChild(imp);
+        } else if (deps.importVaultFile) {
+          // Any other received file can be onboarded into the vault as-is (not
+          // just downloaded to the device).
+          const imp = el('button', 'chat-file-btn');
+          imp.type = 'button';
+          imp.textContent = t('chat_import_file');
+          imp.addEventListener('click', () => onImportFile(rec));
+          actions.appendChild(imp);
+        }
         bubble.appendChild(fileRow);
         bubble.appendChild(actions);
       } else {
@@ -232,6 +255,26 @@
         await deps.importWeblinks(text);
       } catch {
         showError(t('chat_err_attachment'));
+      }
+    }
+
+    // Unpack a received folder (.zip) into the recipient's vault. The heavy
+    // lifting (confirm, decrypt, unzip, chunked upload) lives in the app layer.
+    async function onImportFolder(rec) {
+      try {
+        await deps.importVaultFolder(rec.imgPath, rec.name);
+      } catch (e) {
+        showError(e.message || t('chat_err_attachment'));
+      }
+    }
+
+    // Onboard a single received file into the recipient's vault (confirm + upload
+    // handled in the app layer).
+    async function onImportFile(rec) {
+      try {
+        await deps.importVaultFile(rec.imgPath, rec.name);
+      } catch (e) {
+        showError(e.message || t('chat_err_attachment'));
       }
     }
 
@@ -327,6 +370,30 @@
       }
     }
 
+    async function doSendFolder() {
+      if (!deps.pickVaultFolder) return;
+      let att;
+      try {
+        att = await deps.pickVaultFolder();
+      } catch (e) {
+        if (e && e.message) showError(e.message);
+        return;
+      }
+      if (!att) return;
+      try {
+        const rec = await WOChat.sendAttachment(partner, {
+          kind: 'file',
+          name: att.name,
+          mime: att.mime || 'application/zip',
+          bytes: att.bytes,
+        });
+        renderRecord(rec);
+        scrollDown();
+      } catch (e) {
+        showError(e.message || t('chat_err_send'));
+      }
+    }
+
     async function doSendWeblinks() {
       if (!deps.pickWeblinksCsv) return;
       let att;
@@ -382,6 +449,7 @@
       if (f) doSendImage(f);
     });
     attachFile.addEventListener('click', doSendVaultFile);
+    attachFolder.addEventListener('click', doSendFolder);
     attachLinks.addEventListener('click', doSendWeblinks);
     clearBtn.addEventListener('click', onClearChat);
 

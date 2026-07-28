@@ -458,6 +458,11 @@
               <span data-i18n="chat_notif_setting">Show a browser notification when a chat message arrives</span>
             </label>
             <p class="settings-hint" data-i18n="chat_notif_hint">Notifications appear while websidian is open in your browser. You can turn them off any time.</p>
+            <label class="settings-check">
+              <input type="checkbox" id="chat-sound" />
+              <span data-i18n="chat_sound_setting">Play a sound when a chat message arrives</span>
+            </label>
+            <p class="settings-hint" data-i18n="chat_sound_hint">A short sound plays when a message arrives while you are not looking at that conversation.</p>
           </div>
           <div class="settings-group">
             <h3 class="settings-group-title"><i class="bi bi-slash-circle"></i> <span data-i18n="chat_block_group">Blocked users</span></h3>
@@ -495,6 +500,20 @@
             <div class="usage-bar"><div id="usage-fill" class="usage-fill"></div></div>
             <div class="usage-text"><span id="usage-text" data-i18n="loading">Loading…</span></div>
           </div>
+
+          <% if (typeof userStorageEnabled !== 'undefined' && userStorageEnabled) { %>
+          <!-- Only shown at runtime for a connected S3/WebDAV provider (see
+               renderMaxTabsSetting) — managed users keep the operator default. -->
+          <div class="settings-group" id="max-tabs-group" hidden>
+            <h3 class="settings-group-title"><i class="bi bi-window-stack"></i> <span data-i18n="tabs_setting_title">Open tabs</span></h3>
+            <p class="settings-hint" data-i18n="tabs_setting_hint">The maximum number of files you can keep open at once. A higher limit opens more concurrent connections to your storage. You can set up to 25.</p>
+            <div class="max-tabs-row">
+              <input type="number" id="max-tabs-input" class="modal-input" min="1" max="25" step="1" inputmode="numeric" />
+              <button id="max-tabs-save" class="btn-primary" type="button" data-i18n="save">Save</button>
+            </div>
+            <p id="max-tabs-default" class="settings-hint"></p>
+          </div>
+          <% } %>
 
           <% if (typeof userStorageEnabled !== 'undefined' && userStorageEnabled) { %>
           <div class="settings-group" id="storage-provider-section">

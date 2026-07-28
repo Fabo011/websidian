@@ -246,6 +246,35 @@ describe('isWeblinksCsvName', () => {
   });
 });
 
+describe('isZipName', () => {
+  it('matches zip archives case-insensitively', () => {
+    expect(WOUtil.isZipName('project.zip')).toBe(true);
+    expect(WOUtil.isZipName('My Folder.ZIP')).toBe(true);
+  });
+  it('rejects non-zip names', () => {
+    expect(WOUtil.isZipName('notes.md')).toBe(false);
+    expect(WOUtil.isZipName('archive.zip.txt')).toBe(false);
+    expect(WOUtil.isZipName('')).toBe(false);
+    expect(WOUtil.isZipName(null)).toBe(false);
+  });
+});
+
+describe('clampTabLimit', () => {
+  it('clamps into [1, hardMax] and floors', () => {
+    expect(WOUtil.clampTabLimit(10, 25, 8)).toBe(10);
+    expect(WOUtil.clampTabLimit(30, 25, 8)).toBe(25);
+    expect(WOUtil.clampTabLimit(0, 25, 8)).toBe(1);
+    expect(WOUtil.clampTabLimit(-5, 25, 8)).toBe(1);
+    expect(WOUtil.clampTabLimit(12.9, 25, 8)).toBe(12);
+    expect(WOUtil.clampTabLimit('7', 25, 8)).toBe(7);
+  });
+  it('falls back for non-numeric input', () => {
+    expect(WOUtil.clampTabLimit('', 25, 8)).toBe(8);
+    expect(WOUtil.clampTabLimit('abc', 25, 8)).toBe(8);
+    expect(WOUtil.clampTabLimit(null, 25, 8)).toBe(8);
+  });
+});
+
 describe('normalizeVaultPath', () => {
   it('trims, collapses slashes and drops leading/trailing slashes', () => {
     expect(WOUtil.normalizeVaultPath('  /Daily//Notes/  ')).toBe('Daily/Notes');
