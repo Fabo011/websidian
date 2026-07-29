@@ -45,6 +45,52 @@ describe('chat path helpers', () => {
   });
 });
 
+describe('launcher list derivations', () => {
+  it('derives distinct sorted partners from vault paths', () => {
+    const paths = [
+      'chats/bob/bob.chat',
+      'chats/bob/chat-images/x.png', // not a chat file — ignored
+      'chats/alice/alice.chat',
+      'chats/alice/alice.chat', // dup
+      'notes/readme.md',
+      null,
+    ];
+    expect(WOUtil.chatPartnersFromPaths(paths)).toEqual(['alice', 'bob']);
+  });
+
+  it('returns [] for chatPartnersFromPaths with no chats', () => {
+    expect(WOUtil.chatPartnersFromPaths(['notes/a.md'])).toEqual([]);
+    expect(WOUtil.chatPartnersFromPaths(undefined)).toEqual([]);
+  });
+
+  it('derives all ancestor folders, skipping the reserved dir', () => {
+    const paths = [
+      'a/b/c.md',
+      'a/d.md',
+      'top.md', // no folder
+      '.websidian/state.json', // reserved — skipped
+    ];
+    expect(WOUtil.foldersFromPaths(paths, '.websidian')).toEqual([
+      'a',
+      'a/b',
+    ]);
+  });
+
+  it('lists only .kanban boards, sorted, case-insensitively', () => {
+    const paths = [
+      'Kanban/b.kanban',
+      'Kanban/a.kanban',
+      'Kanban/notes/x.md',
+      'other/C.KANBAN',
+    ];
+    expect(WOUtil.kanbanBoardsFromPaths(paths)).toEqual([
+      'Kanban/a.kanban',
+      'Kanban/b.kanban',
+      'other/C.KANBAN',
+    ]);
+  });
+});
+
 describe('sanitizeChatUsername', () => {
   it('lowercases + accepts valid handles', () => {
     expect(WOUtil.sanitizeChatUsername('Bob_99')).toBe('bob_99');

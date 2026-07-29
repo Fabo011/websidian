@@ -31,6 +31,8 @@
   let identity = null; // { publicKey: b64, privateKey: CryptoKey }
   let ready = false;
   let notifEnabled = false;
+  let soundEnabled = true;
+  let audioCtx = null;
 
   // Per-partner derived conversation keys + published public keys (cached).
   const partnerKeys = new Map();
@@ -60,7 +62,19 @@
   async function init(d) {
     deps = d;
     me = WOUtil.sanitizeChatUsername(d.username) || d.username;
-    notifEnabled = !!(d.getNotifPref && d.getNotifPref());
+    // The "notifications" preference is stored in the vault and therefore syncs
+    // across devices, but browser notification permission is per-browser. A pref
+    // of `true` synced from another browser does NOT mean THIS browser granted
+    // permission — so gate on the real permission here. Otherwise the toggle
+    // shows "on" in a browser that was never granted, the user never re-triggers
+    // the permission prompt, and notifications silently never fire.
+    notifEnabled =
+      !!(d.getNotifPref && d.getNotifPref()) &&
+      notificationsSupported() &&
+      window.Notification.permission === 'granted';
+    // Sound is independent of OS notification permission (it never leaves the
+    // page) and defaults on. The pref syncs across devices via the vault.
+    soundEnabled = d.getSoundPref ? !!d.getSoundPref() : true;
     await ensureIdentity();
     connect();
   }
@@ -108,7 +122,14 @@
       partnerPub.set(p, info.publicKey);
       return info;
     } catch (e) {
-      throw new Error(deps.t('chat_err_no_user'));
+      // The server distinguishes "no such account" from "account exists but has
+      // not published a chat key yet" (see chat.controller). Surface the second
+      // case with a message that makes clear the partner does NOT need to be
+      // online — they only need to open the app once.
+      const code = e && e.data && e.data.error;
+      throw new Error(
+        deps.t(code === 'chat_not_setup' ? 'chat_err_not_setup' : 'chat_err_no_user'),
+      );
     }
   }
 
@@ -316,6 +337,12 @@
   async function onIncoming(data) {
     const partner = WOUtil.sanitizeChatUsername(data && data.from);
     if (!partner || !data.envelope) return;
+    // A partner we have no cached log for is a brand-new conversation: its vault
+    // folder is about to be created by appendToLog, but the file tree the user
+    // sees will not reflect it until something refreshes. Remember this so we can
+    // tell the app to surface the new conversation (previously the user had to
+    // reload the page before a first message showed up).
+    const isNewConversation = !logs.has(partner) && !partnerKeys.has(partner);
     const key = await keyForPartner(partner);
     let record;
     try {
@@ -350,6 +377,16 @@
       cb(partner, record, { queued: !!data.queued }),
     );
     maybeNotify(partner, record);
+    maybeSound(partner);
+    // Reveal a first-ever conversation in real time: let the app refresh its
+    // file tree / launcher so the new chat appears without a page reload.
+    if (isNewConversation && deps.onNewConversation) {
+      try {
+        deps.onNewConversation(partner, record);
+      } catch {
+        /* best effort — never let UI wiring break message receipt */
+      }
+    }
   }
 
   // --- vault persistence ----------------------------------------------------
@@ -490,16 +527,85 @@
     return notifEnabled;
   }
 
+  /** True when the user is focused on the window AND has this exact
+   *  conversation open — the one case where an alert (notification or sound)
+   *  is redundant because the message is already on screen. */
+  function focusedOnPartner(partner) {
+    return (
+      document.hasFocus() &&
+      !!(deps.activePartner && deps.activePartner() === partner)
+    );
+  }
+
+  // --- sound ----------------------------------------------------------------
+
+  function setSoundEnabled(on) {
+    soundEnabled = !!on;
+    if (deps && deps.setSoundPref) deps.setSoundPref(soundEnabled);
+    return soundEnabled;
+  }
+
+  function getSoundEnabled() {
+    return soundEnabled;
+  }
+
+  /** Short two-tone chime synthesised with the Web Audio API — no asset file, so
+   *  it works offline and never hits the CSP. Best-effort: a suspended context
+   *  (no user gesture yet) or an unsupported engine simply produces no sound. */
+  function playSound() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!audioCtx) audioCtx = new AC();
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      const t0 = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, t0);
+      osc.frequency.setValueAtTime(1174.66, t0 + 0.11);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.14, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
+      osc.start(t0);
+      osc.stop(t0 + 0.34);
+    } catch {
+      /* audio can throw on locked/unsupported engines; ignore */
+    }
+  }
+
+  function maybeSound(partner) {
+    if (!soundEnabled) return;
+    // Same redundancy rule as notifications: no beep for a chat you're watching.
+    if (focusedOnPartner(partner)) return;
+    playSound();
+  }
+
   function maybeNotify(partner, record) {
-    if (!notifEnabled || !notificationsSupported()) return;
-    if (Notification.permission !== 'granted') return;
+    if (!notificationsSupported()) return;
+    if (!notifEnabled || Notification.permission !== 'granted') {
+      // Common silent case: enabled via a synced pref but this browser was never
+      // granted permission. Say so instead of failing quietly.
+      console.debug(
+        'chat: notification skipped — not enabled or permission not granted' +
+          ' (permission=' +
+          (notificationsSupported() ? Notification.permission : 'unsupported') +
+          ')',
+      );
+      return;
+    }
     // Suppress only when the user is actively looking at THIS conversation with
     // the window focused. If the browser window is not focused (another app or
     // window on top) or they are on a different view, notify — `document.hidden`
     // alone is not enough because a merely-unfocused tab is still "visible".
-    const viewingThis =
-      deps.activePartner && deps.activePartner() === partner;
-    if (document.hasFocus() && viewingThis) return;
+    if (focusedOnPartner(partner)) {
+      console.debug(
+        'chat: notification skipped — you are focused on this conversation',
+      );
+      return;
+    }
     const body =
       record.type === 'text'
         ? record.text
@@ -589,6 +695,8 @@
     setNotificationsEnabled,
     getNotificationsEnabled,
     notificationsSupported,
+    setSoundEnabled,
+    getSoundEnabled,
     disconnect,
     myUsername: () => me,
   };

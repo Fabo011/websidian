@@ -246,6 +246,35 @@ describe('isWeblinksCsvName', () => {
   });
 });
 
+describe('isZipName', () => {
+  it('matches zip archives case-insensitively', () => {
+    expect(WOUtil.isZipName('project.zip')).toBe(true);
+    expect(WOUtil.isZipName('My Folder.ZIP')).toBe(true);
+  });
+  it('rejects non-zip names', () => {
+    expect(WOUtil.isZipName('notes.md')).toBe(false);
+    expect(WOUtil.isZipName('archive.zip.txt')).toBe(false);
+    expect(WOUtil.isZipName('')).toBe(false);
+    expect(WOUtil.isZipName(null)).toBe(false);
+  });
+});
+
+describe('clampTabLimit', () => {
+  it('clamps into [1, hardMax] and floors', () => {
+    expect(WOUtil.clampTabLimit(10, 25, 8)).toBe(10);
+    expect(WOUtil.clampTabLimit(30, 25, 8)).toBe(25);
+    expect(WOUtil.clampTabLimit(0, 25, 8)).toBe(1);
+    expect(WOUtil.clampTabLimit(-5, 25, 8)).toBe(1);
+    expect(WOUtil.clampTabLimit(12.9, 25, 8)).toBe(12);
+    expect(WOUtil.clampTabLimit('7', 25, 8)).toBe(7);
+  });
+  it('falls back for non-numeric input', () => {
+    expect(WOUtil.clampTabLimit('', 25, 8)).toBe(8);
+    expect(WOUtil.clampTabLimit('abc', 25, 8)).toBe(8);
+    expect(WOUtil.clampTabLimit(null, 25, 8)).toBe(8);
+  });
+});
+
 describe('normalizeVaultPath', () => {
   it('trims, collapses slashes and drops leading/trailing slashes', () => {
     expect(WOUtil.normalizeVaultPath('  /Daily//Notes/  ')).toBe('Daily/Notes');
@@ -293,6 +322,50 @@ describe('mtimeFromVersion', () => {
   it('returns NaN for malformed or missing tokens', () => {
     expect(Number.isNaN(WOUtil.mtimeFromVersion('abc-1'))).toBe(true);
     expect(Number.isNaN(WOUtil.mtimeFromVersion(undefined))).toBe(true);
+  });
+});
+
+describe('relativeSavedLabel', () => {
+  const now = 1_000_000_000_000;
+  it('buckets recent saves as "just now"', () => {
+    expect(WOUtil.relativeSavedLabel(now - 3000, now)).toEqual({
+      key: 'saved_just_now',
+      count: 0,
+    });
+  });
+
+  it('reports seconds, minutes, hours and days', () => {
+    expect(WOUtil.relativeSavedLabel(now - 30_000, now)).toEqual({
+      key: 'saved_secs_ago',
+      count: 30,
+    });
+    expect(WOUtil.relativeSavedLabel(now - 5 * 60_000, now)).toEqual({
+      key: 'saved_mins_ago',
+      count: 5,
+    });
+    expect(WOUtil.relativeSavedLabel(now - 3 * 3_600_000, now)).toEqual({
+      key: 'saved_hours_ago',
+      count: 3,
+    });
+    expect(WOUtil.relativeSavedLabel(now - 2 * 86_400_000, now)).toEqual({
+      key: 'saved_days_ago',
+      count: 2,
+    });
+  });
+
+  it('clamps a future timestamp to "just now" and rejects non-finite input', () => {
+    expect(WOUtil.relativeSavedLabel(now + 5000, now)).toEqual({
+      key: 'saved_just_now',
+      count: 0,
+    });
+    expect(WOUtil.relativeSavedLabel(NaN, now)).toBeNull();
+    expect(WOUtil.relativeSavedLabel(undefined, now)).toBeNull();
+  });
+
+  it('derives the saved label straight from a version token', () => {
+    const version = `${now - 90_000}-42`;
+    const rel = WOUtil.relativeSavedLabel(WOUtil.mtimeFromVersion(version), now);
+    expect(rel).toEqual({ key: 'saved_mins_ago', count: 1 });
   });
 });
 

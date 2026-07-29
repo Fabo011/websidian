@@ -17,7 +17,7 @@ const USER: AuthenticatedUser = {
 };
 
 describe('ChatController', () => {
-  let users: { findPublicKeyByUsername: jest.Mock };
+  let users: { findPublicKeyByUsername: jest.Mock; findByUsername: jest.Mock };
   let config: { get: jest.Mock };
   let blocks: {
     list: jest.Mock;
@@ -28,7 +28,7 @@ describe('ChatController', () => {
   let controller: ChatController;
 
   function build(chatEnabled = true) {
-    users = { findPublicKeyByUsername: jest.fn() };
+    users = { findPublicKeyByUsername: jest.fn(), findByUsername: jest.fn() };
     config = {
       get: jest.fn().mockReturnValue({ chatEnabled } as Partial<AppConfig>),
     };
@@ -57,12 +57,28 @@ describe('ChatController', () => {
     });
   });
 
-  it('404s when the user is unknown or has no chat key', async () => {
+  it('404s with error "no_user" when the account does not exist', async () => {
     build();
     users.findPublicKeyByUsername.mockResolvedValue(null);
+    users.findByUsername.mockResolvedValue(null);
     await expect(controller.pubkey('ghost')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+    await expect(controller.pubkey('ghost')).rejects.toMatchObject({
+      response: { error: 'no_user' },
+    });
+    expect(users.findByUsername).toHaveBeenCalledWith('ghost');
+  });
+
+  it('404s with error "chat_not_setup" when the account exists but has no key', async () => {
+    build();
+    users.findPublicKeyByUsername.mockResolvedValue(null);
+    users.findByUsername.mockResolvedValue({ username: 'bob' });
+    await expect(controller.pubkey('Bob')).rejects.toMatchObject({
+      response: { error: 'chat_not_setup' },
+    });
+    // Lookup is lowercased so a mixed-case username still resolves.
+    expect(users.findByUsername).toHaveBeenCalledWith('bob');
   });
 
   it('is forbidden when chat is disabled', async () => {

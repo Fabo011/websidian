@@ -79,6 +79,42 @@
     return sanitizeChatUsername(partner);
   }
 
+  /** Distinct, sorted partner usernames derived from a list of vault paths.
+   *  Used to suggest existing conversations in the chat launcher (there is no
+   *  server-side contact list, so the vault is the only privacy-safe source). */
+  function chatPartnersFromPaths(paths) {
+    const set = new Set();
+    for (const p of paths || []) {
+      const partner = partnerFromChatPath(p);
+      if (partner) set.add(partner);
+    }
+    return Array.from(set).sort();
+  }
+
+  /** Every distinct folder (all ancestor prefixes) implied by a list of file
+   *  paths, excluding anything under `reservedPrefix`. Sorted. Used by the
+   *  "send a vault folder" picker. */
+  function foldersFromPaths(paths, reservedPrefix) {
+    const set = new Set();
+    const skip = reservedPrefix ? reservedPrefix + '/' : null;
+    for (const p of paths || []) {
+      if (!p || (skip && p.startsWith(skip))) continue;
+      const parts = p.split('/');
+      for (let i = 1; i < parts.length; i++) {
+        set.add(parts.slice(0, i).join('/'));
+      }
+    }
+    return Array.from(set).sort();
+  }
+
+  /** Sorted list of `.kanban` board paths from a list of vault paths. */
+  function kanbanBoardsFromPaths(paths) {
+    return (paths || [])
+      .filter((p) => p && /\.kanban$/i.test(p))
+      .slice()
+      .sort();
+  }
+
   /** Validate outgoing chat text. Returns the trimmed text or '' when empty /
    *  too long (the caller shows an error for the too-long case). */
   function chatTextValid(text) {
@@ -348,6 +384,25 @@
     return /^weblinks[^/\\]*\.csv$/i.test(base);
   }
 
+  /** True when a chat attachment is a zip archive (a folder sent via chat). Used
+   *  to offer a one-click "import folder to vault" action on the recipient's
+   *  side, alongside plain download. */
+  function isZipName(name) {
+    return /\.zip$/i.test(String(name || ''));
+  }
+
+  /** Clamp a user-entered open-tab limit to a whole number in [1, hardMax].
+   *  A non-numeric value falls back to `fallback`. */
+  function clampTabLimit(value, hardMax, fallback) {
+    const max = Math.max(1, Math.floor(Number(hardMax) || 1));
+    // Number('') and Number(null) are 0, not NaN — treat empty/blank as missing
+    // so a cleared field falls back rather than clamping to the minimum.
+    const raw = typeof value === 'string' ? value.trim() : value;
+    let n = raw === '' || raw == null ? NaN : Math.floor(Number(raw));
+    if (!Number.isFinite(n)) n = Math.floor(Number(fallback)) || 1;
+    return Math.min(max, Math.max(1, n));
+  }
+
   // ---- Notes: daily notes, templates, calendar -------------------------------
 
   /**
@@ -402,6 +457,27 @@
     if (typeof version !== 'string') return NaN;
     const ms = Number(version.split('-')[0]);
     return Number.isFinite(ms) ? ms : NaN;
+  }
+
+  /**
+   * Turn a last-saved timestamp into a coarse relative-time descriptor for the
+   * "Saved …" status. Pure and DOM/i18n-free: returns `{ key, count }` and the
+   * caller maps `key` to a translated string (interpolating `{count}`), so the
+   * same buckets render in every language. `now` is injectable for tests.
+   * Returns null when `ms` is not a finite timestamp (nothing saved / unknown).
+   */
+  function relativeSavedLabel(ms, now) {
+    if (!Number.isFinite(ms)) return null;
+    const nowMs = Number.isFinite(now) ? now : Date.now();
+    const secs = Math.max(0, Math.round((nowMs - ms) / 1000));
+    if (secs < 10) return { key: 'saved_just_now', count: 0 };
+    if (secs < 60) return { key: 'saved_secs_ago', count: secs };
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return { key: 'saved_mins_ago', count: mins };
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return { key: 'saved_hours_ago', count: hours };
+    const days = Math.floor(hours / 24);
+    return { key: 'saved_days_ago', count: days };
   }
 
   /**
@@ -725,6 +801,9 @@
     chatImagesDir,
     isChatPath,
     partnerFromChatPath,
+    chatPartnersFromPaths,
+    foldersFromPaths,
+    kanbanBoardsFromPaths,
     chatTextValid,
     chatSerializeLine,
     chatParseLog,
@@ -740,10 +819,13 @@
     linksInCategory,
     weblinksCsvFilename,
     isWeblinksCsvName,
+    isZipName,
+    clampTabLimit,
     normalizeVaultPath,
     formatDailyDate,
     applyTemplate,
     mtimeFromVersion,
+    relativeSavedLabel,
     filesByDay,
     buildCalendarModel,
     preserveMarkdownBlankLines,

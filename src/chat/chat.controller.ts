@@ -41,8 +41,14 @@ export class ChatController {
   /**
    * Look up a user's public chat identity key by username. Used by the client
    * to start a conversation (derive the shared ECDH key) and to verify a
-   * partner actually exists and has enabled chat. Returns 404 when the user is
-   * unknown or has not set up chat yet.
+   * partner actually exists and has enabled chat.
+   *
+   * Two distinct 404s so the client can tell the user what actually went wrong
+   * (the old single "no such user" was misread as "they must be online"):
+   *   - `no_user`: no account with that username exists (likely a typo).
+   *   - `chat_not_setup`: the account exists but has never opened websidian
+   *     since chat was enabled, so it has not published a chat key yet. The
+   *     partner just needs to open the app once — being online is not required.
    */
   @Get('pubkey/:username')
   async pubkey(@Param('username') username: string) {
@@ -50,10 +56,13 @@ export class ChatController {
       throw new ForbiddenException('Chat is disabled on this instance.');
     }
     const found = await this.users.findPublicKeyByUsername(username);
-    if (!found) {
-      throw new NotFoundException('No such user, or chat not set up.');
-    }
-    return found;
+    if (found) return found;
+
+    const exists = await this.users.findByUsername(username.toLowerCase());
+    throw new NotFoundException({
+      error: exists ? 'chat_not_setup' : 'no_user',
+      message: exists ? 'This user has not set up chat yet.' : 'No such user.',
+    });
   }
 
   /** The usernames the current user has blocked. */

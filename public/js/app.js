@@ -1078,7 +1078,23 @@ const TABS = {
   list: [], // tab objects, in tab-bar order
   activeId: null,
 };
-const MAX_OPEN_TABS = Math.max(1, Number(window.__WO_MAX_OPEN_TABS__) || 8);
+// The operator's MAX_OPEN_TABS env value is the default limit. Users on their
+// own storage (S3/WebDAV) may raise or lower it in settings, up to a hard cap.
+const DEFAULT_MAX_OPEN_TABS = Math.max(1, Number(window.__WO_MAX_OPEN_TABS__) || 8);
+const TAB_LIMIT_HARD_MAX = 25;
+
+/** Effective open-tab limit. Honours the user's per-account override (stored in
+ *  the vault prefs, so it syncs across devices) only on bring-your-own-storage
+ *  deployments; otherwise the operator default stands. Clamped to [1, 25]. */
+function maxOpenTabs() {
+  if (USER_STORAGE) {
+    const pref = getPref('maxOpenTabs');
+    if (Number.isFinite(pref)) {
+      return WOUtil.clampTabLimit(pref, TAB_LIMIT_HARD_MAX, DEFAULT_MAX_OPEN_TABS);
+    }
+  }
+  return DEFAULT_MAX_OPEN_TABS;
+}
 // Whether the operator enabled end-to-end encrypted chat (surfaced from the
 // server). When false, the Chat button + settings are hidden and no socket is
 // opened.
@@ -1159,11 +1175,28 @@ function renderTabbar() {
   // protects the vault's storage connection (e.g. WebDAV) from too many
   // concurrent open files. Turns "full" when the limit is hit.
   const counter = document.createElement('span');
-  const full = TABS.list.length >= MAX_OPEN_TABS;
+  const limit = maxOpenTabs();
+  const full = TABS.list.length >= limit;
   counter.className = 'tab-count' + (full ? ' is-full' : '');
-  counter.textContent = `${TABS.list.length}/${MAX_OPEN_TABS}`;
-  counter.title = t('tabs_count_tip', { max: MAX_OPEN_TABS });
+  counter.textContent = `${TABS.list.length}/${limit}`;
+  // On own-storage deployments the counter is a shortcut to the limit setting.
+  const adjustable = USER_STORAGE;
+  counter.title = adjustable
+    ? t('tabs_count_tip_adjust', { max: limit })
+    : t('tabs_count_tip', { max: limit });
   counter.setAttribute('aria-label', counter.title);
+  if (adjustable) {
+    counter.classList.add('is-clickable');
+    counter.setAttribute('role', 'button');
+    counter.tabIndex = 0;
+    counter.addEventListener('click', openTabLimitSetting);
+    counter.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openTabLimitSetting();
+      }
+    });
+  }
   bar.appendChild(counter);
 
   for (const tab of TABS.list) {
@@ -1268,8 +1301,8 @@ async function openFile(path, opts = {}) {
     maybeCloseSidebar();
     return;
   }
-  if (TABS.list.length >= MAX_OPEN_TABS) {
-    flash(t('tabs_limit', { max: MAX_OPEN_TABS }));
+  if (TABS.list.length >= maxOpenTabs()) {
+    flash(t('tabs_limit', { max: maxOpenTabs() }));
     return;
   }
   const ext = extOf(path);
@@ -1345,7 +1378,12 @@ async function loadTabContent(tab) {
     pane.hidden = true;
     $('#excalidraw-root').appendChild(pane);
     tab.pane = pane;
-    tab.excalidraw = window.ExcalidrawEditor.mount(pane, initial);
+    tab.excalidraw = window.ExcalidrawEditor.mount(pane, initial, {
+      onChange: () => {
+        markTabDirty(tab);
+        scheduleAutosave();
+      },
+    });
   } else if (tab.kind === 'kanban') {
     let initial = null;
     try {
@@ -1366,7 +1404,10 @@ async function loadTabContent(tab) {
     tab.pane = pane;
     tab.kanban = window.WOKanban.mount(pane, initial, {
       t,
-      onChange: () => markTabDirty(tab),
+      onChange: () => {
+        markTabDirty(tab);
+        scheduleAutosave();
+      },
       confirm: (message) =>
         uiConfirm(t('kanban_confirm_title'), {
           message,
@@ -1455,6 +1496,7 @@ async function activateTab(id) {
   else activateViewerTab(tab);
   renderTabbar();
   markTreeActive();
+  renderSaveStatus();
 }
 
 function activateEditorTab(tab) {
@@ -1588,8 +1630,8 @@ async function openSpecialTab(kind, opts = {}) {
   if (!meta) return;
   let tab = TABS.list.find((tb) => tb.path === meta.path);
   const isNew = !tab;
-  if (isNew && TABS.list.length >= MAX_OPEN_TABS) {
-    flash(t('tabs_limit', { max: MAX_OPEN_TABS }));
+  if (isNew && TABS.list.length >= maxOpenTabs()) {
+    flash(t('tabs_limit', { max: maxOpenTabs() }));
     return;
   }
   if (isNew || opts.refresh) {
@@ -1718,8 +1760,10 @@ async function reloadActiveEditor() {
   $('#editor').value = tab.content;
   state.current.version = data.version;
   state.dirty = false;
+  clearAutosaveConflict(tab.path);
   if (state.viewing) renderPreviewNow();
   renderTabbar();
+  renderSaveStatus();
 }
 
 // Keep open tabs in sync when a file/folder is renamed or moved. `from`/`to`
@@ -1836,6 +1880,7 @@ function deactivateTabs() {
 $('#editor').addEventListener('input', () => {
   state.dirty = true;
   markActiveDirty();
+  scheduleAutosave();
 });
 
 /** Switch the editor between edit mode (textarea) and reading mode (preview). */
@@ -2543,18 +2588,27 @@ function toggleTaskInSource(index, checked) {
   return false;
 }
 
-async function saveCurrent() {
+async function saveCurrent(opts = {}) {
   if (!state.current) return;
+  const auto = !!opts.auto;
   const payload = {
     path: state.current.path,
     content: await encryptContent($('#editor').value),
     baseVersion: state.current.version,
   };
+  markSaving(true);
   let result;
   try {
     result = await api('PUT', '/api/file', payload);
   } catch (e) {
+    markSaving(false);
     if (e.status === 409) {
+      // Autosave must never silently clobber a change made on another device.
+      // Pause autosave for this file and let the user resolve it manually.
+      if (auto) {
+        noteAutosaveConflict(payload.path);
+        return;
+      }
       const overwrite = await uiConfirm(t('conflict_file_title'), {
         message: t('conflict_file_msg'),
         okText: t('overwrite'),
@@ -2572,6 +2626,8 @@ async function saveCurrent() {
       throw e;
     }
   }
+  markSaving(false);
+  clearAutosaveConflict(payload.path);
   if (result && result.version) state.current.version = result.version;
   state.dirty = false;
   const tab = activeTab();
@@ -2581,11 +2637,12 @@ async function saveCurrent() {
     tab.content = $('#editor').value;
   }
   renderTabbar();
+  renderSaveStatus();
   invalidateSearchIndex();
   invalidateGraphCache(); // note content (and thus its links) changed
-  flash(t('saved'));
+  if (!auto) flash(t('saved'));
 }
-$('#save-btn').addEventListener('click', saveCurrent);
+$('#save-btn').addEventListener('click', () => saveCurrent());
 
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
@@ -2596,6 +2653,162 @@ document.addEventListener('keydown', (e) => {
     else if (tab && tab.kind === 'kanban' && tab.kanban) saveKanban();
   }
 });
+
+/* ---------- autosave -----------------------------------------------------
+ * When enabled (a cross-device preference in the vault settings, default on),
+ * edits are persisted to storage a couple of seconds after the user stops
+ * typing/drawing. Two timers bound how often we write so the app never hammers
+ * the storage backend or trips the server's /api rate limiter:
+ *   - idle timer: fires AUTOSAVE_IDLE_MS after the last change (coalesces bursts)
+ *   - hard cap:   guarantees a write at least every AUTOSAVE_MAX_MS during
+ *                 continuous typing, so a nonstop editor still gets saved.
+ * Autosave only ever runs for the ACTIVE, DIRTY file — opening or switching a
+ * tab never triggers a write. On a 409 (the file changed on another device) it
+ * pauses for that file and leaves the user to resolve it with a manual Save.
+ */
+const AUTOSAVE_IDLE_MS = 2000;
+const AUTOSAVE_MAX_MS = 10000;
+const autosave = {
+  idleTimer: null,
+  hardTimer: null,
+  running: false,
+  conflictPath: null,
+};
+
+/** Autosave on unless the user explicitly turned it off (default true). */
+function autosaveEnabled() {
+  const v = getPref('autosave');
+  return v === undefined ? true : !!v;
+}
+
+/** A save-capable, currently-dirty active tab, or null. */
+function autosaveTarget() {
+  const tab = activeTab();
+  if (!tab || !tab.dirty) return null;
+  if (tab.kind === 'editor' || tab.kind === 'excalidraw' || tab.kind === 'kanban') {
+    return tab;
+  }
+  return null;
+}
+
+function clearAutosaveTimers() {
+  if (autosave.idleTimer) clearTimeout(autosave.idleTimer);
+  if (autosave.hardTimer) clearTimeout(autosave.hardTimer);
+  autosave.idleTimer = null;
+  autosave.hardTimer = null;
+}
+
+/** Called on every edit. Debounces to idle, but caps the wait at AUTOSAVE_MAX_MS. */
+function scheduleAutosave() {
+  renderSaveStatus();
+  if (!autosaveEnabled()) return;
+  const tab = autosaveTarget();
+  if (!tab) return;
+  // Don't keep retrying a file that lost a conflict — wait for a manual save.
+  if (autosave.conflictPath && autosave.conflictPath === tab.path) return;
+  if (autosave.idleTimer) clearTimeout(autosave.idleTimer);
+  autosave.idleTimer = setTimeout(runAutosave, AUTOSAVE_IDLE_MS);
+  if (!autosave.hardTimer) {
+    autosave.hardTimer = setTimeout(runAutosave, AUTOSAVE_MAX_MS);
+  }
+}
+
+/** Perform one autosave of the active dirty tab, dispatching by kind. */
+async function runAutosave() {
+  clearAutosaveTimers();
+  if (autosave.running) {
+    // A save is already in flight — re-arm so the latest edits still land.
+    scheduleAutosave();
+    return;
+  }
+  if (!autosaveEnabled()) return;
+  const tab = autosaveTarget();
+  if (!tab) return;
+  if (autosave.conflictPath && autosave.conflictPath === tab.path) return;
+  autosave.running = true;
+  try {
+    if (tab.kind === 'editor') await saveCurrent({ auto: true });
+    else if (tab.kind === 'excalidraw') await saveExcalidraw({ auto: true });
+    else if (tab.kind === 'kanban') await saveKanban({ auto: true });
+  } catch {
+    // Network/other error — leave the tab dirty; the next edit reschedules.
+  } finally {
+    autosave.running = false;
+  }
+}
+
+/** Remember that a file lost an autosave conflict; surface it in the status. */
+function noteAutosaveConflict(path) {
+  autosave.conflictPath = path;
+  flash(t('autosave_conflict'));
+  renderSaveStatus();
+}
+
+/** A manual save (or reload) resolved the file — resume autosaving it. */
+function clearAutosaveConflict(path) {
+  if (autosave.conflictPath === path) autosave.conflictPath = null;
+}
+
+// Track an in-flight save purely for the "Saving…" status line.
+let savingNow = false;
+function markSaving(on) {
+  savingNow = !!on;
+  renderSaveStatus();
+}
+
+/* ---------- last-saved status -------------------------------------------- */
+
+// Map the active tab kind to its status <span> in the view header.
+const SAVE_STATUS_IDS = {
+  editor: 'editor-saved',
+  excalidraw: 'excalidraw-saved',
+  kanban: 'kanban-saved',
+};
+
+/**
+ * Paint the "Saved · 2 min ago" / "Unsaved changes" / "Saving…" line next to
+ * the active editor's Save button. The saved time is derived from the file's
+ * version token (server mtime), so it reflects the real last write and stays
+ * correct across devices. Hidden for non-editable views.
+ */
+function renderSaveStatus() {
+  // Only the active view's status element should show anything.
+  for (const id of Object.values(SAVE_STATUS_IDS)) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = true;
+  }
+  const tab = activeTab();
+  if (!tab) return;
+  const el = document.getElementById(SAVE_STATUS_IDS[tab.kind]);
+  if (!el) return;
+  el.hidden = false;
+  el.classList.remove('is-unsaved');
+  if (savingNow) {
+    el.textContent = t('last_saved_saving');
+    return;
+  }
+  if (autosave.conflictPath && autosave.conflictPath === tab.path) {
+    el.textContent = t('autosave_conflict');
+    el.classList.add('is-unsaved');
+    return;
+  }
+  if (tab.dirty) {
+    el.textContent = t('last_saved_unsaved');
+    el.classList.add('is-unsaved');
+    return;
+  }
+  const rel = WOUtil.relativeSavedLabel(WOUtil.mtimeFromVersion(tab.version), Date.now());
+  if (!rel) {
+    el.hidden = true;
+    return;
+  }
+  el.textContent = t('last_saved_prefix', { when: t(rel.key, { count: rel.count }) });
+}
+
+// Keep the relative time fresh ("just now" → "1 min ago") while a file is open.
+setInterval(() => {
+  if (!savingNow) renderSaveStatus();
+}, 20000);
 
 /* ---------- office document viewer (Word / Excel / OpenDocument) ---------- */
 
@@ -2809,19 +3022,26 @@ function ensureExcalidraw() {
   return excalidrawLoading;
 }
 
-async function saveExcalidraw() {
+async function saveExcalidraw(opts = {}) {
   if (!state.excalidraw || !state.current) return;
+  const auto = !!opts.auto;
   const json = window.ExcalidrawEditor.serialize(state.excalidraw);
   const payload = {
     path: state.current.path,
     content: await encryptContent(json),
     baseVersion: state.current.version,
   };
+  markSaving(true);
   let result;
   try {
     result = await api('PUT', '/api/file', payload);
   } catch (e) {
+    markSaving(false);
     if (e.status === 409) {
+      if (auto) {
+        noteAutosaveConflict(payload.path);
+        return;
+      }
       const overwrite = await uiConfirm(t('conflict_drawing_title'), {
         message: t('conflict_drawing_msg'),
         okText: t('overwrite'),
@@ -2837,14 +3057,23 @@ async function saveExcalidraw() {
       throw e;
     }
   }
+  markSaving(false);
+  clearAutosaveConflict(payload.path);
   if (result && result.version) state.current.version = result.version;
   const tab = activeTab();
-  if (tab) tab.version = state.current.version;
-  flash(t('saved'));
+  if (tab) {
+    tab.version = state.current.version;
+    tab.dirty = false;
+  }
+  state.dirty = false;
+  renderTabbar();
+  renderSaveStatus();
+  if (!auto) flash(t('saved'));
 }
-$('#excalidraw-save').addEventListener('click', saveExcalidraw);
+$('#excalidraw-save').addEventListener('click', () => saveExcalidraw());
 
-async function saveKanban() {
+async function saveKanban(opts = {}) {
+  const auto = !!opts.auto;
   const tab = activeTab();
   if (!tab || tab.kind !== 'kanban' || !tab.kanban || !state.current) return;
   const json = WOUtil.kanbanSerialize(tab.kanban.getBoard());
@@ -2853,11 +3082,17 @@ async function saveKanban() {
     content: await encryptContent(json),
     baseVersion: state.current.version,
   };
+  markSaving(true);
   let result;
   try {
     result = await api('PUT', '/api/file', payload);
   } catch (e) {
+    markSaving(false);
     if (e.status === 409) {
+      if (auto) {
+        noteAutosaveConflict(payload.path);
+        return;
+      }
       const overwrite = await uiConfirm(t('conflict_kanban_title'), {
         message: t('conflict_kanban_msg'),
         okText: t('overwrite'),
@@ -2873,14 +3108,17 @@ async function saveKanban() {
       throw e;
     }
   }
+  markSaving(false);
+  clearAutosaveConflict(payload.path);
   if (result && result.version) state.current.version = result.version;
   tab.version = state.current.version;
   tab.dirty = false;
   state.dirty = false;
   renderTabbar();
-  flash(t('saved'));
+  renderSaveStatus();
+  if (!auto) flash(t('saved'));
 }
-$('#kanban-save').addEventListener('click', saveKanban);
+$('#kanban-save').addEventListener('click', () => saveKanban());
 
 /* ---------- create / upload / import ---------- */
 
@@ -2921,13 +3159,18 @@ async function createFileIn(targetDir) {
 
 // Boards always land in the fixed `Kanban/` folder (created if missing),
 // regardless of the selected folder — mirrors how templates work.
-async function createKanbanIn() {
-  let name = await uiPrompt(t('prompt_new_kanban_title'), 'Untitled.kanban', {
-    title: t('prompt_new_kanban_title'),
-    message: t('prompt_new_kanban_msg'),
-    placeholder: t('prompt_new_kanban_ph'),
-  });
-  if (!name) return;
+async function createKanbanIn(_dir, presetName) {
+  // `presetName` (from the launcher's field) skips the prompt; an empty value
+  // still falls back to the prompt so a bare "New board" click keeps working.
+  let name = (presetName || '').trim();
+  if (!name) {
+    name = await uiPrompt(t('prompt_new_kanban_title'), 'Untitled.kanban', {
+      title: t('prompt_new_kanban_title'),
+      message: t('prompt_new_kanban_msg'),
+      placeholder: t('prompt_new_kanban_ph'),
+    });
+  }
+  if (!name) return false;
   // Default to the .kanban board format when no extension is typed.
   if (!/\.[a-z0-9]+$/i.test(name)) name += '.kanban';
   const path = KANBAN_DIR + '/' + name;
@@ -2945,11 +3188,40 @@ async function createKanbanIn() {
     });
   } catch (e) {
     flash(e.message || t('could_not_create'));
-    return;
+    return false;
   }
   expandAncestors(KANBAN_DIR);
   await loadTree();
   openFile(path);
+  return true;
+}
+
+// Open the Kanban launcher: existing boards to open with one click, plus a
+// field to create a new board by name. Mirrors the Web links open-directly UX.
+async function openKanbanLauncher() {
+  let boards = [];
+  try {
+    boards = await listKanbanBoards();
+  } catch {
+    boards = [];
+  }
+  openLauncher({
+    title: t('kanban_launcher_title'),
+    newGroup: t('kanban_launcher_new'),
+    newPlaceholder: t('prompt_new_kanban_ph'),
+    startLabel: t('kanban_launcher_new'),
+    onStart: (value) => createKanbanIn(state.selectedDir, value),
+    existingGroup: t('kanban_launcher_open_group'),
+    emptyText: t('kanban_launcher_empty'),
+    items: boards.map((p) => ({ label: p, value: p })),
+    onOpen: (p) => openFile(p),
+  });
+}
+
+// Every `.kanban` board in the vault, path-sorted (used by the launcher list).
+async function listKanbanBoards() {
+  const list = (await api('GET', '/api/files')) || [];
+  return WOUtil.kanbanBoardsFromPaths(list.map((e) => e && e.path));
 }
 
 /**
@@ -3030,9 +3302,7 @@ function treeHasDir(nodes, path) {
 
 $('#new-file').addEventListener('click', () => createFileIn(state.selectedDir));
 $('#new-kanban') &&
-  $('#new-kanban').addEventListener('click', () =>
-    createKanbanIn(state.selectedDir),
-  );
+  $('#new-kanban').addEventListener('click', () => openKanbanLauncher());
 $('#new-folder').addEventListener('click', () => createFolderIn(state.selectedDir));
 
 /* ---------- notes: daily notes, templates, calendar ---------------------- */
@@ -4522,8 +4792,35 @@ function openDashboard() {
   syncThemeButtons();
   loadAccount();
   loadDailyPathSetting();
+  loadAutosaveSetting();
   if (CHAT_ENABLED) loadChatBlocks();
 }
+
+/** Reflect the current autosave preference in the settings toggle. */
+async function loadAutosaveSetting() {
+  const toggle = document.getElementById('autosave-toggle');
+  if (!toggle) return;
+  try {
+    await loadVaultSettings();
+  } catch {
+    /* fall back to the default below */
+  }
+  toggle.checked = autosaveEnabled();
+}
+
+(function setupAutosaveSetting() {
+  const toggle = document.getElementById('autosave-toggle');
+  if (!toggle) return;
+  toggle.addEventListener('change', () => {
+    persistPref('autosave', toggle.checked);
+    // Turning it on mid-edit should catch up the current dirty file; turning it
+    // off should cancel any pending write immediately.
+    if (toggle.checked) scheduleAutosave();
+    else clearAutosaveTimers();
+    renderSaveStatus();
+    flash(t('autosave_saved'));
+  });
+})();
 
 /** Populate the daily-note folder field from the (encrypted) settings. */
 async function loadDailyPathSetting() {
@@ -4695,13 +4992,64 @@ async function loadStorageSection() {
       badge.classList.remove('is-unknown', 'is-connected', 'is-disconnected');
       badge.classList.add(cfg.configured ? 'is-connected' : 'is-disconnected');
     }
+    renderMaxTabsSetting(cfg);
   } catch (e) {
+    renderMaxTabsSetting(null);
     if (cur) cur.textContent = t('storage_not_connected');
     if (badge) {
       badge.classList.remove('is-unknown', 'is-connected');
       badge.classList.add('is-disconnected');
     }
   }
+}
+
+/** Show the "Open tabs" limit control only for a connected bring-your-own
+ *  storage provider (S3/WebDAV) — managed users keep the operator default —
+ *  and prefill it with the current effective limit + default hint. */
+function renderMaxTabsSetting(cfg) {
+  const group = document.getElementById('max-tabs-group');
+  if (!group) return;
+  const byo =
+    !!cfg &&
+    cfg.configured &&
+    (cfg.driver === 's3' || cfg.driver === 'webdav');
+  group.hidden = !byo;
+  if (!byo) return;
+  const input = document.getElementById('max-tabs-input');
+  if (input) input.value = String(maxOpenTabs());
+  const def = document.getElementById('max-tabs-default');
+  if (def) {
+    def.textContent = t('tabs_setting_default', {
+      n: DEFAULT_MAX_OPEN_TABS,
+      max: TAB_LIMIT_HARD_MAX,
+    });
+  }
+}
+
+/** Open Settings on the File storage pane, focused on the tab-limit control.
+ *  Wired to the tab counter on own-storage deployments. */
+function openTabLimitSetting() {
+  openDashboard();
+  showSettingsPane('storage', true);
+  setTimeout(() => {
+    const inp = document.getElementById('max-tabs-input');
+    if (inp && !inp.closest('[hidden]')) inp.focus();
+  }, 0);
+}
+
+/** Persist the user's open-tab limit (clamped to [1, 25]) and re-render. */
+function saveMaxTabsSetting() {
+  const input = document.getElementById('max-tabs-input');
+  if (!input) return;
+  const n = WOUtil.clampTabLimit(
+    input.value,
+    TAB_LIMIT_HARD_MAX,
+    DEFAULT_MAX_OPEN_TABS,
+  );
+  input.value = String(n);
+  persistPref('maxOpenTabs', n);
+  renderTabbar();
+  flash(t('tabs_setting_saved'));
 }
 
 /** Re-test and save the storage credentials entered in the dashboard. */
@@ -5264,6 +5612,17 @@ document.querySelectorAll('.email-copy').forEach((btn) => {
 (function () {
   const saveBtn = document.getElementById('dash-storage-save');
   if (saveBtn) saveBtn.addEventListener('click', saveStorageSection);
+  const maxTabsSave = document.getElementById('max-tabs-save');
+  if (maxTabsSave) maxTabsSave.addEventListener('click', saveMaxTabsSetting);
+  const maxTabsInput = document.getElementById('max-tabs-input');
+  if (maxTabsInput) {
+    maxTabsInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveMaxTabsSetting();
+      }
+    });
+  }
   const setupBtn = document.getElementById('storage-setup-btn');
   if (setupBtn) {
     setupBtn.addEventListener('click', () => {
@@ -6864,10 +7223,16 @@ function chatDeps() {
     attachmentUrl: (p) => attachmentBlobUrl(p),
     getNotifPref: chatNotifPref,
     setNotifPref: setChatNotifPref,
+    getSoundPref: chatSoundPref,
+    setSoundPref: setChatSoundPref,
     activePartner: currentChatPartner,
     openChat,
     openFile: (p) => openFile(p),
     pickVaultFile,
+    pickVaultFolder,
+    importVaultFile: importChatFile,
+    importVaultFolder: importChatFolder,
+    onNewConversation,
     pickWeblinksCsv: pickWeblinksCsvAttachment,
     importWeblinks: (text) =>
       importWeblinksFromText(text, { ensureLoaded: true }),
@@ -6905,6 +7270,8 @@ async function initChat() {
   }
   const toggle = document.getElementById('chat-notifications');
   if (toggle) toggle.checked = window.WOChat.getNotificationsEnabled();
+  const sound = document.getElementById('chat-sound');
+  if (sound) sound.checked = window.WOChat.getSoundEnabled();
 }
 
 /** Read/write the (cross-device) "browser notifications" preference. */
@@ -6915,23 +7282,60 @@ function setChatNotifPref(v) {
   persistPref('chatNotifications', !!v);
 }
 
-// Start (or focus) a conversation with another user: validate the username,
-// confirm they exist + have chat set up, create the folder + file, then open it.
+/** Read/write the (cross-device) "message sound" preference. Defaults on, so an
+ *  unset pref reads as enabled; only an explicit `false` turns it off. */
+function chatSoundPref() {
+  return getPref('chatSound') !== false;
+}
+function setChatSoundPref(v) {
+  persistPref('chatSound', !!v);
+}
+
+// Open the chat launcher: existing conversations to reopen with one click, plus
+// a field to start a new chat by username. Mirrors how the Web links button
+// opens its manager directly instead of forcing the user to hunt in the tree.
 async function createChatWith() {
   if (!CHAT_ENABLED) return;
-  const raw = await uiPrompt(t('chat_new_title'), '', {
-    okText: t('chat_start'),
-    placeholder: t('chat_new_placeholder'),
+  let partners = [];
+  try {
+    partners = await listChatPartners();
+  } catch {
+    partners = [];
+  }
+  openLauncher({
+    title: t('chat_launcher_title'),
+    newGroup: t('chat_launcher_new_group'),
+    newPlaceholder: t('chat_launcher_search'),
+    startLabel: t('chat_launcher_start'),
+    onStart: (value) => startChatWith(value),
+    existingGroup: t('chat_launcher_existing_group'),
+    emptyText: t('chat_launcher_empty'),
+    items: partners.map((p) => ({ label: '@' + p, value: p })),
+    onOpen: (p) => openChat(p),
   });
-  if (raw == null) return;
+}
+
+// The usernames the current user already has a conversation file for. Derived
+// from the vault (chats/<partner>/<partner>.chat); there is no server-side
+// contact list, so existing chats are the only privacy-safe suggestions.
+async function listChatPartners() {
+  const list = (await api('GET', '/api/files')) || [];
+  return WOUtil.chatPartnersFromPaths(list.map((e) => e && e.path));
+}
+
+// Start (or focus) a conversation with a specific user: validate the username,
+// confirm they exist + have chat set up, create the folder + file, then open it.
+// Returns true when the chat was opened, false otherwise.
+async function startChatWith(raw) {
+  if (!CHAT_ENABLED) return false;
   const partner = WOUtil.sanitizeChatUsername(raw);
   if (!partner) {
     await uiAlert(t('chat_new_title'), { message: t('chat_err_bad_username') });
-    return;
+    return false;
   }
   if (partner === (document.body.dataset.username || '').toLowerCase()) {
     await uiAlert(t('chat_new_title'), { message: t('chat_err_self') });
-    return;
+    return false;
   }
   showLoading(t('chat_starting'));
   try {
@@ -6945,11 +7349,13 @@ async function createChatWith() {
     hideLoading();
     await loadTree().catch(() => {});
     await openFile(chatPath);
+    return true;
   } catch (e) {
     hideLoading();
     await uiAlert(t('chat_new_title'), {
       message: e.message || t('chat_err_no_user'),
     });
+    return false;
   }
 }
 
@@ -7005,6 +7411,284 @@ async function pickVaultFile() {
   const cipher = new Uint8Array(await res.arrayBuffer());
   const bytes = await window.WOCrypto.decryptBytesMaybe(key, cipher);
   return { name: basename(path), mime: mimeForPath(path), bytes };
+}
+
+// Let the user pick a vault folder to send. Every file under it is fetched,
+// decrypted, and packed into a single plaintext .zip (client-side, since the
+// server only holds ciphertext). Returns { name, mime, bytes } or null.
+async function pickVaultFolder() {
+  const list = (await api('GET', '/api/files')) || [];
+  // Derive the set of folders from file paths (there is no folder-listing API).
+  // Reserved internal folders are hidden — you cannot send those.
+  const options = WOUtil.foldersFromPaths(
+    list.map((e) => e && e.path),
+    RESERVED_DIR,
+  );
+  if (!options.length) {
+    await uiAlert(t('chat_attach_folder'), {
+      message: t('chat_no_vault_folders'),
+    });
+    return null;
+  }
+  const folder = await pickFromList(t('chat_pick_folder'), options);
+  if (!folder) return null;
+
+  const key = await ensureVaultKey();
+  const prefix = folder + '/';
+  const entries = list.filter(
+    (e) => e.path === folder || e.path.startsWith(prefix),
+  );
+  // Keep the folder itself as the archive root (strip its parent path).
+  const parent = dirname(folder);
+  const strip = parent ? parent + '/' : '';
+  const files = {};
+  showProgress(t('chat_zipping_folder'));
+  try {
+    const total = entries.length;
+    let done = 0;
+    updateProgress(0, total, t('progress_files', { done: 0, total }));
+    for (const entry of entries) {
+      const res = await fetch(attachmentUrl(entry.path), {
+        credentials: 'same-origin',
+      });
+      if (res.ok) {
+        const cipher = new Uint8Array(await res.arrayBuffer());
+        try {
+          const rel = entry.path.startsWith(strip)
+            ? entry.path.slice(strip.length)
+            : entry.path;
+          files[rel] = await window.WOCrypto.decryptBytesMaybe(key, cipher);
+        } catch {
+          /* skip files that fail to decrypt */
+        }
+      }
+      done += 1;
+      updateProgress(done, total, t('progress_files', { done, total }));
+    }
+    const bytes = window.WOZip.zip(files);
+    return { name: basename(folder) + '.zip', mime: 'application/zip', bytes };
+  } finally {
+    hideProgress();
+  }
+}
+
+// Called by the chat layer when a first-ever message from a partner arrives:
+// refresh the file tree so the new conversation shows up immediately (no page
+// reload) and flash a lightweight heads-up.
+function onNewConversation(partner) {
+  loadTree().catch(() => {});
+  flash(t('chat_new_message', { user: partner }));
+}
+
+// Import a single file received via chat into the recipient's own vault: confirm,
+// decrypt the stored attachment, then re-upload it to the vault root under its
+// original name (encrypted client-side, same as any upload). `imgPath` is the
+// attachment's path in the user's own vault (chat-images).
+async function importChatFile(imgPath, name) {
+  const fname = name || basename(imgPath) || 'file';
+  const ok = await uiConfirm(t('chat_import_file_title'), {
+    message: t('chat_import_file_confirm', { name: fname }),
+    okText: t('chat_import_file'),
+    cancelText: t('cancel'),
+  });
+  if (!ok) return;
+  try {
+    const url = await attachmentBlobUrl(imgPath);
+    const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+    if (bytes.length > MAX_UPLOAD_FILE_BYTES) {
+      await uiAlert(t('import_failed_title'), {
+        message: t('file_too_large', { name: fname }),
+      });
+      return;
+    }
+    const file = new File([bytes], fname);
+    const fd = new FormData();
+    fd.append('file', await encryptFileBlob(file), fname);
+    fd.append('folder', '');
+    await api('POST', '/api/upload', fd, true);
+    await loadTree();
+    flash(t('chat_file_imported', { name: fname }));
+  } catch (e) {
+    await uiAlert(t('chat_import_file_title'), {
+      message: e.message || t('chat_err_attachment'),
+    });
+  }
+}
+
+// Import a folder received via chat (a .zip attachment) into the recipient's own
+// vault: confirm, decrypt + unzip the archive in the browser, then upload every
+// file through the same chunked/encrypted uploader as a normal folder import so
+// the folder structure (each entry's path inside the zip) is reconstructed in
+// connected storage. `imgPath` is the attachment's path in the user's vault.
+async function importChatFolder(imgPath, name) {
+  const ok = await uiConfirm(t('chat_import_folder_title'), {
+    message: t('chat_import_folder_confirm', { name: name || 'folder' }),
+    okText: t('chat_import_folder'),
+    cancelText: t('cancel'),
+  });
+  if (!ok) return;
+  let files;
+  try {
+    const url = await attachmentBlobUrl(imgPath);
+    const buf = new Uint8Array(await (await fetch(url)).arrayBuffer());
+    files = window.WOZip.unzip(buf);
+  } catch (e) {
+    await uiAlert(t('chat_import_folder_title'), {
+      message: e.message || t('chat_err_attachment'),
+    });
+    return;
+  }
+  if (!files.length) {
+    await uiAlert(t('chat_import_folder_title'), {
+      message: t('chat_folder_empty'),
+    });
+    return;
+  }
+  // Reject any single file over the per-file cap up front (the server rejects it
+  // anyway) so the import does not fail partway through.
+  const big = files.find((f) => f.bytes.length > MAX_UPLOAD_FILE_BYTES);
+  if (big) {
+    await uiAlert(t('import_failed_title'), {
+      message: t('file_too_large', { name: big.path.split('/').pop() }),
+    });
+    return;
+  }
+  // Each zip entry's path becomes its relativePath, so the uploader rebuilds the
+  // folder tree at the vault root (the archive's top folder is preserved).
+  const entries = files.map((f) => ({
+    file: new File([f.bytes], f.path.split('/').pop() || 'file'),
+    relativePath: f.path,
+  }));
+  try {
+    await window.WOUpload.start({
+      entries,
+      baseDir: '',
+      getKey: ensureVaultKey,
+      t,
+      onFileComplete: refreshTreeSoon,
+      onComplete: () => {
+        loadTree();
+        flash(t('chat_folder_imported', { n: files.length }));
+      },
+    });
+  } catch (e) {
+    await uiAlert(t('import_failed_title'), {
+      message: e.message || t('import_failed_msg'),
+    });
+  }
+}
+
+// Generic "open existing or create new" launcher overlay. One field doubles as
+// a filter over existing items and as the value for the create action, so the
+// user can click a suggestion or type a new name and hit Start. Used by the
+// chat and Kanban toolbar buttons so they open a chooser directly (like Web
+// links) instead of forcing folder navigation.
+//   opts = { title, newGroup?, newPlaceholder, startLabel, onStart(value)->bool,
+//            existingGroup, emptyText, items:[{label,value}], onOpen(value) }
+function openLauncher(opts) {
+  const ov = document.createElement('div');
+  ov.className = 'wo-picker-overlay';
+  const box = document.createElement('div');
+  box.className = 'wo-picker';
+
+  const h = document.createElement('div');
+  h.className = 'wo-picker-title';
+  h.textContent = opts.title;
+  box.appendChild(h);
+
+  if (opts.newGroup) {
+    const g = document.createElement('div');
+    g.className = 'wo-picker-group';
+    g.textContent = opts.newGroup;
+    box.appendChild(g);
+  }
+
+  const row = document.createElement('div');
+  row.className = 'wo-launcher-row';
+  const input = document.createElement('input');
+  input.className = 'wo-picker-search wo-launcher-input';
+  input.type = 'text';
+  input.placeholder = opts.newPlaceholder || '';
+  const startBtn = document.createElement('button');
+  startBtn.type = 'button';
+  startBtn.className = 'btn-primary wo-launcher-start';
+  startBtn.textContent = opts.startLabel;
+  row.appendChild(input);
+  row.appendChild(startBtn);
+  box.appendChild(row);
+
+  const groupLabel = document.createElement('div');
+  groupLabel.className = 'wo-picker-group';
+  groupLabel.textContent = opts.existingGroup || '';
+  box.appendChild(groupLabel);
+
+  const listEl = document.createElement('div');
+  listEl.className = 'wo-picker-list';
+  box.appendChild(listEl);
+
+  const empty = document.createElement('div');
+  empty.className = 'wo-picker-empty';
+  empty.textContent = opts.emptyText || '';
+  box.appendChild(empty);
+
+  const all = opts.items || [];
+
+  function render(filter) {
+    listEl.innerHTML = '';
+    const f = (filter || '').toLowerCase();
+    const items = all.filter((it) => it.label.toLowerCase().includes(f));
+    groupLabel.hidden = all.length === 0;
+    empty.hidden = items.length > 0;
+    items.slice(0, 300).forEach((it) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'wo-picker-item';
+      b.textContent = it.label;
+      b.addEventListener('click', () => {
+        close();
+        Promise.resolve(opts.onOpen(it.value)).catch(() => {});
+      });
+      listEl.appendChild(b);
+    });
+  }
+
+  async function start() {
+    const val = input.value.trim();
+    startBtn.disabled = true;
+    let ok = false;
+    try {
+      ok = await opts.onStart(val);
+    } finally {
+      startBtn.disabled = false;
+    }
+    if (ok) close();
+  }
+
+  function close() {
+    if (ov.parentNode) document.body.removeChild(ov);
+    document.removeEventListener('keydown', onKey);
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') close();
+  }
+
+  startBtn.addEventListener('click', start);
+  input.addEventListener('input', () => render(input.value));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      start();
+    }
+  });
+  ov.addEventListener('click', (e) => {
+    if (e.target === ov) close();
+  });
+  document.addEventListener('keydown', onKey);
+
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  render('');
+  setTimeout(() => input.focus(), 0);
 }
 
 // Minimal searchable list picker (used to choose a vault file). Resolves to the
@@ -7159,8 +7843,24 @@ async function unblockChatUser(name) {
       const on = await window.WOChat.setNotificationsEnabled(want);
       toggle.checked = !!on;
       if (want && !on) {
-        flash(t('chat_notif_denied'));
+        // The browser blocked notifications (permission denied at the OS/site
+        // level). Use a modal, not a toast — the user needs time to read it and
+        // it explains how to fix it in browser settings.
+        await uiAlert(t('chat_notif_group'), {
+          message: t('chat_notif_blocked_help'),
+        });
       }
+    });
+  }
+  const sound = document.getElementById('chat-sound');
+  if (sound) {
+    sound.addEventListener('change', async () => {
+      try {
+        await ensureChatReady();
+      } catch {
+        /* still record the preference below */
+      }
+      window.WOChat.setSoundEnabled(sound.checked);
     });
   }
 })();
