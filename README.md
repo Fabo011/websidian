@@ -33,6 +33,12 @@ A small, self-hosted Obsidian-like markdown knowledge app.
   (PDF/jpg/png), inline `.excalidraw` editing, Obsidian `[[wikilinks]]`,
   filename + client-side content search, folder/`.zip` import &amp; decrypted
   export, light/dark theme, responsive UI
+- **Autosave:** edits to notes, drawings and boards are written to your storage
+  a couple of seconds after you stop typing (throttled so it never hammers the
+  backend), with a "last saved" indicator next to the Save button. It syncs
+  through your connected storage — nothing is kept only in the browser — so the
+  work follows you to other devices. Toggle it under **Settings → File storage →
+  Autosave**; manual **Save** / `Ctrl`/`Cmd`+`S` always works too.
 
 ## Configuration
 

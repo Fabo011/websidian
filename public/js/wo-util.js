@@ -460,6 +460,27 @@
   }
 
   /**
+   * Turn a last-saved timestamp into a coarse relative-time descriptor for the
+   * "Saved …" status. Pure and DOM/i18n-free: returns `{ key, count }` and the
+   * caller maps `key` to a translated string (interpolating `{count}`), so the
+   * same buckets render in every language. `now` is injectable for tests.
+   * Returns null when `ms` is not a finite timestamp (nothing saved / unknown).
+   */
+  function relativeSavedLabel(ms, now) {
+    if (!Number.isFinite(ms)) return null;
+    const nowMs = Number.isFinite(now) ? now : Date.now();
+    const secs = Math.max(0, Math.round((nowMs - ms) / 1000));
+    if (secs < 10) return { key: 'saved_just_now', count: 0 };
+    if (secs < 60) return { key: 'saved_secs_ago', count: secs };
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return { key: 'saved_mins_ago', count: mins };
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return { key: 'saved_hours_ago', count: hours };
+    const days = Math.floor(hours / 24);
+    return { key: 'saved_days_ago', count: days };
+  }
+
+  /**
    * Bucket vault files by the local day they were last changed. `files` is the
    * `/api/files` payload: `[{ path, version }]`. Returns a Map keyed by
    * 'YYYY-MM-DD' -> array of file paths (sorted), skipping reserved/internal
@@ -804,6 +825,7 @@
     formatDailyDate,
     applyTemplate,
     mtimeFromVersion,
+    relativeSavedLabel,
     filesByDay,
     buildCalendarModel,
     preserveMarkdownBlankLines,

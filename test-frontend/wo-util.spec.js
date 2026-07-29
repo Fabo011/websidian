@@ -325,6 +325,50 @@ describe('mtimeFromVersion', () => {
   });
 });
 
+describe('relativeSavedLabel', () => {
+  const now = 1_000_000_000_000;
+  it('buckets recent saves as "just now"', () => {
+    expect(WOUtil.relativeSavedLabel(now - 3000, now)).toEqual({
+      key: 'saved_just_now',
+      count: 0,
+    });
+  });
+
+  it('reports seconds, minutes, hours and days', () => {
+    expect(WOUtil.relativeSavedLabel(now - 30_000, now)).toEqual({
+      key: 'saved_secs_ago',
+      count: 30,
+    });
+    expect(WOUtil.relativeSavedLabel(now - 5 * 60_000, now)).toEqual({
+      key: 'saved_mins_ago',
+      count: 5,
+    });
+    expect(WOUtil.relativeSavedLabel(now - 3 * 3_600_000, now)).toEqual({
+      key: 'saved_hours_ago',
+      count: 3,
+    });
+    expect(WOUtil.relativeSavedLabel(now - 2 * 86_400_000, now)).toEqual({
+      key: 'saved_days_ago',
+      count: 2,
+    });
+  });
+
+  it('clamps a future timestamp to "just now" and rejects non-finite input', () => {
+    expect(WOUtil.relativeSavedLabel(now + 5000, now)).toEqual({
+      key: 'saved_just_now',
+      count: 0,
+    });
+    expect(WOUtil.relativeSavedLabel(NaN, now)).toBeNull();
+    expect(WOUtil.relativeSavedLabel(undefined, now)).toBeNull();
+  });
+
+  it('derives the saved label straight from a version token', () => {
+    const version = `${now - 90_000}-42`;
+    const rel = WOUtil.relativeSavedLabel(WOUtil.mtimeFromVersion(version), now);
+    expect(rel).toEqual({ key: 'saved_mins_ago', count: 1 });
+  });
+});
+
 describe('filesByDay', () => {
   it('buckets files by local mtime day and skips reserved/bad entries', () => {
     const ms = new Date(2026, 6, 9, 12, 0).getTime();

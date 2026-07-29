@@ -1378,7 +1378,12 @@ async function loadTabContent(tab) {
     pane.hidden = true;
     $('#excalidraw-root').appendChild(pane);
     tab.pane = pane;
-    tab.excalidraw = window.ExcalidrawEditor.mount(pane, initial);
+    tab.excalidraw = window.ExcalidrawEditor.mount(pane, initial, {
+      onChange: () => {
+        markTabDirty(tab);
+        scheduleAutosave();
+      },
+    });
   } else if (tab.kind === 'kanban') {
     let initial = null;
     try {
@@ -1399,7 +1404,10 @@ async function loadTabContent(tab) {
     tab.pane = pane;
     tab.kanban = window.WOKanban.mount(pane, initial, {
       t,
-      onChange: () => markTabDirty(tab),
+      onChange: () => {
+        markTabDirty(tab);
+        scheduleAutosave();
+      },
       confirm: (message) =>
         uiConfirm(t('kanban_confirm_title'), {
           message,
@@ -1488,6 +1496,7 @@ async function activateTab(id) {
   else activateViewerTab(tab);
   renderTabbar();
   markTreeActive();
+  renderSaveStatus();
 }
 
 function activateEditorTab(tab) {
@@ -1751,8 +1760,10 @@ async function reloadActiveEditor() {
   $('#editor').value = tab.content;
   state.current.version = data.version;
   state.dirty = false;
+  clearAutosaveConflict(tab.path);
   if (state.viewing) renderPreviewNow();
   renderTabbar();
+  renderSaveStatus();
 }
 
 // Keep open tabs in sync when a file/folder is renamed or moved. `from`/`to`
@@ -1869,6 +1880,7 @@ function deactivateTabs() {
 $('#editor').addEventListener('input', () => {
   state.dirty = true;
   markActiveDirty();
+  scheduleAutosave();
 });
 
 /** Switch the editor between edit mode (textarea) and reading mode (preview). */
@@ -2576,18 +2588,27 @@ function toggleTaskInSource(index, checked) {
   return false;
 }
 
-async function saveCurrent() {
+async function saveCurrent(opts = {}) {
   if (!state.current) return;
+  const auto = !!opts.auto;
   const payload = {
     path: state.current.path,
     content: await encryptContent($('#editor').value),
     baseVersion: state.current.version,
   };
+  markSaving(true);
   let result;
   try {
     result = await api('PUT', '/api/file', payload);
   } catch (e) {
+    markSaving(false);
     if (e.status === 409) {
+      // Autosave must never silently clobber a change made on another device.
+      // Pause autosave for this file and let the user resolve it manually.
+      if (auto) {
+        noteAutosaveConflict(payload.path);
+        return;
+      }
       const overwrite = await uiConfirm(t('conflict_file_title'), {
         message: t('conflict_file_msg'),
         okText: t('overwrite'),
@@ -2605,6 +2626,8 @@ async function saveCurrent() {
       throw e;
     }
   }
+  markSaving(false);
+  clearAutosaveConflict(payload.path);
   if (result && result.version) state.current.version = result.version;
   state.dirty = false;
   const tab = activeTab();
@@ -2614,11 +2637,12 @@ async function saveCurrent() {
     tab.content = $('#editor').value;
   }
   renderTabbar();
+  renderSaveStatus();
   invalidateSearchIndex();
   invalidateGraphCache(); // note content (and thus its links) changed
-  flash(t('saved'));
+  if (!auto) flash(t('saved'));
 }
-$('#save-btn').addEventListener('click', saveCurrent);
+$('#save-btn').addEventListener('click', () => saveCurrent());
 
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
@@ -2629,6 +2653,162 @@ document.addEventListener('keydown', (e) => {
     else if (tab && tab.kind === 'kanban' && tab.kanban) saveKanban();
   }
 });
+
+/* ---------- autosave -----------------------------------------------------
+ * When enabled (a cross-device preference in the vault settings, default on),
+ * edits are persisted to storage a couple of seconds after the user stops
+ * typing/drawing. Two timers bound how often we write so the app never hammers
+ * the storage backend or trips the server's /api rate limiter:
+ *   - idle timer: fires AUTOSAVE_IDLE_MS after the last change (coalesces bursts)
+ *   - hard cap:   guarantees a write at least every AUTOSAVE_MAX_MS during
+ *                 continuous typing, so a nonstop editor still gets saved.
+ * Autosave only ever runs for the ACTIVE, DIRTY file — opening or switching a
+ * tab never triggers a write. On a 409 (the file changed on another device) it
+ * pauses for that file and leaves the user to resolve it with a manual Save.
+ */
+const AUTOSAVE_IDLE_MS = 2000;
+const AUTOSAVE_MAX_MS = 10000;
+const autosave = {
+  idleTimer: null,
+  hardTimer: null,
+  running: false,
+  conflictPath: null,
+};
+
+/** Autosave on unless the user explicitly turned it off (default true). */
+function autosaveEnabled() {
+  const v = getPref('autosave');
+  return v === undefined ? true : !!v;
+}
+
+/** A save-capable, currently-dirty active tab, or null. */
+function autosaveTarget() {
+  const tab = activeTab();
+  if (!tab || !tab.dirty) return null;
+  if (tab.kind === 'editor' || tab.kind === 'excalidraw' || tab.kind === 'kanban') {
+    return tab;
+  }
+  return null;
+}
+
+function clearAutosaveTimers() {
+  if (autosave.idleTimer) clearTimeout(autosave.idleTimer);
+  if (autosave.hardTimer) clearTimeout(autosave.hardTimer);
+  autosave.idleTimer = null;
+  autosave.hardTimer = null;
+}
+
+/** Called on every edit. Debounces to idle, but caps the wait at AUTOSAVE_MAX_MS. */
+function scheduleAutosave() {
+  renderSaveStatus();
+  if (!autosaveEnabled()) return;
+  const tab = autosaveTarget();
+  if (!tab) return;
+  // Don't keep retrying a file that lost a conflict — wait for a manual save.
+  if (autosave.conflictPath && autosave.conflictPath === tab.path) return;
+  if (autosave.idleTimer) clearTimeout(autosave.idleTimer);
+  autosave.idleTimer = setTimeout(runAutosave, AUTOSAVE_IDLE_MS);
+  if (!autosave.hardTimer) {
+    autosave.hardTimer = setTimeout(runAutosave, AUTOSAVE_MAX_MS);
+  }
+}
+
+/** Perform one autosave of the active dirty tab, dispatching by kind. */
+async function runAutosave() {
+  clearAutosaveTimers();
+  if (autosave.running) {
+    // A save is already in flight — re-arm so the latest edits still land.
+    scheduleAutosave();
+    return;
+  }
+  if (!autosaveEnabled()) return;
+  const tab = autosaveTarget();
+  if (!tab) return;
+  if (autosave.conflictPath && autosave.conflictPath === tab.path) return;
+  autosave.running = true;
+  try {
+    if (tab.kind === 'editor') await saveCurrent({ auto: true });
+    else if (tab.kind === 'excalidraw') await saveExcalidraw({ auto: true });
+    else if (tab.kind === 'kanban') await saveKanban({ auto: true });
+  } catch {
+    // Network/other error — leave the tab dirty; the next edit reschedules.
+  } finally {
+    autosave.running = false;
+  }
+}
+
+/** Remember that a file lost an autosave conflict; surface it in the status. */
+function noteAutosaveConflict(path) {
+  autosave.conflictPath = path;
+  flash(t('autosave_conflict'));
+  renderSaveStatus();
+}
+
+/** A manual save (or reload) resolved the file — resume autosaving it. */
+function clearAutosaveConflict(path) {
+  if (autosave.conflictPath === path) autosave.conflictPath = null;
+}
+
+// Track an in-flight save purely for the "Saving…" status line.
+let savingNow = false;
+function markSaving(on) {
+  savingNow = !!on;
+  renderSaveStatus();
+}
+
+/* ---------- last-saved status -------------------------------------------- */
+
+// Map the active tab kind to its status <span> in the view header.
+const SAVE_STATUS_IDS = {
+  editor: 'editor-saved',
+  excalidraw: 'excalidraw-saved',
+  kanban: 'kanban-saved',
+};
+
+/**
+ * Paint the "Saved · 2 min ago" / "Unsaved changes" / "Saving…" line next to
+ * the active editor's Save button. The saved time is derived from the file's
+ * version token (server mtime), so it reflects the real last write and stays
+ * correct across devices. Hidden for non-editable views.
+ */
+function renderSaveStatus() {
+  // Only the active view's status element should show anything.
+  for (const id of Object.values(SAVE_STATUS_IDS)) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = true;
+  }
+  const tab = activeTab();
+  if (!tab) return;
+  const el = document.getElementById(SAVE_STATUS_IDS[tab.kind]);
+  if (!el) return;
+  el.hidden = false;
+  el.classList.remove('is-unsaved');
+  if (savingNow) {
+    el.textContent = t('last_saved_saving');
+    return;
+  }
+  if (autosave.conflictPath && autosave.conflictPath === tab.path) {
+    el.textContent = t('autosave_conflict');
+    el.classList.add('is-unsaved');
+    return;
+  }
+  if (tab.dirty) {
+    el.textContent = t('last_saved_unsaved');
+    el.classList.add('is-unsaved');
+    return;
+  }
+  const rel = WOUtil.relativeSavedLabel(WOUtil.mtimeFromVersion(tab.version), Date.now());
+  if (!rel) {
+    el.hidden = true;
+    return;
+  }
+  el.textContent = t('last_saved_prefix', { when: t(rel.key, { count: rel.count }) });
+}
+
+// Keep the relative time fresh ("just now" → "1 min ago") while a file is open.
+setInterval(() => {
+  if (!savingNow) renderSaveStatus();
+}, 20000);
 
 /* ---------- office document viewer (Word / Excel / OpenDocument) ---------- */
 
@@ -2842,19 +3022,26 @@ function ensureExcalidraw() {
   return excalidrawLoading;
 }
 
-async function saveExcalidraw() {
+async function saveExcalidraw(opts = {}) {
   if (!state.excalidraw || !state.current) return;
+  const auto = !!opts.auto;
   const json = window.ExcalidrawEditor.serialize(state.excalidraw);
   const payload = {
     path: state.current.path,
     content: await encryptContent(json),
     baseVersion: state.current.version,
   };
+  markSaving(true);
   let result;
   try {
     result = await api('PUT', '/api/file', payload);
   } catch (e) {
+    markSaving(false);
     if (e.status === 409) {
+      if (auto) {
+        noteAutosaveConflict(payload.path);
+        return;
+      }
       const overwrite = await uiConfirm(t('conflict_drawing_title'), {
         message: t('conflict_drawing_msg'),
         okText: t('overwrite'),
@@ -2870,14 +3057,23 @@ async function saveExcalidraw() {
       throw e;
     }
   }
+  markSaving(false);
+  clearAutosaveConflict(payload.path);
   if (result && result.version) state.current.version = result.version;
   const tab = activeTab();
-  if (tab) tab.version = state.current.version;
-  flash(t('saved'));
+  if (tab) {
+    tab.version = state.current.version;
+    tab.dirty = false;
+  }
+  state.dirty = false;
+  renderTabbar();
+  renderSaveStatus();
+  if (!auto) flash(t('saved'));
 }
-$('#excalidraw-save').addEventListener('click', saveExcalidraw);
+$('#excalidraw-save').addEventListener('click', () => saveExcalidraw());
 
-async function saveKanban() {
+async function saveKanban(opts = {}) {
+  const auto = !!opts.auto;
   const tab = activeTab();
   if (!tab || tab.kind !== 'kanban' || !tab.kanban || !state.current) return;
   const json = WOUtil.kanbanSerialize(tab.kanban.getBoard());
@@ -2886,11 +3082,17 @@ async function saveKanban() {
     content: await encryptContent(json),
     baseVersion: state.current.version,
   };
+  markSaving(true);
   let result;
   try {
     result = await api('PUT', '/api/file', payload);
   } catch (e) {
+    markSaving(false);
     if (e.status === 409) {
+      if (auto) {
+        noteAutosaveConflict(payload.path);
+        return;
+      }
       const overwrite = await uiConfirm(t('conflict_kanban_title'), {
         message: t('conflict_kanban_msg'),
         okText: t('overwrite'),
@@ -2906,14 +3108,17 @@ async function saveKanban() {
       throw e;
     }
   }
+  markSaving(false);
+  clearAutosaveConflict(payload.path);
   if (result && result.version) state.current.version = result.version;
   tab.version = state.current.version;
   tab.dirty = false;
   state.dirty = false;
   renderTabbar();
-  flash(t('saved'));
+  renderSaveStatus();
+  if (!auto) flash(t('saved'));
 }
-$('#kanban-save').addEventListener('click', saveKanban);
+$('#kanban-save').addEventListener('click', () => saveKanban());
 
 /* ---------- create / upload / import ---------- */
 
@@ -4587,8 +4792,35 @@ function openDashboard() {
   syncThemeButtons();
   loadAccount();
   loadDailyPathSetting();
+  loadAutosaveSetting();
   if (CHAT_ENABLED) loadChatBlocks();
 }
+
+/** Reflect the current autosave preference in the settings toggle. */
+async function loadAutosaveSetting() {
+  const toggle = document.getElementById('autosave-toggle');
+  if (!toggle) return;
+  try {
+    await loadVaultSettings();
+  } catch {
+    /* fall back to the default below */
+  }
+  toggle.checked = autosaveEnabled();
+}
+
+(function setupAutosaveSetting() {
+  const toggle = document.getElementById('autosave-toggle');
+  if (!toggle) return;
+  toggle.addEventListener('change', () => {
+    persistPref('autosave', toggle.checked);
+    // Turning it on mid-edit should catch up the current dirty file; turning it
+    // off should cancel any pending write immediately.
+    if (toggle.checked) scheduleAutosave();
+    else clearAutosaveTimers();
+    renderSaveStatus();
+    flash(t('autosave_saved'));
+  });
+})();
 
 /** Populate the daily-note folder field from the (encrypted) settings. */
 async function loadDailyPathSetting() {

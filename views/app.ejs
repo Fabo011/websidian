@@ -84,6 +84,7 @@
             <button id="toggle-preview" class="btn-ghost" title="Switch between editing and reading" data-i18n-attr="title:title_toggle_view">
               <i class="bi bi-eye"></i> <span class="btn-label">View</span>
             </button>
+            <span id="editor-saved" class="save-status" role="status" aria-live="polite" hidden></span>
             <button id="save-btn" class="btn-primary"><i class="bi bi-save"></i> <span class="btn-label" data-i18n="save">Save</span></button>
           </div>
         </div>
@@ -145,6 +146,7 @@
           <button class="icon-btn mobile-back" data-mobile-back title="Show files" aria-label="Show files" data-i18n-attr="title:open_files_title;aria-label:open_files"><i class="bi bi-list"></i></button>
           <span id="excalidraw-path" class="current-path breadcrumb"></span>
           <div class="view-actions">
+            <span id="excalidraw-saved" class="save-status" role="status" aria-live="polite" hidden></span>
             <button id="excalidraw-save" class="btn-primary"><i class="bi bi-save"></i> <span class="btn-label" data-i18n="save">Save</span></button>
           </div>
         </div>
@@ -156,6 +158,7 @@
           <button class="icon-btn mobile-back" data-mobile-back title="Show files" aria-label="Show files" data-i18n-attr="title:open_files_title;aria-label:open_files"><i class="bi bi-list"></i></button>
           <span id="kanban-path" class="current-path breadcrumb"></span>
           <div class="view-actions">
+            <span id="kanban-saved" class="save-status" role="status" aria-live="polite" hidden></span>
             <button id="kanban-save" class="btn-primary"><i class="bi bi-save"></i> <span class="btn-label" data-i18n="save">Save</span></button>
           </div>
         </div>
@@ -514,6 +517,15 @@
             <p id="max-tabs-default" class="settings-hint"></p>
           </div>
           <% } %>
+
+          <div class="settings-group" id="autosave-group">
+            <h3 class="settings-group-title"><i class="bi bi-cloud-arrow-up"></i> <span data-i18n="autosave_setting_title">Autosave</span></h3>
+            <label class="settings-check">
+              <input type="checkbox" id="autosave-toggle" />
+              <span data-i18n="autosave_setting_label">Automatically save changes as you edit</span>
+            </label>
+            <p class="settings-hint" data-i18n="autosave_setting_hint">When on, edits to notes, drawings and boards are saved to your storage a couple of seconds after you stop typing — nothing is kept only in this browser, so every device stays in sync. When off, use Save (or Ctrl/Cmd+S). Writes are throttled to protect your storage connection.</p>
+          </div>
 
           <% if (typeof userStorageEnabled !== 'undefined' && userStorageEnabled) { %>
           <div class="settings-group" id="storage-provider-section">

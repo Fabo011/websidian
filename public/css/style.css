@@ -893,7 +893,54 @@ body.tools-resizing { cursor: row-resize; user-select: none; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.view-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.view-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+/* Header action buttons stay compact — the shared .btn-primary is chunky (it is
+   width:100% in forms); size it down here so Save doesn't dwarf the toolbar. */
+.view-actions .btn-primary,
+.view-actions .btn-ghost {
+  width: auto;
+  padding: 6px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+/* Let the breadcrumb shrink so the status + buttons always have room. */
+.view-header .current-path { flex: 1 1 auto; min-width: 0; }
+
+/* "Saved · 2 min ago" status shown next to the Save button. A coloured dot +
+   readable label: green when saved, amber while there are unsaved changes or an
+   autosave conflict. Truncates (never wraps) so it stays on one line at any
+   width, including mobile. */
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42vw;
+  flex-shrink: 1;
+}
+.save-status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2e9e5b; /* saved */
+  flex: none;
+}
+.save-status.is-unsaved {
+  color: var(--warn, #b7791f);
+  font-weight: 600;
+}
+.save-status.is-unsaved::before { background: var(--warn, #b7791f); }
+@media (max-width: 560px) {
+  /* Keep it visible on mobile but tighter, and let it shrink to just the dot
+     (label ellipsised away) rather than pushing the Save button off-screen. */
+  .save-status { font-size: 11.5px; max-width: 32vw; }
+}
 
 .editor-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .editor-surface { flex: 1; min-height: 0; display: flex; position: relative; }
