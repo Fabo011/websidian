@@ -76,5 +76,24 @@ services:
     depends_on:
       - cloudflared
 
+  nextcloud:
+      image: nextcloud:latest
+      container_name: nextcloud
+      restart: always
+      ports:
+        - "8084:80"
+      volumes:
+        - /mnt/ssd/nextcloud/html:/var/www/html # Change to your mount
+        - /mnt/ssd/nextcloud/data:/var/www/html/data # Change to your mount
+      environment:
+        TZ: Europe/Berlin
+        PHP_MEMORY_LIMIT: 1G
+        PHP_UPLOAD_LIMIT: 1G
+        OVERWRITEPROTOCOL: https
+        TRUSTED_PROXIES: 172.16.0.0/12 10.0.0.0/8 192.168.0.0/16
+        NEXTCLOUD_TRUSTED_DOMAINS: websidian.fabo011-cloud.de # Change to your domain
+      mem_limit: 1536m
+      memswap_limit: 2g  
+
 volumes:
   postgres-data:

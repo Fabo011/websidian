@@ -204,6 +204,37 @@ a { color: var(--accent); }
   opacity: 0.9;
   line-height: 1.5;
 }
+.deploy-note {
+  margin: 10px 0 4px;
+  font-size: 0.88rem;
+  opacity: 0.8;
+  line-height: 1.5;
+}
+.deploy-pay {
+  font-weight: 600;
+  opacity: 0.95;
+}
+.deploy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.opt-soon {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  border: 1px solid var(--border, #2a2a2a);
+  background: var(--accent-soft, rgba(120, 130, 255, 0.14));
+  opacity: 0.85;
+  vertical-align: middle;
+}
 
 @media (max-width: 480px) {
   .auth-page { padding: 12px; }
@@ -1376,20 +1407,26 @@ body.tools-resizing { cursor: row-resize; user-select: none; }
   }
   .context-menu.context-menu-centered button { padding: 14px 18px; font-size: 15px; }
 
-  /* Let the landing top navbar scroll horizontally instead of cramming the
-     actions together on narrow screens. */
-  .landing-nav { gap: 8px; }
+  /* Landing top navbar on narrow screens: let the actions wrap onto a second
+     row so every link stays visible (no hidden horizontal scroll), and shrink
+     the controls so they fit. */
+  .landing-nav { flex-wrap: wrap; gap: 8px 6px; padding: 12px 16px; }
   .landing-brand { flex-shrink: 0; }
   .landing-nav-actions {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 2px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
   }
-  .landing-nav-actions::-webkit-scrollbar { display: none; }
   .landing-nav-actions > * { flex-shrink: 0; white-space: nowrap; }
+  .landing-nav-actions .btn-ghost,
+  .landing-nav-actions .btn-primary { padding: 6px 10px; font-size: 13px; }
+}
+
+@media (max-width: 480px) {
+  /* Very narrow: stack brand over a full-width, left-aligned action row that
+     wraps freely. */
+  .landing-nav { flex-direction: column; align-items: stretch; }
+  .landing-nav-actions { justify-content: flex-start; width: 100%; }
 }
 
 /* ===== Flash toast ===== */

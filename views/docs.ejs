@@ -379,8 +379,36 @@
       <section class="legal-section" id="self-host">
         <h2 data-i18n="selfhost_h">Self-hosting</h2>
         <p data-i18n-html="selfhost_intro">
-          Two ways to run your own instance. Both use the published image
+          Three ways to run your own instance. All use the published image
           <code>ghcr.io/fabo011/websidian:latest</code>.
+        </p>
+
+        <h3 data-i18n="selfhost_opts_h">Choose your setup</h3>
+        <ul>
+          <li data-i18n-html="selfhost_opt_full">
+            <strong>Everything, including Nextcloud</strong> — websidian, a Cloudflare
+            tunnel, PostgreSQL and a Nextcloud server (WebDAV storage) all on your
+            machine, sharing one Postgres server. Use
+            <a href="https://github.com/Fabo011/websidian/blob/main/docker-compose-complete-example.yml" target="_blank" rel="noopener noreferrer"><code>docker-compose-complete-example.yml</code></a>.
+          </li>
+          <li data-i18n-html="selfhost_opt_ext">
+            <strong>websidian + tunnel + PostgreSQL, external storage</strong> —
+            self-host the app, the tunnel and the database, then connect an external
+            S3/WebDAV provider for the files (<code>USER_STORAGE_ENABLED=true</code>).
+            Start from the same
+            <a href="https://github.com/Fabo011/websidian/blob/main/docker-compose-complete-example.yml" target="_blank" rel="noopener noreferrer"><code>docker-compose-complete-example.yml</code></a>
+            and drop the Nextcloud service.
+          </li>
+          <li data-i18n-html="selfhost_opt_min">
+            <strong>websidian + tunnel, no PostgreSQL</strong> — the leanest setup:
+            without Postgres, websidian falls back to a minimal SQLite database and
+            local storage. Use
+            <a href="https://github.com/Fabo011/websidian/blob/main/docker-compose-min.yaml" target="_blank" rel="noopener noreferrer"><code>docker-compose-min.yaml</code></a>.
+          </li>
+        </ul>
+        <p class="docs-note" data-i18n-html="selfhost_cf_note">
+          Cloudflare Tunnel is only an example — any reverse proxy or zero-trust
+          tunnel that terminates TLS works just as well (Caddy, nginx, Traefik, …).
         </p>
 
         <p class="docs-warning" data-i18n-html="selfhost_https_warn">
