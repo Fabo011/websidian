@@ -443,6 +443,29 @@
       storage_help_link: 'How to connect (with screenshots)',
       storage_need_help: 'Need help? Contact',
 
+      /* landing: ways to run */
+      deploy_title: 'Ways to run websidian',
+      deploy_lead:
+        'Three ways to run it, all the same end-to-end encrypted vault. Pick how much infrastructure you want to look after yourself.',
+      deploy_hosted_title: 'Hosted — bring your own storage',
+      deploy_hosted_desc:
+        'Use websidian.fabo011-cloud.de. We run the whole infrastructure for you — SSL, web server, the websidian app, PostgreSQL and server security. You only connect your own storage (Mega S4, any S3-compatible bucket, or a Nextcloud/WebDAV server) and pay that provider directly. Nothing to manage except the storage you choose.',
+      deploy_managed_title: 'Fully managed',
+      deploy_soon: 'Coming soon',
+      deploy_managed_desc:
+        'The same hosted app, plus a managed storage account — nothing to connect at all. Not available yet; planned for the future.',
+      deploy_self_title: 'Fully self-hosted',
+      deploy_self_desc:
+        'For you and your family. Everything runs on your own server for full privacy — but you take care of the infrastructure yourself. Start from our example compose files.',
+      deploy_self_cta: 'Self-hosting guide',
+      deploy_hosted_donate_note:
+        'Free to use — if it helps you, a donation toward our server costs is much appreciated.',
+      deploy_hosted_donate: 'Donate',
+      deploy_managed_pay: 'Payment required — managed storage is a paid plan.',
+      deploy_self_help_note:
+        "Free and open source. We'd really appreciate your help developing websidian.",
+      deploy_self_help: 'Help us develop',
+
       /* landing: storage options + support */
       byo_title: 'Your storage, your choice',
       byo_lead:
@@ -603,7 +626,16 @@
       /* self-hosting */
       selfhost_h: 'Self-hosting',
       selfhost_intro:
-        'Two ways to run your own instance. Both use the published image <code>ghcr.io/fabo011/websidian:latest</code>.',
+        'Three ways to run your own instance. All use the published image <code>ghcr.io/fabo011/websidian:latest</code>.',
+      selfhost_opts_h: 'Choose your setup',
+      selfhost_opt_full:
+        '<strong>Everything, including Nextcloud</strong> — websidian, a Cloudflare tunnel, PostgreSQL and a Nextcloud server (WebDAV storage) all on your machine, sharing one Postgres server. Use <a href="https://github.com/Fabo011/websidian/blob/main/docker-compose-complete-example.yml" target="_blank" rel="noopener noreferrer"><code>docker-compose-complete-example.yml</code></a>.',
+      selfhost_opt_ext:
+        '<strong>websidian + tunnel + PostgreSQL, external storage</strong> — self-host the app, the tunnel and the database, then connect an external S3/WebDAV provider for the files (<code>USER_STORAGE_ENABLED=true</code>). Start from the same <a href="https://github.com/Fabo011/websidian/blob/main/docker-compose-complete-example.yml" target="_blank" rel="noopener noreferrer"><code>docker-compose-complete-example.yml</code></a> and drop the Nextcloud service.',
+      selfhost_opt_min:
+        '<strong>websidian + tunnel, no PostgreSQL</strong> — the leanest setup: without Postgres, websidian falls back to a minimal SQLite database and local storage. Use <a href="https://github.com/Fabo011/websidian/blob/main/docker-compose-min.yaml" target="_blank" rel="noopener noreferrer"><code>docker-compose-min.yaml</code></a>.',
+      selfhost_cf_note:
+        'Cloudflare Tunnel is only an example — any reverse proxy or zero-trust tunnel that terminates TLS works just as well (Caddy, nginx, Traefik, …).',
       selfhost_https_warn:
         '<strong>HTTPS is required</strong> for any access other than <code>http://localhost</code>. It is not only a security best practice: end-to-end encryption uses the browser <strong>WebCrypto API</strong> (<code>crypto.subtle</code>), which browsers only expose in a <em>secure context</em> — i.e. HTTPS (or localhost). Over plain HTTP on a real domain or IP the crypto API is unavailable and the app will not work — this affects <strong>smartphones in particular</strong>. Put a reverse proxy or tunnel with a valid TLS certificate in front (Caddy, nginx, Traefik, Cloudflare Tunnel, …) and serve the app over <code>https://</code>, with <code>APP_URL</code> and <code>CORS_ORIGINS</code> set to your <code>https://</code> domain.',
       selfhost_env_note:
@@ -876,6 +908,7 @@
       /* landing */
       nav_signin: 'Sign in',
       nav_create: 'Create account',
+      nav_plans: 'Plans',
       nav_docs: 'Docs',
       home: 'Home',
       back_home: 'Back to home',
@@ -906,6 +939,7 @@
         'websidian is an open-source, privacy-first knowledge vault you reach from any browser. Take notes, organize nested folders, sketch with Excalidraw and read PDFs — all online, with nothing to install. Everything is end-to-end encrypted in your browser, so only you can read your vault — not even the server can.',
       hero_open: 'Open your vault',
       hero_create_free: 'Create a free account',
+      hero_selfhost: 'Self-hosting',
       diff_title: 'How it differs from Obsidian',
       diff_lead:
         'The original Obsidian is a desktop app that keeps your notes offline on each device and relies on a separate sync service to keep them in step. websidian flips that around: your vault lives online, end-to-end encrypted, and you simply log in.',
@@ -1578,6 +1612,29 @@
       storage_help_link: 'So verbindest du (mit Screenshots)',
       storage_need_help: 'Brauchst du Hilfe? Kontakt',
 
+      /* Startseite: Betriebsarten */
+      deploy_title: 'Wege, websidian zu betreiben',
+      deploy_lead:
+        'Drei Betriebsarten, immer derselbe Ende-zu-Ende verschlüsselte Tresor. Wähle, wie viel Infrastruktur du selbst betreuen möchtest.',
+      deploy_hosted_title: 'Gehostet — eigenen Speicher verbinden',
+      deploy_hosted_desc:
+        'Nutze websidian.fabo011-cloud.de. Wir betreiben die gesamte Infrastruktur für dich — SSL, Webserver, die websidian-App, PostgreSQL und Server-Sicherheit. Du verbindest nur deinen eigenen Speicher (Mega S4, einen beliebigen S3-kompatiblen Bucket oder einen Nextcloud-/WebDAV-Server) und zahlst direkt bei diesem Anbieter. Außer dem gewählten Speicher gibt es nichts zu verwalten.',
+      deploy_managed_title: 'Voll verwaltet',
+      deploy_soon: 'Bald verfügbar',
+      deploy_managed_desc:
+        'Dieselbe gehostete App, plus ein verwaltetes Speicherkonto — gar nichts zu verbinden. Noch nicht verfügbar; für die Zukunft geplant.',
+      deploy_self_title: 'Voll selbst gehostet',
+      deploy_self_desc:
+        'Für dich und deine Familie. Alles läuft auf deinem eigenen Server für volle Privatsphäre — aber du kümmerst dich selbst um die Infrastruktur. Starte mit unseren Beispiel-Compose-Dateien.',
+      deploy_self_cta: 'Anleitung fürs Self-Hosting',
+      deploy_hosted_donate_note:
+        'Kostenlos nutzbar — wenn es dir hilft, freuen wir uns über eine Spende für unsere Serverkosten.',
+      deploy_hosted_donate: 'Spenden',
+      deploy_managed_pay: 'Zahlung erforderlich — verwalteter Speicher ist ein kostenpflichtiger Tarif.',
+      deploy_self_help_note:
+        'Kostenlos und quelloffen. Über deine Hilfe bei der Entwicklung von websidian freuen wir uns sehr.',
+      deploy_self_help: 'Hilf mit zu entwickeln',
+
       /* Startseite: Speicheroptionen + Unterstützung */
       byo_title: 'Dein Speicher, deine Wahl',
       byo_lead:
@@ -1598,10 +1655,10 @@
       toc_storage: 'Wo dein Tresor gespeichert wird',
       toc_connect: 'Speicher verbinden',
       toc_architecture: 'Architektur',
-      toc_selfhost: 'Selbst-Hosting',
+      toc_selfhost: 'Self-Hosting',
       docs_cat_user: 'Nutzer-Dokumentation',
       docs_cat_arch: 'Architektur',
-      docs_cat_selfhost: 'Selbst-Hosting',
+      docs_cat_selfhost: 'Self-Hosting',
       docs_title: 'Dokumentation',
       docs_lead:
         'Kurz und auf den Punkt: was du wissen musst, um websidian effektiv zu nutzen.',
@@ -1738,14 +1795,23 @@
       arch_scale_p:
         'websidian ist auf App-Ebene zustandslos — der verschlüsselte Tresor liegt im eigenen Speicher jedes Nutzers und der gesamte gemeinsame Zustand in PostgreSQL — und skaliert daher horizontal mit dem Docker-Swarm-Modus. Der App-Dienst läuft als mehrere Replikas über Swarm-Knoten (lastverteilt über das Swarm-Routing-Mesh / DNS-Round-Robin); für mehr Last erhöhst du einfach die Replika-Anzahl oder fügst Knoten hinzu. Cloudflare-Tunnel-Replikas stehen vor dem Cluster, und eine einzelne PostgreSQL-Instanz (auf einem Manager-Knoten) hält Konten und die verschlüsselten Speicher-Zugangsdaten.',
 
-      /* Selbst-Hosting */
-      selfhost_h: 'Selbst-Hosting',
+      /* Self-Hosting */
+      selfhost_h: 'Self-Hosting',
       selfhost_intro:
-        'Zwei Wege, eine eigene Instanz zu betreiben. Beide nutzen das veröffentlichte Image <code>ghcr.io/fabo011/websidian:latest</code>.',
+        'Drei Wege, eine eigene Instanz zu betreiben. Alle nutzen das veröffentlichte Image <code>ghcr.io/fabo011/websidian:latest</code>.',
+      selfhost_opts_h: 'Wähle dein Setup',
+      selfhost_opt_full:
+        '<strong>Alles, inklusive Nextcloud</strong> — websidian, ein Cloudflare-Tunnel, PostgreSQL und ein Nextcloud-Server (WebDAV-Speicher) laufen alle auf deiner Maschine und teilen sich einen Postgres-Server. Nutze <a href="https://github.com/Fabo011/websidian/blob/main/docker-compose-complete-example.yml" target="_blank" rel="noopener noreferrer"><code>docker-compose-complete-example.yml</code></a>.',
+      selfhost_opt_ext:
+        '<strong>websidian + Tunnel + PostgreSQL, externer Speicher</strong> — hoste App, Tunnel und Datenbank selbst und verbinde einen externen S3-/WebDAV-Anbieter für die Dateien (<code>USER_STORAGE_ENABLED=true</code>). Starte mit derselben <a href="https://github.com/Fabo011/websidian/blob/main/docker-compose-complete-example.yml" target="_blank" rel="noopener noreferrer"><code>docker-compose-complete-example.yml</code></a> und entferne den Nextcloud-Dienst.',
+      selfhost_opt_min:
+        '<strong>websidian + Tunnel, ohne PostgreSQL</strong> — das schlankeste Setup: ohne Postgres greift websidian auf eine minimale SQLite-Datenbank und lokalen Speicher zurück. Nutze <a href="https://github.com/Fabo011/websidian/blob/main/docker-compose-min.yaml" target="_blank" rel="noopener noreferrer"><code>docker-compose-min.yaml</code></a>.',
+      selfhost_cf_note:
+        'Cloudflare Tunnel ist nur ein Beispiel — jeder Reverse-Proxy oder Zero-Trust-Tunnel, der TLS terminiert, funktioniert genauso (Caddy, nginx, Traefik, …).',
       selfhost_https_warn:
         '<strong>HTTPS ist erforderlich</strong> für jeden Zugriff außer <code>http://localhost</code>. Es geht nicht nur um Sicherheit: Die Ende-zu-Ende-Verschlüsselung nutzt die Browser-<strong>WebCrypto-API</strong> (<code>crypto.subtle</code>), die Browser nur in einem <em>sicheren Kontext</em> bereitstellen — also HTTPS (oder localhost). Über einfaches HTTP auf einer echten Domain oder IP ist die Krypto-API nicht verfügbar und die App funktioniert nicht — das betrifft <strong>insbesondere Smartphones</strong>. Stelle einen Reverse-Proxy oder Tunnel mit gültigem TLS-Zertifikat davor (Caddy, nginx, Traefik, Cloudflare Tunnel, …) und liefere die App über <code>https://</code> aus, mit <code>APP_URL</code> und <code>CORS_ORIGINS</code> auf deine <code>https://</code>-Domain gesetzt.',
       selfhost_env_note:
-        'Du brauchst zum Selbst-Hosten <strong>keine</strong> Docker-Secrets — eine einfache <code>.env</code>-Datei genügt. Die App liest jedes Geheimnis aus <code>&lt;NAME&gt;_FILE</code>, falls gesetzt, sonst aus der normalen Umgebungsvariable. Docker-Secrets werden nur im produktiven Swarm-Betrieb verwendet.',
+        'Du brauchst zum Self-Hosten <strong>keine</strong> Docker-Secrets — eine einfache <code>.env</code>-Datei genügt. Die App liest jedes Geheimnis aus <code>&lt;NAME&gt;_FILE</code>, falls gesetzt, sonst aus der normalen Umgebungsvariable. Docker-Secrets werden nur im produktiven Swarm-Betrieb verwendet.',
       selfhost_min_h: 'Minimal (SQLite, lokaler Speicher)',
       selfhost_min_p:
         'Alles in einem Container — keine Datenbank, kein externer Speicher zu verbinden. Ideal für einen einzelnen Nutzer oder eine kleine private Gruppe. Die Daten liegen in einem lokalen Volume.',
@@ -2012,6 +2078,7 @@
       confirm_finish: 'Bestätigen & abschließen',
       have_account: 'Hast du bereits ein Konto?',
 
+      nav_plans: 'Tarife',
       nav_signin: 'Anmelden',
       nav_create: 'Konto erstellen',
       nav_docs: 'Doku',
@@ -2044,6 +2111,7 @@
         'websidian ist ein quelloffener, datenschutzorientierter Wissens-Tresor, den du aus jedem Browser erreichst. Notizen schreiben, verschachtelte Ordner organisieren, mit Excalidraw skizzieren und PDFs lesen – alles online, ohne Installation. Alles wird Ende-zu-Ende in deinem Browser verschlüsselt, sodass nur du deinen Tresor lesen kannst – nicht einmal der Server.',
       hero_open: 'Tresor öffnen',
       hero_create_free: 'Kostenloses Konto erstellen',
+      hero_selfhost: 'Self-Hosting',
       diff_title: 'Worin es sich von Obsidian unterscheidet',
       diff_lead:
         'Das originale Obsidian ist eine Desktop-App, die deine Notizen auf jedem Gerät offline speichert und einen separaten Sync-Dienst benötigt, um sie abzugleichen. websidian dreht das um: Dein Tresor liegt online, Ende-zu-Ende verschlüsselt, und du meldest dich einfach an.',

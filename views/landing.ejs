@@ -11,6 +11,7 @@
         <option value="en">EN</option>
         <option value="de">DE</option>
       </select>
+      <a class="btn-ghost" href="#deploy" data-i18n="nav_plans">Plans</a>
       <a class="btn-ghost" href="/docs" data-i18n="nav_docs">Docs</a>
       <a class="btn-ghost" href="/login" data-i18n="nav_signin">Sign in</a>
       <% if (typeof allowRegistration !== 'undefined' && allowRegistration) { %>
@@ -33,6 +34,7 @@
         <% if (typeof allowRegistration !== 'undefined' && allowRegistration) { %>
           <a class="btn-ghost" href="/register" data-i18n="hero_create_free">Create a free account</a>
         <% } %>
+        <a class="btn-ghost" href="/docs#self-host" data-i18n="hero_selfhost">Self-hosting</a>
       </div>
       <% if (typeof registrationsLeft !== 'undefined' && registrationsLeft !== null) { %>
         <p class="capacity-notice">
@@ -165,6 +167,57 @@
             Because nobody but you can decrypt your vault, we cannot reset your password for you.
             If you lose both your password and your recovery key, the data is gone for good.
           </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section" id="deploy">
+      <h2 data-i18n="deploy_title">Ways to run websidian</h2>
+      <p class="section-lead" data-i18n="deploy_lead">
+        Three ways to run it, all the same end-to-end encrypted vault. Pick how much
+        infrastructure you want to look after yourself.
+      </p>
+      <div class="storage-options">
+        <div class="storage-option-card">
+          <h3><i class="bi bi-cloud"></i> <span data-i18n="deploy_hosted_title">Hosted — bring your own storage</span></h3>
+          <p data-i18n="deploy_hosted_desc">
+            Use websidian.fabo011-cloud.de. We run the whole infrastructure for you — SSL,
+            web server, the websidian app, PostgreSQL and server security. You only connect
+            your own storage (Mega S4, any S3-compatible bucket, or a Nextcloud/WebDAV server)
+            and pay that provider directly. Nothing to manage except the storage you choose.
+          </p>
+          <p class="deploy-note" data-i18n="deploy_hosted_donate_note">
+            Free to use — if it helps you, a donation toward our server costs is much appreciated.
+          </p>
+          <div class="deploy-actions">
+            <% if (typeof pricing !== 'undefined' && pricing.donationLink) { %>
+            <a class="btn-primary btn-inline" href="<%= pricing.donationLink %>" target="_blank" rel="noopener noreferrer"><i class="bi bi-heart"></i> <span data-i18n="deploy_hosted_donate">Donate</span></a>
+            <% } %>
+          </div>
+        </div>
+        <div class="storage-option-card">
+          <h3><i class="bi bi-cloud-check"></i> <span data-i18n="deploy_managed_title">Fully managed</span> <span class="opt-soon" data-i18n="deploy_soon">Coming soon</span></h3>
+          <p data-i18n="deploy_managed_desc">
+            The same hosted app, plus a managed storage account — nothing to connect at all.
+            Not available yet; planned for the future.
+          </p>
+          <p class="deploy-note deploy-pay" data-i18n="deploy_managed_pay">
+            <i class="bi bi-credit-card"></i> Payment required — managed storage is a paid plan.
+          </p>
+        </div>
+        <div class="storage-option-card">
+          <h3><i class="bi bi-hdd-network"></i> <span data-i18n="deploy_self_title">Fully self-hosted</span></h3>
+          <p data-i18n="deploy_self_desc">
+            For you and your family. Everything runs on your own server for full privacy — but
+            you take care of the infrastructure yourself. Start from our example compose files.
+          </p>
+          <p class="deploy-note" data-i18n="deploy_self_help_note">
+            Free and open source. We'd really appreciate your help developing websidian.
+          </p>
+          <div class="deploy-actions">
+            <a class="btn-primary btn-inline" href="/docs#self-host" data-i18n="deploy_self_cta">Self-hosting guide</a>
+            <a class="btn-ghost" href="/docs#developer" data-i18n="deploy_self_help">Help us develop</a>
+          </div>
         </div>
       </div>
     </section>
