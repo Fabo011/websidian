@@ -292,17 +292,98 @@
         <ul>
           <li data-i18n="storage_li_managed"><strong>Managed storage</strong> — if this instance offers it, store on websidian's own storage with nothing to set up. It is free up to the included allowance; you can raise the limit under <strong>Billing</strong>. No S3 or Nextcloud account of your own is needed.</li>
           <li data-i18n="storage_li_s3"><strong>S3-compatible object storage</strong> — e.g. <strong>Mega S4</strong> (very inexpensive) or <strong>Hetzner Object Storage</strong> (Germany), also AWS S3, MinIO, …</li>
-          <li data-i18n="storage_li_webdav"><strong>WebDAV</strong> — e.g. <strong>Nextcloud</strong> (self-hosting), <strong>Box</strong>, <strong>Koofr</strong> (Europe) or <strong>CloudMe</strong> (Europe).</li>
+          <li data-i18n="storage_li_webdav"><strong>WebDAV</strong> — e.g. <strong>Nextcloud</strong> (self-hosting) or <strong>Koofr</strong> (Europe).</li>
         </ul>
         <p data-i18n="storage_tested">
-          websidian is tested end-to-end with <strong>Nextcloud</strong> (WebDAV)
-          and <strong>Mega S4</strong> (S3). See the next section for how to
-          connect.
+          websidian is tested end-to-end with <strong>Nextcloud</strong> and
+          <strong>Koofr</strong> (WebDAV) and <strong>Mega S4</strong> (S3). See
+          the next section for how to connect.
         </p>
       </section>
 
       <section class="legal-section" id="connect-storage">
         <h2 data-i18n="connect_h">Connecting your storage</h2>
+
+        <p class="docs-quote" data-i18n="connect_managed_soon">
+          Coming soon: managed storage — just sign in and start, with no need to
+          bring your own storage provider. We host your encrypted vault for you
+          (it only ever sees ciphertext).
+        </p>
+
+        <h3 data-i18n="connect_tested_h">Tested compatible providers</h3>
+        <p data-i18n="connect_tested_intro">
+          These providers are verified end-to-end. Others may work, but these
+          are the recommended, tested choices:
+        </p>
+        <ul>
+          <li data-i18n-html="connect_tested_nextcloud"><strong>Nextcloud</strong> (WebDAV) — self-hosted (<a href="https://nextcloud.com/" target="_blank" rel="noopener noreferrer">nextcloud.com</a>) or hosted for you, e.g. <a href="https://www.hetzner.com/storage/storage-share/" target="_blank" rel="noopener noreferrer">Hetzner Storage Share</a></li>
+          <li data-i18n-html="connect_tested_koofr"><strong>Koofr</strong> (WebDAV) — cloud, Europe (Slovenia) · <a href="https://koofr.eu/" target="_blank" rel="noopener noreferrer">koofr.eu</a></li>
+          <li data-i18n-html="connect_tested_megas4"><strong>Mega S4</strong> (S3-compatible) — cloud, multiple regions incl. Europe (Amsterdam) · <a href="https://mega.io/objectstorage" target="_blank" rel="noopener noreferrer">mega.io</a></li>
+        </ul>
+
+        <h3 data-i18n="connect_creds_h">Example connection settings</h3>
+        <p data-i18n="connect_creds_intro">
+          The exact fields to enter for each tested provider:
+        </p>
+        <div class="docs-table-wrap" style="overflow-x:auto">
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th data-i18n="connect_tbl_provider">Provider</th>
+                <th data-i18n="connect_tbl_field">Field</th>
+                <th data-i18n="connect_tbl_value">Value / example</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td rowspan="3"><strong>Koofr</strong> (WebDAV)</td>
+                <td data-i18n="storage_url">Server URL</td>
+                <td><code>https://app.koofr.net/dav/Koofr</code></td>
+              </tr>
+              <tr>
+                <td data-i18n="storage_username">Username</td>
+                <td data-i18n="connect_val_koofr_user">Your account email</td>
+              </tr>
+              <tr>
+                <td data-i18n="storage_password">Password / app password</td>
+                <td data-i18n="connect_val_koofr_pw">App password (create it in the Koofr dashboard)</td>
+              </tr>
+              <tr>
+                <td rowspan="3"><strong>Nextcloud</strong> (WebDAV)</td>
+                <td data-i18n="storage_url">Server URL</td>
+                <td><code>https://your-domain/remote.php/dav/files/your-username</code></td>
+              </tr>
+              <tr>
+                <td data-i18n="storage_username">Username</td>
+                <td data-i18n="connect_val_nc_user">Your Nextcloud username (not your email)</td>
+              </tr>
+              <tr>
+                <td data-i18n="storage_password">Password / app password</td>
+                <td data-i18n="connect_val_nc_pw">App password (Settings → Security)</td>
+              </tr>
+              <tr>
+                <td rowspan="5"><strong>Mega S4</strong> (S3)</td>
+                <td data-i18n="storage_endpoint">Endpoint</td>
+                <td data-i18n="connect_val_mega_endpoint">e.g. https://s3.eu-amsterdam.megas4.com (Europe / Amsterdam)</td>
+              </tr>
+              <tr>
+                <td data-i18n="storage_region">Region</td>
+                <td data-i18n="connect_val_mega_region">e.g. eu-amsterdam (must match your endpoint)</td>
+              </tr>
+              <tr>
+                <td data-i18n="storage_bucket">Bucket</td>
+                <td data-i18n="connect_val_mega_bucket">e.g. websidian (create it in the Mega dashboard)</td>
+              </tr>
+              <tr>
+                <td data-i18n="storage_accesskey">Access key ID</td>
+                <td rowspan="2" data-i18n="connect_val_mega_keys">Copy both from the Mega dashboard</td>
+              </tr>
+              <tr>
+                <td data-i18n="storage_secretkey">Secret access key</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <h3 data-i18n="connect_webdav_h">WebDAV (Nextcloud)</h3>
         <p data-i18n="connect_webdav_url">
@@ -328,6 +409,18 @@
         </p>
         <img class="docs-architecture" src="/public/images/set-nextcloud-app-password.png?v=<%= v %>"
              alt="Nextcloud security settings creating an app password" loading="lazy" />
+
+        <h3 data-i18n="connect_koofr_h">Koofr (WebDAV)</h3>
+        <p data-i18n="connect_koofr_body">
+          In the Koofr dashboard create a dedicated <strong>app password</strong>,
+          then connect with the WebDAV URL
+          <code>https://app.koofr.net/dav/Koofr</code>, your account email as the
+          username, and that app password. The screenshot below shows where to
+          create the app password.
+        </p>
+        <img class="docs-architecture" src="/public/images/koofr.png?v=<%= v %>"
+             data-i18n-attr="alt:connect_koofr_img_alt"
+             alt="Koofr dashboard showing where to create an app password" loading="lazy" />
 
         <h3 data-i18n="connect_s3_h">S3 (Mega S4 &amp; similar)</h3>
         <p data-i18n="connect_s3_body">

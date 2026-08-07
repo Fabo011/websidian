@@ -35,7 +35,7 @@ services:
     networks:
       - websidian-net
     deploy:
-      replicas: 2
+      mode: global
       restart_policy:
         condition: any
 
@@ -100,7 +100,7 @@ services:
       CHAT_ENABLED: "${CHAT_ENABLED:-true}"
       CHAT_PENDING_TTL_DAYS: "${CHAT_PENDING_TTL_DAYS:-30}"
     deploy:
-      replicas: 2
+      mode: global
       endpoint_mode: dnsrr
       restart_policy:
         condition: any
