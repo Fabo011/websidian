@@ -2,12 +2,6 @@
     Locals: prefix (string) — id namespace so the same markup can appear on the
     register page and in the dashboard without id collisions. %>
 <div class="storage-form" data-storage-form data-prefix="<%= prefix %>" data-contact="<%= typeof contactEmail !== 'undefined' ? contactEmail : '' %>">
-  <p class="muted" data-i18n="storage_intro">
-    Your notes are end-to-end encrypted before they leave your device, so the
-    provider only ever sees ciphertext — the choice is not critical, pick one you
-    trust most. websidian is tested end-to-end with Nextcloud (WebDAV) and
-    Mega S4 (S3).
-  </p>
   <p class="muted small" data-i18n="storage_encrypted_note">
     <i class="bi bi-shield-lock"></i> The credentials you enter here are stored
     encrypted at rest — they are never saved in plaintext.
@@ -55,9 +49,8 @@
     </p>
     <p class="muted small">
       <span data-i18n="storage_providers_label">Providers:</span>
-      Nextcloud · <a href="https://www.box.com/" target="_blank" rel="noopener noreferrer">Box</a> ·
-      <a href="https://koofr.eu/" target="_blank" rel="noopener noreferrer">Koofr</a> ·
-      <a href="https://www.cloudme.com" target="_blank" rel="noopener noreferrer">CloudMe</a>
+      <a href="https://nextcloud.com/" target="_blank" rel="noopener noreferrer">Nextcloud</a> ·
+      <a href="https://koofr.eu/" target="_blank" rel="noopener noreferrer">Koofr</a>
     </p>
     <label class="modal-label" data-i18n="storage_url">Server URL</label>
     <input class="modal-input" data-field="url" type="url" autocomplete="off"

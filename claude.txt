@@ -1,0 +1,51 @@
+# CloudMe WebDAV — Investigation Summary
+
+## Verdict
+CloudMe CANNOT back the Websidian vault (applies to any CloudMe account, not a
+tier limitation).
+Reason: CloudMe's WebDAV server does not implement the `PROPFIND` method
+(directory listing). This is a server-side limitation on CloudMe. Nothing in
+this app — or in the user's config — can fix it.
+
+## What works vs. what doesn't (measured directly against the account)
+- PUT    (upload file)     -> works
+- GET    (download file)   -> works
+- MKCOL  (create folder)   -> works
+- PROPFIND (list folder / read metadata) -> BROKEN: returns an empty HTTP body
+  instead of the required `<multistatus>` XML. The `webdav` npm library then
+  fails with: "Failed parsing directory contents: Empty response".
+
+## Why this breaks the whole app
+The app calls PROPFIND constantly:
+- vault file tree (walkFiles)
+- storage usage / quota (usage)
+- file browser (list)
+- file metadata (stat)
+Without a valid PROPFIND response, every account/vault page 500s.
+
+## Things that are NOT the cause (ruled out)
+- Not the free tier storage size (3 GB). Upgrading does not add PROPFIND.
+- Not an empty account. An empty folder must still return a valid "0 items"
+  listing; CloudMe returns nothing at all.
+- Not a missing/wrong folder. The problem is the response format, not the path.
+- Not auth. Auth succeeds (uploads/downloads work). CloudMe uses Digest auth
+  (realm "os@xcerion.com"); the webdav lib's Auto mode handles it.
+- Not a path-specific quirk. PROPFIND returns empty on every path tested:
+  `/`, `/xios/`, and app subfolders.
+
+## Fix shipped in the app
+The connection test used to only write + read, so CloudMe passed the test and
+then broke on every page. Changes:
+- probeProvider now does: create -> write -> read -> LIST -> delete.
+  A backend that can't list now fails the connection test up front.
+- New error code `listing` + localized message (EN/DE):
+  "This server does not support directory listing (WebDAV PROPFIND), so it
+   cannot store your vault. Use a standards-compliant provider such as
+   Nextcloud."
+- Files: src/storage/storage-config.ts (+ spec),
+  src/account/account.controller.spec.ts, public/js/i18n.js.
+- Tests: 101 passing; typecheck + lint clean.
+
+## Recommendation for users
+Use a standards-compliant WebDAV provider (e.g. Nextcloud, ownCloud). CloudMe
+is not supported because it lacks working WebDAV directory listing.

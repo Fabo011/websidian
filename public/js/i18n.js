@@ -386,8 +386,6 @@
       storage_choose_provider: 'Connect your storage',
       storage_choose_hint:
         'Choose where your encrypted vault is stored to finish — managed storage hosted by websidian, or bring your own. You can change it anytime in your dashboard.',
-      storage_intro:
-        'Your notes are end-to-end encrypted before they leave your device, so the provider only ever sees ciphertext — the choice is not critical, pick one you trust most. websidian is tested end-to-end with Nextcloud (WebDAV) and Mega S4 (S3).',
       storage_encrypted_note:
         'The credentials you enter here are stored encrypted at rest — they are never saved in plaintext.',
       storage_type_managed: 'Managed storage (hosted by websidian)',
@@ -599,9 +597,9 @@
       storage_li_s3:
         'S3-compatible object storage — e.g. Mega S4 (very inexpensive) or Hetzner Object Storage (Germany), also AWS S3, MinIO, …',
       storage_li_webdav:
-        'WebDAV — e.g. Nextcloud (self-hosting), Box, Koofr (Europe) or CloudMe (Europe).',
+        'WebDAV — e.g. Nextcloud (self-hosting) or Koofr (Europe).',
       storage_tested:
-        'websidian is tested end-to-end with Nextcloud (WebDAV) and Mega S4 (S3). See the next section for how to connect.',
+        'websidian is tested end-to-end with Nextcloud and Koofr (WebDAV) and Mega S4 (S3). See the next section for how to connect.',
       connect_h: 'Connecting your storage',
       connect_webdav_h: 'WebDAV (Nextcloud)',
       connect_webdav_url:
@@ -611,9 +609,40 @@
         'In Nextcloud go to Settings → Security and create a dedicated app password, then use it instead of your normal account password.',
       connect_apppw_why:
         'Why an app password? When your account has two-factor authentication (2FA) enabled, your normal password does not work over WebDAV — an app password is required. It is also safer in general: you can revoke it at any time without changing your main password.',
+      connect_managed_soon:
+        'Coming soon: managed storage — just sign in and start, with no need to bring your own storage provider. We host your encrypted vault for you (it only ever sees ciphertext).',
+      connect_tested_h: 'Tested compatible providers',
+      connect_tested_intro:
+        'These providers are verified end-to-end. Others may work, but these are the recommended, tested choices:',
+      connect_tested_nextcloud:
+        '<strong>Nextcloud</strong> (WebDAV) — self-hosted (<a href="https://nextcloud.com/" target="_blank" rel="noopener noreferrer">nextcloud.com</a>) or hosted for you, e.g. <a href="https://www.hetzner.com/storage/storage-share/" target="_blank" rel="noopener noreferrer">Hetzner Storage Share</a>',
+      connect_tested_koofr:
+        '<strong>Koofr</strong> (WebDAV) — cloud, Europe (Slovenia) · <a href="https://koofr.eu/" target="_blank" rel="noopener noreferrer">koofr.eu</a>',
+      connect_tested_megas4:
+        '<strong>Mega S4</strong> (S3-compatible) — cloud, multiple regions incl. Europe (Amsterdam) · <a href="https://mega.io/objectstorage" target="_blank" rel="noopener noreferrer">mega.io</a>',
+      connect_creds_h: 'Example connection settings',
+      connect_creds_intro:
+        'The exact fields to enter for each tested provider:',
+      connect_tbl_provider: 'Provider',
+      connect_tbl_field: 'Field',
+      connect_tbl_value: 'Value / example',
+      connect_val_koofr_user: 'Your account email',
+      connect_val_koofr_pw: 'App password (create it in the Koofr dashboard)',
+      connect_val_nc_user: 'Your Nextcloud username (not your email)',
+      connect_val_nc_pw: 'App password (Settings → Security)',
+      connect_val_mega_endpoint:
+        'e.g. https://s3.eu-amsterdam.megas4.com (Europe / Amsterdam)',
+      connect_val_mega_region: 'e.g. eu-amsterdam (must match your endpoint)',
+      connect_val_mega_bucket: 'e.g. websidian (create it in the Mega dashboard)',
+      connect_val_mega_keys: 'Copy both from the Mega dashboard',
+      connect_koofr_h: 'Koofr (WebDAV)',
+      connect_koofr_body:
+        'In the Koofr dashboard create a dedicated app password, then connect with the WebDAV URL https://app.koofr.net/dav/Koofr, your account email as the username, and that app password. The screenshot below shows where to create the app password.',
+      connect_koofr_img_alt:
+        'Koofr dashboard showing where to create an app password',
       connect_s3_h: 'S3 (Mega S4 & similar)',
       connect_s3_body:
-        'Create a bucket and an access key pair in your provider. For Mega S4 use the S4 endpoint and its region — for example https://s3.eu-central-2.s4.mega.io and eu-central-2 — then enter the bucket, access key ID and secret access key when connecting.',
+        'Create a bucket and an access key pair in your provider. For Mega S4 use the S4 endpoint and its region — for example https://s3.eu-amsterdam.megas4.com and eu-amsterdam — then enter the bucket, access key ID and secret access key when connecting.',
       connect_help_contact:
         'Stuck? Your credentials are stored encrypted and the connection test shows a precise error if something is wrong. If you cannot resolve it, contact support.',
       arch_h: 'Architecture (for technical users)',
@@ -1553,8 +1582,6 @@
       storage_choose_provider: 'Speicher verbinden',
       storage_choose_hint:
         'Wähle zum Abschluss, wo dein verschlüsselter Tresor gespeichert wird — verwalteter Speicher von websidian oder dein eigener. Du kannst dies jederzeit im Dashboard ändern.',
-      storage_intro:
-        'Deine Notizen werden Ende-zu-Ende verschlüsselt, bevor sie dein Gerät verlassen — der Anbieter sieht nur Chiffretext. Die Wahl ist daher unkritisch, nimm den, dem du am meisten vertraust. websidian ist mit Nextcloud (WebDAV) und Mega S4 (S3) vollständig getestet.',
       storage_encrypted_note:
         'Die hier eingegebenen Zugangsdaten werden verschlüsselt gespeichert — niemals im Klartext.',
       storage_type_managed: 'Verwalteter Speicher (gehostet von websidian)',
@@ -1771,9 +1798,9 @@
       storage_li_s3:
         'S3-kompatibler Objektspeicher — z. B. Mega S4 (sehr günstig) oder Hetzner Object Storage (Deutschland), auch AWS S3, MinIO, …',
       storage_li_webdav:
-        'WebDAV — z. B. Nextcloud (Self-Hosting), Box, Koofr (Europa) oder CloudMe (Europa).',
+        'WebDAV — z. B. Nextcloud (Self-Hosting) oder Koofr (Europa).',
       storage_tested:
-        'websidian ist mit Nextcloud (WebDAV) und Mega S4 (S3) vollständig getestet. Im nächsten Abschnitt steht, wie du verbindest.',
+        'websidian ist mit Nextcloud und Koofr (WebDAV) sowie Mega S4 (S3) vollständig getestet. Im nächsten Abschnitt steht, wie du verbindest.',
       connect_h: 'Speicher verbinden',
       connect_webdav_h: 'WebDAV (Nextcloud)',
       connect_webdav_url:
@@ -1783,9 +1810,42 @@
         'Gehe in Nextcloud zu Einstellungen → Sicherheit und erstelle ein eigenes App-Passwort; verwende es statt deines normalen Kontopassworts.',
       connect_apppw_why:
         'Warum ein App-Passwort? Wenn dein Konto Zwei-Faktor-Authentifizierung (2FA) aktiviert hat, funktioniert dein normales Passwort über WebDAV nicht — ein App-Passwort ist erforderlich. Es ist generell sicherer: Du kannst es jederzeit widerrufen, ohne dein Hauptpasswort zu ändern.',
+      connect_managed_soon:
+        'Demnächst: verwalteter Speicher — einfach anmelden und loslegen, kein eigener Speicheranbieter nötig. Wir hosten deinen verschlüsselten Tresor für dich (er sieht nur Chiffretext).',
+      connect_tested_h: 'Getestete kompatible Anbieter',
+      connect_tested_intro:
+        'Diese Anbieter sind vollständig getestet. Andere können funktionieren, aber diese sind die empfohlenen, geprüften Optionen:',
+      connect_tested_nextcloud:
+        '<strong>Nextcloud</strong> (WebDAV) — selbst gehostet (<a href="https://nextcloud.com/" target="_blank" rel="noopener noreferrer">nextcloud.com</a>) oder für dich gehostet, z. B. <a href="https://www.hetzner.com/storage/storage-share/" target="_blank" rel="noopener noreferrer">Hetzner Storage Share</a>',
+      connect_tested_koofr:
+        '<strong>Koofr</strong> (WebDAV) — Cloud, Europa (Slowenien) · <a href="https://koofr.eu/" target="_blank" rel="noopener noreferrer">koofr.eu</a>',
+      connect_tested_megas4:
+        '<strong>Mega S4</strong> (S3-kompatibel) — Cloud, mehrere Regionen inkl. Europa (Amsterdam) · <a href="https://mega.io/objectstorage" target="_blank" rel="noopener noreferrer">mega.io</a>',
+      connect_creds_h: 'Beispiel-Verbindungseinstellungen',
+      connect_creds_intro:
+        'Die genauen Felder, die du für jeden getesteten Anbieter eingibst:',
+      connect_tbl_provider: 'Anbieter',
+      connect_tbl_field: 'Feld',
+      connect_tbl_value: 'Wert / Beispiel',
+      connect_val_koofr_user: 'Deine Konto-E-Mail',
+      connect_val_koofr_pw: 'App-Passwort (im Koofr-Dashboard erstellen)',
+      connect_val_nc_user: 'Dein Nextcloud-Benutzername (nicht deine E-Mail)',
+      connect_val_nc_pw: 'App-Passwort (Einstellungen → Sicherheit)',
+      connect_val_mega_endpoint:
+        'z. B. https://s3.eu-amsterdam.megas4.com (Europa / Amsterdam)',
+      connect_val_mega_region:
+        'z. B. eu-amsterdam (muss zum Endpunkt passen)',
+      connect_val_mega_bucket:
+        'z. B. websidian (im Mega-Dashboard erstellen)',
+      connect_val_mega_keys: 'Beide aus dem Mega-Dashboard kopieren',
+      connect_koofr_h: 'Koofr (WebDAV)',
+      connect_koofr_body:
+        'Erstelle im Koofr-Dashboard ein eigenes App-Passwort und verbinde dann mit der WebDAV-URL https://app.koofr.net/dav/Koofr, deiner Konto-E-Mail als Benutzername und diesem App-Passwort. Der Screenshot unten zeigt, wo du das App-Passwort erstellst.',
+      connect_koofr_img_alt:
+        'Koofr-Dashboard mit der Stelle zum Erstellen eines App-Passworts',
       connect_s3_h: 'S3 (Mega S4 & ähnliche)',
       connect_s3_body:
-        'Erstelle bei deinem Anbieter einen Bucket und ein Zugangsschlüssel-Paar. Für Mega S4 den S4-Endpunkt und seine Region verwenden — z. B. https://s3.eu-central-2.s4.mega.io und eu-central-2 — und beim Verbinden Bucket, Access Key ID und Secret Access Key eingeben.',
+        'Erstelle bei deinem Anbieter einen Bucket und ein Zugangsschlüssel-Paar. Für Mega S4 den S4-Endpunkt und seine Region verwenden — z. B. https://s3.eu-amsterdam.megas4.com und eu-amsterdam — und beim Verbinden Bucket, Access Key ID und Secret Access Key eingeben.',
       connect_help_contact:
         'Hängst du fest? Deine Zugangsdaten werden verschlüsselt gespeichert und der Verbindungstest zeigt eine genaue Fehlermeldung. Wenn du es nicht lösen kannst, kontaktiere den Support.',
       arch_h: 'Architektur (für technische Nutzer)',

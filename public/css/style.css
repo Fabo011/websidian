@@ -2443,6 +2443,24 @@ pre.hljs code { background: transparent; padding: 0; }
   border-radius: 10px;
   background: #ffffff;
 }
+.docs-table-wrap { margin: 8px 0 18px; }
+.docs-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+.docs-table th,
+.docs-table td {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.docs-table th {
+  background: var(--surface-2, rgba(127, 127, 127, 0.08));
+  font-weight: 600;
+}
+.docs-table code { white-space: nowrap; }
 .docs-warning {
   border-left: 3px solid #d9822b;
   background: rgba(217, 130, 43, 0.08);
