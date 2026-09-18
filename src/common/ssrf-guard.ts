@@ -54,6 +54,71 @@ export function isBlockedAddress(ip: string): boolean {
   return addr.range() !== 'unicast';
 }
 
+function normalizeIp(ip: string): string | undefined {
+  try {
+    const addr = ipaddr.parse(ip);
+    if (addr.kind() === 'ipv6') {
+      const v6 = addr as ipaddr.IPv6;
+      if (v6.isIPv4MappedAddress()) {
+        return v6.toIPv4Address().toString();
+      }
+    }
+    return addr.toNormalizedString();
+  } catch {
+    return undefined;
+  }
+}
+
+function isPrivateStorageAddress(ip: string): boolean {
+  try {
+    let addr = ipaddr.parse(ip);
+    if (addr.kind() === 'ipv6') {
+      const v6 = addr as ipaddr.IPv6;
+      if (v6.isIPv4MappedAddress()) {
+        addr = v6.toIPv4Address();
+      }
+    }
+    const range = addr.range();
+    return range === 'private' || range === 'uniqueLocal';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Match an operator-approved private storage destination. Entries use the
+ * exact `hostname=address` format and are comma-separated. Metadata,
+ * loopback, link-local, and other special ranges cannot be allowlisted.
+ */
+export function isAllowedPrivateStorageAddress(
+  hostname: string,
+  address: string,
+): boolean {
+  if (!isPrivateStorageAddress(address)) {
+    return false;
+  }
+  const normalizedHostname = hostname.toLowerCase().replace(/\.$/, '');
+  const normalizedAddress = normalizeIp(address);
+  return (process.env.PRIVATE_STORAGE_ALLOWLIST ?? '')
+    .split(',')
+    .some((entry) => {
+      const separator = entry.indexOf('=');
+      if (separator < 1) {
+        return false;
+      }
+      const allowedHostname = entry
+        .slice(0, separator)
+        .trim()
+        .toLowerCase()
+        .replace(/\.$/, '');
+      const allowedAddress = normalizeIp(entry.slice(separator + 1).trim());
+      return (
+        allowedHostname === normalizedHostname &&
+        allowedAddress === normalizedAddress
+      );
+    });
+}
+
 /**
  * Validate a user-supplied storage URL. Throws {@link BadRequestException} when
  * the scheme is not http/https or the host is a non-public IP literal. Hostnames
@@ -116,7 +181,10 @@ export function guardedLookup(
         return cb(err);
       }
       for (const a of addresses) {
-        if (isBlockedAddress(a.address)) {
+        if (
+          isBlockedAddress(a.address) &&
+          !isAllowedPrivateStorageAddress(hostname, a.address)
+        ) {
           return cb(
             Object.assign(
               new Error(
