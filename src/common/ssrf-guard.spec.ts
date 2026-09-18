@@ -1,5 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
-import { assertPublicHttpUrl, isBlockedAddress } from './ssrf-guard';
+import {
+  assertPublicHttpUrl,
+  isAllowedPrivateStorageAddress,
+  isBlockedAddress,
+} from './ssrf-guard';
 
 describe('isBlockedAddress', () => {
   it.each([
@@ -58,5 +62,50 @@ describe('assertPublicHttpUrl', () => {
 
   it('rejects garbage', () => {
     expect(() => assertPublicHttpUrl('not a url')).toThrow(BadRequestException);
+  });
+});
+
+describe('isAllowedPrivateStorageAddress', () => {
+  const originalAllowlist = process.env.PRIVATE_STORAGE_ALLOWLIST;
+
+  afterEach(() => {
+    if (originalAllowlist === undefined) {
+      delete process.env.PRIVATE_STORAGE_ALLOWLIST;
+    } else {
+      process.env.PRIVATE_STORAGE_ALLOWLIST = originalAllowlist;
+    }
+  });
+
+  it('allows only an exact configured hostname and private address pair', () => {
+    process.env.PRIVATE_STORAGE_ALLOWLIST =
+      'sulycloud.duckdns.org=192.168.50.168';
+
+    expect(
+      isAllowedPrivateStorageAddress('sulycloud.duckdns.org', '192.168.50.168'),
+    ).toBe(true);
+    expect(
+      isAllowedPrivateStorageAddress('other.example.com', '192.168.50.168'),
+    ).toBe(false);
+    expect(
+      isAllowedPrivateStorageAddress('sulycloud.duckdns.org', '192.168.50.169'),
+    ).toBe(false);
+  });
+
+  it.each(['127.0.0.1', '169.254.169.254', 'fe80::1'])(
+    'never allows special address %s',
+    (address) => {
+      process.env.PRIVATE_STORAGE_ALLOWLIST = `storage.example.com=${address}`;
+      expect(
+        isAllowedPrivateStorageAddress('storage.example.com', address),
+      ).toBe(false);
+    },
+  );
+
+  it('fails closed for malformed entries', () => {
+    process.env.PRIVATE_STORAGE_ALLOWLIST =
+      'missing-address,=192.168.1.2,storage.example.com=not-an-ip';
+    expect(
+      isAllowedPrivateStorageAddress('storage.example.com', '192.168.1.2'),
+    ).toBe(false);
   });
 });
