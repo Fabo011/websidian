@@ -63,6 +63,7 @@ Copy `.env.example` to `.env` and adjust:
 | Variable             | Default              | Purpose                                          |
 | -------------------- | -------------------- | ------------------------------------------------ |
 | `USER_STORAGE_ENABLED` | `false`            | Bring-your-own storage: each user connects their own S3/WebDAV backend (set at registration, editable in the dashboard, credentials stored encrypted). When `true` the shared `STORAGE_DRIVER`/`S3_*`/`WEBDAV_*` backend is ignored, quota is self-service (default unlimited) and billing/plans are disabled. See [Bring-your-own storage](#bring-your-own-storage). |
+| `PRIVATE_STORAGE_ALLOWLIST` | _(empty)_      | Comma-separated exact `hostname=IP` pairs that permit trusted user-provided storage hosts to resolve to RFC1918 or IPv6 ULA addresses; all other private and special addresses remain blocked. |
 | `STORAGE_QUOTA_GB`   | `8`                  | Per-user storage limit in GB (`0` = unlimited). Ignored when `USER_STORAGE_ENABLED=true` |
 | `MAX_UPLOAD_SIZE_MB` | `25`                 | Max JSON/urlencoded request body (caps a single note upload) |
 | `MAX_UPLOAD_FILE_MB` | `2048`               | Max size of a single uploaded/imported file (MB) |
